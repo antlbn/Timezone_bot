@@ -35,6 +35,13 @@
 └─────────────────┘
 ```
 
+### Integration Note
+We leverage the standard **Telegram Bot API** via the **aiogram** library.
+This ensures reliability and follows standard practices for handling:
+- Message objects & updates (Long Polling)
+- User & Chat entities
+- Asynchronous event loop
+
 ---
 
 ## 2. Core Workflow
@@ -73,9 +80,10 @@
 
 ---
 
-## 3. Open Questions
+## 3. Resolved Questions
+
+- [x] ~~Rate limiting для ответов бота?~~ → `cooldown_seconds` в конфиге (default: 0 = off)
+- [x] ~~Приватные чаты vs групповые?~~ → Только групповые. Приватные не нужны.
 
 
-- [ ] Rate limiting для ответов бота?
-- [ ] Как обрабатывать приватные чаты vs групповые?
 

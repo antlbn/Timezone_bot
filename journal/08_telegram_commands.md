@@ -11,12 +11,11 @@
 
 | Command | Description |
 |---------|-------------|
-| `/tb_help` | Показать меню команд |
-| `/tb_mytz` | Показать свою текущую локацию |
-| `/tb_settz` | Изменить свою timezone |
-| `/tb_members` | Список участников чата из БД |
-| `/tb_remove` | Удалить участника из списка |
-
+| `/tb_help` | Show command menu |
+| `/tb_mytz` | Show your current location |
+| `/tb_settz` | Change your timezone |
+| `/tb_members` | List chat members from DB |
+| `/tb_remove` | Remove member from list |
 
 ---
 
@@ -26,7 +25,6 @@
 
 ```
 14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵
-
 /tb_help
 ```
 
@@ -37,35 +35,42 @@
 ### /tb_help
 
 ```
-Юзер: /tb_help
+User: /tb_help
 
-Бот:
-┌─────────────────────────────┐
-│ 🕐 Timezone Bot Commands    │
-│                             │
-│ /tb_settz  - изменить TZ    │
-│ /tb_members - участники     │
-│ /tb_remove - удалить        │
-└─────────────────────────────┘
+Bot:
+🕐 Timezone Bot Commands
+
+/tb_mytz   - your location
+/tb_settz  - change TZ  
+/tb_members - members
+/tb_remove - remove
+```
+
+### /tb_mytz
+
+```
+User: /tb_mytz
+
+Bot: "Your timezone: Berlin 🇩🇪 (Europe/Berlin)"
 ```
 
 ### /tb_settz
 
 ```
-Юзер: /tb_settz
+User: /tb_settz
 
-Бот: "В каком городе ты находишься?"
+Bot: "What city are you in?"
 
-→ Далее стандартный flow из 06_city_to_timezone.md
+→ Standard flow from 06_city_to_timezone.md
 ```
 
 ### /tb_members
 
 ```
-Юзер: /tb_members
+User: /tb_members
 
-Бот:
-Участники чата:
+Bot:
+Chat members:
 
 1. @john - Berlin 🇩🇪
 2. @alice - New York 🇺🇸
@@ -78,15 +83,14 @@
 ### /tb_remove
 
 ```
-Юзер: /tb_remove
+User: /tb_remove
 
-Бот: "Введи номер участника для удаления:"
+Bot: "Enter member number to remove:"
 
-Юзер: 3
+User: 3
 
-Бот: "Удалён @bob из списка чата"
+Bot: "Removed @bob from chat list"
 ```
-
 
 ---
 
@@ -94,19 +98,19 @@
 
 | Action | Who can do |
 |--------|------------|
-| Изменить свою TZ | Любой юзер (только себя) |
-| Просмотреть список | Любой юзер |
-| Удалить участника | Любой юзер (любого) |
+| Change own TZ | Any user (self only) |
+| View list | Any user |
+| Remove member | Any user (anyone) |
 
-**Примечание:** Удаление любым — для случаев когда бот "зевнул" выход участника. Не влияет на реальное членство в чате, только на БД бота.
+**Note:** Removal by anyone — for cases when bot missed user exit. Affects bot DB only, not actual chat membership.
 
 ---
 
 ## 6. Edge Cases
 
-| Case | Handling |
-|------|----------|
-| Пустой список участников | "В этом чате пока нет зарегистрированных участников" |
-| Неверный номер | "Участника с таким номером нет" |
-| Удаление себя | Разрешено, но с подтверждением |
+| Case | Bot Response |
+|------|--------------|
+| Empty member list | "No registered members in this chat yet" |
+| Invalid number | "No member with that number" |
+| Remove self | Allowed, with confirmation |
 

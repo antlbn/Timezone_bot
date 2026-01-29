@@ -1,4 +1,14 @@
 # Progress Journal
+## 2026-01-29 (session 4)
+- **Localization**: Converted all bot messages to English in `04`, `06`, `08` specs
+- **Docs**: Added Integration Note (Standard API + aiogram) to `04_bot_logic.md`
+- **Docs**: Added Technology Stack table to `01_scope_and_MVP.md`
+- **Closed questions**:
+  - Antiflood handled via config (`cooldown_seconds`)
+  - Private chats excluded (MVP = groups only)
+- **MVP Readiness: 95%** 
+
+
 ## 2026-01-29 (session 3)
 - Added: 08_telegram_commands.md
 - Added: Architecture diagrams to all specs (01-05)
@@ -18,7 +28,6 @@
 
 ## 2026-01-29 
 - Specs added: `02_capture_logic.md`, `03_transformation_specs.md`, `04_bot_logic.md`, `05_storage.md`
-- Gap analysis completed: MVP readiness 70% → 90%
 - Gap analysis completed: MVP readiness 70%
 - **Further:** Finish specs, close gaps (City→TZ mapping, Response Format)
 

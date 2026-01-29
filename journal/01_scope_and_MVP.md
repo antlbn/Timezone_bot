@@ -62,7 +62,19 @@
 - **Точность времени**: Трансформация времени должна быть устойчива к сезонным сдвигам и изменениям правил временных зон (использование IANA database).
 - **Легкое администрирование**: высокоуровневый конфиг .yaml
 
+## Technology Stack
+
+| Component | Library | Purpose |
+|-----------|---------|---------|
+| **Core** | `python` (3.11+) | Runtime environment |
+| **Bot API** | `aiogram` | Async Telegram Bot API wrapper |
+| **Storage** | `aiosqlite` | Asynchronous SQLite interface |
+| **Timezone** | `zoneinfo`, `tzdata` | IANA timezone database (std lib + data) |
+| **Geocoding** | `geopy`, `timezonefinder` | City → Coords → Timezone |
+| **Config** | `PyYAML`, `python-dotenv` | Configuration management |
+
 ## High-level Configuration (Конфигурация и поведение)
+
 
 ### Структура ответа
 - Четко определенная схема сообщения.
@@ -84,6 +96,6 @@
 ## Constraints (Чего делать не надо)
 - **No Hardcode**: Никакого хардкода городов и часовых поясов в коде.
 - **No LLM Fallbacks**: Не используем LLM в рантайме для распознавания (дорого/медленно/непредсказуемо для этой задачи).
-
+- **No private chats** No need to even think about it - nobody gonna talk to this bot one-to-one 
 ---
 
