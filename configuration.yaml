@@ -6,3 +6,8 @@ version: 0.1.0
 bot:
   # Maximum users to show in timezone conversion reply
   display_limit_per_chat: 10
+  # Time format: "24h" or "12h"
+  time_format: "24h"
+  # Show usernames next to timezone (default: false)
+  show_usernames: false
+

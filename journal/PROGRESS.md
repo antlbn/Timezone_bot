@@ -1,7 +1,24 @@
 # Progress Journal
+## 2026-01-29 (session 3)
+- Added: 08_telegram_commands.md
+- Added: Architecture diagrams to all specs (01-05)
+- Added: Country flags mapping in 06_city_to_timezone.md
+- Updated: Response format with `/tb_help` footer
+- Config: added `show_usernames` option
+- Cleanup: moved commands from 04_bot_logic.md 08_telegram_commands.md
 
-## 2026-01-29
+- **Further:**Re-check gaps, chek messages schema
+
+
+
+## 2026-01-29 (session 2)
+- Added: `06_city_to_timezone.md` (geocoding + inline buttons)
+- Added: `07_response_format.md` (response structure, grouping, day markers)
+- Few gaps closed
+
+## 2026-01-29 
 - Specs added: `02_capture_logic.md`, `03_transformation_specs.md`, `04_bot_logic.md`, `05_storage.md`
+- Gap analysis completed: MVP readiness 70% → 90%
 - Gap analysis completed: MVP readiness 70%
 - **Further:** Finish specs, close gaps (City→TZ mapping, Response Format)
 

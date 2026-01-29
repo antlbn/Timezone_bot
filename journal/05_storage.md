@@ -7,9 +7,25 @@
 
 **Файл БД:** `./data/bot.db`
 
+```
+┌─────────────────────┐         ┌─────────────────────┐
+│       users         │         │    chat_members     │
+├─────────────────────┤         ├─────────────────────┤
+│ user_id (PK)        │◀────────│ user_id (FK)        │
+│ username            │         │ chat_id             │
+│ timezone (IANA)     │         │ joined_at           │
+│ city                │         └─────────────────────┘
+│ created_at          │                   │
+│ updated_at          │                   │
+└─────────────────────┘                   ▼
+                                   Chat 1: [user1, user2, user3]
+                                   Chat 2: [user1, user4]
+```
+
 ---
 
 ## 2. Schema
+
 
 ### 2.1 Таблица `users`
 
@@ -171,8 +187,9 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ---
 
-## 8. Open Questions
+## 8. Resolved Questions
 
-- [ ] Нужен ли rate limiting для запросов к БД?
-- [ ] Использовать async sqlite (`aiosqlite`) или sync?
-- [ ] Максимальное количество юзеров на чат для отображения?
+- [x] ~~Нужен ли rate limiting для запросов к БД?~~ → Нет, SQLite справляется
+- [x] ~~Использовать async sqlite?~~ → Да, `aiosqlite` (см. Overview)
+- [x] ~~Максимум юзеров на чат?~~ → `display_limit_per_chat` в `configuration.yaml`
+
