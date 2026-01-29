@@ -1,3 +1,8 @@
 # Project Configuration
 app_name: timezone_bot
 version: 0.1.0
+
+# Bot Settings
+bot:
+  # Maximum users to show in timezone conversion reply
+  display_limit_per_chat: 10
