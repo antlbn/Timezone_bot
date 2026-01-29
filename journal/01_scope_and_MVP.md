@@ -72,6 +72,7 @@
 | **Timezone** | `zoneinfo`, `tzdata` | IANA timezone database (std lib + data) |
 | **Geocoding** | `geopy`, `timezonefinder` | City → Coords → Timezone |
 | **Config** | `PyYAML`, `python-dotenv` | Configuration management |
+| **Package Manager** | `uv` | Dependency & environment management |
 
 ## High-level Configuration (Конфигурация и поведение)
 

@@ -1,5 +1,11 @@
 # Progress Journal
+## 2026-01-29 (session 6)
+- **Spec**: Created `10_testing_strategy.md` (Unit vs Manual)
+- **Tech Stack**: Added `uv` as the official package manager in `01_scope_and_MVP.md`
+
+
 ## 2026-01-29 (session 5)
+
 - **Spec**: Added `09_logging.md` (Levels, Context)
 - **Config**: Added `logging.level` to `configuration.yaml`
 - **Config**: Moved Regex patterns from `02_capture_logic.md` to `configuration.yaml`
