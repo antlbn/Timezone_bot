@@ -1,4 +1,22 @@
 # Progress Journal
+## 2026-01-29 (session 7) — MVP Implementation 🚀
+- **Complete**: 9 modules in `src/`, all specs covered
+- **Bug Found**: Bot responded to regular message → fixed (reply-only FSM)
+- **Bug Found**: Regex captured "22" instead of "22:30" → fixed (finditer)
+- **Fix**: Markdown ate underscores in `/tb_help` → removed parse_mode
+- **UX**: Add username to conversion format ("Anton: 10:30 Sarajevo...")
+- **Gap Fixed**: `/tb_remove` command implemented
+- **Gap Fixed**: UTC offset sorting in output
+- **Gap Fixed**: @usernames stored in DB, shown in `/tb_members`
+- **Audit**: Spec compliance verified against 02-10
+
+**Backlog**:
+- If user deletes himself via `/tb_remove` → bot may stuck (FSM state check needed)
+
+## 2026-01-29 (session 6)
+- **Added**: 11_implementation_mapping.md
+- **Added** Storing flag emoji in DB (to prevent geo calling)
+
 ## 2026-01-29 (session 6)
 - **Spec**: Created `10_testing_strategy.md` (Unit vs Manual)
 - **Tech Stack**: Added `uv` as the official package manager in `01_scope_and_MVP.md`

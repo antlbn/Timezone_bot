@@ -1,0 +1,15 @@
+# Environment
+.env
+.venv/
+__pycache__/
+
+# Database
+*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
