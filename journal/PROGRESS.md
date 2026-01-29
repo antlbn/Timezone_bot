@@ -1,4 +1,10 @@
 # Progress Journal
+## 2026-01-29 (session 5)
+- **Spec**: Added `09_logging.md` (Levels, Context)
+- **Config**: Added `logging.level` to `configuration.yaml`
+- **Config**: Moved Regex patterns from `02_capture_logic.md` to `configuration.yaml`
+
+
 ## 2026-01-29 (session 4)
 - **Localization**: Converted all bot messages to English in `04`, `06`, `08` specs
 - **Docs**: Added Integration Note (Standard API + aiogram) to `04_bot_logic.md`
