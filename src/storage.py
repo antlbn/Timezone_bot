@@ -99,3 +99,13 @@ async def remove_chat_member(chat_id: int, user_id: int):
             (chat_id, user_id)
         )
         await db.commit()
+
+
+async def clear_chat_members(chat_id: int):
+    """Remove all members of a chat (e.g. when bot is kicked)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM chat_members WHERE chat_id = ?",
+            (chat_id,)
+        )
+        await db.commit()

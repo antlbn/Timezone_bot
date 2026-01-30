@@ -93,10 +93,11 @@
 - LLM fallbacks
 - поддержка других мессэнджерев (Discord, WhatsUp)
 - Не закладываем абстракцию для Discord/WhatsApp в MVP.
+- если в сообщении больше одного времени - бот выдает несколько корректирующих сообщений - объединение в одно пока-что не реализуем
 
 ## Constraints (Чего делать не надо)
 - **No Hardcode**: Никакого хардкода городов и часовых поясов в коде.
-- **No LLM Fallbacks**: Не используем LLM в рантайме для распознавания (дорого/медленно/непредсказуемо для этой задачи).
-- **No private chats** No need to even think about it - nobody gonna talk to this bot one-to-one 
+- **No LLM Fallbacks**: Не используем LLM в рантайме для распознавания (дорого/медленно).
+- **No private chats** No need to talk to this bot one-to-one 
 ---
 

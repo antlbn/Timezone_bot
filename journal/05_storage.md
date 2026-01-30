@@ -78,29 +78,23 @@ CREATE INDEX idx_chat_members_chat ON chat_members(chat_id);
 
 ```python
 # Получить timezone юзера
-get_user(user_id: int) -> User | None
+get_user(user_id: int) -> dict | None
 
 # Создать/обновить юзера
-upsert_user(user_id: int, timezone: str, city: str | None, username: str | None) -> None
-
-# Удалить юзера (редкий кейс)
-delete_user(user_id: int) -> None
+set_user(user_id: int, city: str, timezone: str, flag: str, username: str) -> None
 ```
 
 ### 4.2 Chat Members
 
 ```python
 # Получить всех юзеров чата (с их timezone)
-get_chat_users(chat_id: int) -> list[User]
+get_chat_members(chat_id: int) -> list[dict]
 
 # Добавить юзера в чат
-add_user_to_chat(chat_id: int, user_id: int) -> None
+add_chat_member(chat_id: int, user_id: int) -> None
 
 # Удалить юзера из чата (вышел/кикнут)
-remove_user_from_chat(chat_id: int, user_id: int) -> None
-
-# Синхронизация: удалить всех кто не в списке
-sync_chat_members(chat_id: int, current_user_ids: list[int]) -> None
+remove_chat_member(chat_id: int, user_id: int) -> None
 ```
 
 ---
@@ -116,10 +110,32 @@ sync_chat_members(chat_id: int, current_user_ids: list[int]) -> None
 
 | Event | Action |
 |-------|--------|
-| Любое сообщение в чате | `add_user_to_chat(chat_id, user_id)` если юзера нет |
-| `ChatMemberUpdated` (left/kicked) | `remove_user_from_chat(chat_id, user_id)` |
-| Бот кикнут из чата | **Ничего не делаем** — данные сохраняются |
+| Любое сообщение в чате | `add_chat_member(chat_id, user_id)` если юзера нет |
+| `ChatMemberUpdated` (юзер left/kicked) | `remove_chat_member(chat_id, user_id)` |
+| `ChatMemberUpdated` (бот кикнут) | `clear_chat_members(chat_id)` — забываем про чат |
 
+### Bot Kicked Flow:
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Telegram
+    participant Bot
+    participant DB as SQLite
+
+    Admin->>Telegram: Kick bot from chat -100123
+    Telegram->>Bot: ChatMemberUpdated (status=left)
+    Bot->>DB: DELETE FROM chat_members<br/>WHERE chat_id = -100123
+    Note over DB: users table NOT touched<br/>Other chats NOT affected
+    Bot->>Bot: Log "Bot kicked, cleared chat members"
+```
+
+**Что сохраняется:**
+- Таблица `users` (timezone каждого юзера)
+- Связи юзеров с другими чатами
+
+**Что удаляется:**
+- Только записи `chat_members` для данного `chat_id`
 ### aiogram Handler:
 
 ```python

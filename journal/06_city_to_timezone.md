@@ -19,8 +19,8 @@
 Nominatim возвращает `country_code` (DE, US, JP). Маппинг в emoji:
 
 ```python
-def flag_emoji(country_code: str) -> str:
-    return "".join(chr(0x1F1E6 + ord(c) - ord('A')) for c in country_code.upper())
+def get_country_flag(country_code: str) -> str:
+    return "".join(chr(ord(c) + 127397) for c in country_code.upper())
 # "DE" → 🇩🇪, "US" → 🇺🇸, "JP" → 🇯🇵
 ```
 
@@ -99,8 +99,15 @@ Nominatim требует:
 
 ---
 
-## 8. Future Improvements
+## 8. Out of Scope (MVP)
+
+- **Inline buttons disambiguation** — при >1 результате берём первый
+- **RateLimiter** — Nominatim timeout=5s достаточен для MVP
+- **`get_multiple_locations()`** — функция есть, но не используется
+
+---
+
+## 9. Future Improvements
 
 - [ ] Распознавание IANA timezone напрямую (`Europe/Berlin`) — для продвинутых юзеров
-
-
+- [ ] Inline buttons для выбора из нескольких городов

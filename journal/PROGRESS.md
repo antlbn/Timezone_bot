@@ -1,5 +1,17 @@
 # Progress Journal
 
+## 2026-01-30 (session 4) — Spec Police & Memory Wipe 🧹
+- **Cooldown**: Bot now knows when to shut up! `cooldown_seconds` in config 🤫
+- **Spec Audit 04-06**: Renamed functions so specs stop lying
+  - Yeeted `delete_user` and `sync_chat_members` — unnecessary bureaucracy
+- **Bot Kicked**: When bot gets kicked — it forgets the chat (but not users!)
+  - `clear_chat_members(chat_id)` + mermaid diagram in spec 05
+- **UX**: ⬆️ REPLY now screams at users louder
+- **Spec Audit 07-09**: All good! Implemented `show_usernames` option 👀
+- **Spec Audit 10-11**: Fixed run command in spec 11
+- **Backlog**: Tests folder creation → separate session
+- **Backlog**: Bug: multi-chat user not added to chat_members
+
 ## 2026-01-30 (session 3) — Spec Audit & tzdata Auto-Update
 - **Audit**: Verified specs 01-03 against codebase (Ai-driven)
 - **Fix**: Renamed `extract_time_strings` → `extract_times` in spec 02

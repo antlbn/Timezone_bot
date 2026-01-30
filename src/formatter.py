@@ -47,6 +47,8 @@ def format_conversion_reply(
     sorted_tzs = sorted(tz_groups.keys(), key=get_utc_offset)
     
     # Build parts
+    show_usernames = settings.get("show_usernames", False)
+    
     parts = []
     for tz in sorted_tzs:
         group = tz_groups[tz]
@@ -62,7 +64,15 @@ def format_conversion_reply(
         cities = ", ".join(m['city'] for m in group)
         flag = group[0].get('flag', '')
         
-        parts.append(f"{time_display} {cities} {flag}")
+        part = f"{time_display} {cities} {flag}"
+        
+        # Add usernames if enabled
+        if show_usernames:
+            usernames = [f"@{m['username']}" for m in group if m.get('username')]
+            if usernames:
+                part += f" {', '.join(usernames)}"
+        
+        parts.append(part)
     
     # Build output
     sender_part = f"{original_time} {sender_city} {sender_flag}"

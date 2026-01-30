@@ -56,5 +56,7 @@ Timezone_bot/
 
 ## Run Command
 ```bash
-uv run python src/main.py
+./run.sh
+# or directly:
+uv run python -m src.main
 ```

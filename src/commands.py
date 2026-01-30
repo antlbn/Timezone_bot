@@ -3,19 +3,24 @@ Commands module.
 Telegram bot command handlers (/tb_*).
 """
 from datetime import datetime, timezone
+from time import time
 
 from aiogram import Router, F
-from aiogram.types import Message
-from aiogram.filters import Command
+from aiogram.types import Message, ChatMemberUpdated
+from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from src import storage, geo, formatter, capture
+from src.config import get_bot_settings
 from src.transform import get_utc_offset, parse_time_string
 from src.logger import get_logger
 
 router = Router()
 logger = get_logger()
+
+# Cooldown tracking: {chat_id: last_reply_timestamp}
+_last_reply: dict[int, float] = {}
 
 
 class SetTimezone(StatesGroup):
@@ -349,6 +354,17 @@ async def handle_time_mention(message: Message, state: FSMContext):
         await message.reply(f"{user_name}, ⬆️ REPLY to this message with your city name:")
         return
     
+    # Check cooldown
+    cooldown = get_bot_settings().get("cooldown_seconds", 0)
+    if cooldown > 0:
+        chat_id = message.chat.id
+        now = time()
+        last = _last_reply.get(chat_id, 0)
+        if now - last < cooldown:
+            logger.debug(f"[chat:{chat_id}] Cooldown active, skipping reply")
+            return
+        _last_reply[chat_id] = now
+    
     if message.chat.id != message.from_user.id:
         await storage.add_chat_member(message.chat.id, message.from_user.id)
     
@@ -371,3 +387,10 @@ async def handle_time_mention(message: Message, state: FSMContext):
         await message.answer(reply)
     
     logger.info(f"[chat:{message.chat.id}] Times: {times}")
+
+
+@router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER))
+async def on_bot_kicked(event: ChatMemberUpdated):
+    """Handle bot being kicked from chat - clear all chat members."""
+    await storage.clear_chat_members(event.chat.id)
+    logger.info(f"[chat:{event.chat.id}] Bot kicked, cleared chat members")
