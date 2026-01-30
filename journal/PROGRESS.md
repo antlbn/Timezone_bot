@@ -1,5 +1,13 @@
 # Progress Journal
 
+## 2026-01-30 (session 7)
+- **Refactor**: middleware.py - moved to commands.py
+
+## 2026-01-30 (session 6) - Bug with time printing fixed
+- **Fixed**: Time normalization — "5 pm" → "17:00" in replies
+  - Added `normalize_time()` in `formatter.py`
+- **Backlog**: middleware.py cleanup — find better place in existing modules 
+
 ## 2026-01-30 (session 5) — Multi-Chat Bug Hunt 🐛
 - **Bug**: User from Chat A not added to Chat B's members list
 - **Fixed** Bug fixed 

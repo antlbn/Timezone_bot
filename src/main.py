@@ -10,8 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from src.config import get_telegram_token
 from src.logger import get_logger
 from src.storage import init_db
-from src.commands import router
-from src.middleware import PassiveCollectionMiddleware
+from src.commands import router, PassiveCollectionMiddleware
 
 logger = get_logger()
 

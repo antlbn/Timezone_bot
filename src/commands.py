@@ -4,8 +4,9 @@ Telegram bot command handlers (/tb_*).
 """
 from datetime import datetime, timezone
 from time import time
+from typing import Any, Awaitable, Callable, Dict
 
-from aiogram import Router, F
+from aiogram import Router, F, BaseMiddleware
 from aiogram.types import Message, ChatMemberUpdated
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
@@ -18,6 +19,35 @@ from src.logger import get_logger
 
 router = Router()
 logger = get_logger()
+
+
+# ============================================================
+# MIDDLEWARE: Passive collection of chat members
+# ============================================================
+
+class PassiveCollectionMiddleware(BaseMiddleware):
+    """
+    Middleware to track known users in group chats.
+    Runs for EVERY message without blocking other handlers.
+    """
+    async def __call__(
+        self,
+        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: Dict[str, Any]
+    ) -> Any:
+        # Only process actual messages with users
+        if isinstance(event, Message) and event.from_user:
+            # Skip private chats
+            if event.chat.id != event.from_user.id:
+                try:
+                    user = await storage.get_user(event.from_user.id)
+                    if user:
+                        await storage.add_chat_member(event.chat.id, event.from_user.id)
+                except Exception:
+                    pass  # Don't fail if storage fails
+        
+        return await handler(event, data)
 
 # Cooldown tracking: {chat_id: last_reply_timestamp}
 _last_reply: dict[int, float] = {}
