@@ -77,7 +77,11 @@ This ensures reliability and follows standard practices for handling:
    │              → Используем pending_time для конвертации
    │              → "Anton: 15:00 Berlin 🇩🇪 | 09:00 New York 🇺🇸"
    │
-   └─ [FAIL]     → "City not found: ..."
+   └─ [FAIL]     → "City not found. Reply with your current time (e.g. 14:30)
+                    or try another city name:"
+                 → Юзер отвечает:
+                    ├─ [TIME]  → Вычисляем offset, сохраняем UTC+X
+                    └─ [CITY]  → Повторяем geocoding
 ```
 
 #### Sequence Diagram: New User Flow
@@ -104,6 +108,32 @@ sequenceDiagram
     B->>DB: get_chat_members(chat_id)
     DB-->>B: [members with timezones]
     B->>U: "Anton: 15:00 Berlin 🇩🇪 | 09:00 New York 🇺🇸"
+```
+
+#### Sequence Diagram: Fallback Flow (City Not Found)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant B as Bot
+    participant G as Geocoding
+
+    U->>B: "xyzabc" (invalid city)
+    B->>G: geocode("xyzabc")
+    G-->>B: null (not found)
+    B->>U: "City not found. Reply with time (14:30) or try another city:"
+    
+    alt User enters time
+        U->>B: "14:30"
+        Note over B: Calculate UTC offset
+        Note over B: offset = user_time - UTC_now
+        B->>U: "Set Anton: UTC+3 🌐 (Europe/Moscow)"
+    else User enters city
+        U->>B: "Paris"
+        B->>G: geocode("Paris")
+        G-->>B: {tz: "Europe/Paris", flag: "🇫🇷"}
+        B->>U: "Set Anton: Paris 🇫🇷 (Europe/Paris)"
+    end
 ```
 
 ---

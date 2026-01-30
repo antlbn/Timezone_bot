@@ -71,10 +71,11 @@ Fallback Save Inline buttons
 
 If city is not found:
 
-1. Bot asks user for current time: `"City not found. Reply with your current time (e.g. 14:30):"`
-2. Compare with current UTC time
-3. Calculate offset and find nearest IANA timezone
-4. Save timezone with city="Unknown"
+1. Bot asks: `"City not found. Reply with your current time (e.g. 14:30) or try another city name:"`
+2. User can reply with:
+   - **Time** (e.g. "14:30") → Calculate UTC offset, save as "UTC+X 🌐"
+   - **City** (retry) → Attempt geocoding again
+3. If neither recognized → repeat prompt
 
 ---
 
