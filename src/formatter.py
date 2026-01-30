@@ -3,7 +3,16 @@ Formatter module.
 Builds reply messages according to 07_response_format.md spec.
 """
 from src.config import get_bot_settings
-from src.transform import convert_time, format_time_with_offset, get_utc_offset
+from src.transform import convert_time, format_time_with_offset, get_utc_offset, parse_time_string
+
+
+def normalize_time(time_str: str) -> str:
+    """Normalize time string to 24h format (e.g. '5 pm' → '17:00')."""
+    try:
+        t = parse_time_string(time_str)
+        return t.strftime("%H:%M")
+    except Exception:
+        return time_str  # fallback to original if parsing fails
 
 
 def format_conversion_reply(
@@ -27,7 +36,8 @@ def format_conversion_reply(
     
     # If no other members, just show sender
     if not other_members:
-        sender_part = f"{original_time} {sender_city} {sender_flag}"
+        normalized = normalize_time(original_time)
+        sender_part = f"{normalized} {sender_city} {sender_flag}"
         if sender_name:
             sender_part = f"{sender_name}: {sender_part}"
         return f"{sender_part}\n/tb_help"
@@ -75,7 +85,8 @@ def format_conversion_reply(
         parts.append(part)
     
     # Build output
-    sender_part = f"{original_time} {sender_city} {sender_flag}"
+    normalized = normalize_time(original_time)
+    sender_part = f"{normalized} {sender_city} {sender_flag}"
     if sender_name:
         sender_part = f"{sender_name}: {sender_part}"
     
