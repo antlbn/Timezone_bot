@@ -66,4 +66,4 @@ Message ──▶ [Regex Patterns] ──▶ Match?
 ## 5. Инструкции для реализации
 1. Использовать модуль `re` в Python.
 2. Вынести список регулярных выражений в configuration.yaml (конфигурационый файл). 
-3. Функция `extract_time_strings(text: str) -> List[str]` возвращает список найденных сырых строк.
+3. Функция `extract_times(text: str) -> List[str]` возвращает список найденных сырых строк.

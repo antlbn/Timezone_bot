@@ -3,6 +3,7 @@ Main entry point.
 Initializes and runs the Telegram bot.
 """
 import asyncio
+import subprocess
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -13,9 +14,39 @@ from src.commands import router
 
 logger = get_logger()
 
+# Update interval: 7 days in seconds
+TZDATA_UPDATE_INTERVAL = 7 * 24 * 60 * 60
+
+
+def update_tzdata():
+    """Update tzdata package to ensure timezone data is current."""
+    try:
+        result = subprocess.run(
+            ["uv", "pip", "install", "--upgrade", "tzdata"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode == 0:
+            logger.info("tzdata updated successfully")
+        else:
+            logger.warning(f"tzdata update failed: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"Could not update tzdata: {e}")
+
+
+async def tzdata_update_loop():
+    """Background task: update tzdata weekly."""
+    while True:
+        await asyncio.sleep(TZDATA_UPDATE_INTERVAL)
+        update_tzdata()
+
 
 async def main():
     """Main async entry point."""
+    # Update timezone data on startup
+    update_tzdata()
+    
     # Initialize database
     await init_db()
     logger.info("Database initialized")
@@ -26,6 +57,9 @@ async def main():
     
     # Register routers
     dp.include_router(router)
+    
+    # Start background tzdata updater
+    asyncio.create_task(tzdata_update_loop())
     
     logger.info("Bot starting...")
     
@@ -38,3 +72,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

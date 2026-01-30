@@ -1,9 +1,19 @@
 # Progress Journal
+
+## 2026-01-30 (session 3) — Spec Audit & tzdata Auto-Update
+- **Audit**: Verified specs 01-03 against codebase (Ai-driven)
+- **Fix**: Renamed `extract_time_strings` → `extract_times` in spec 02
+- **Feature**: tzdata auto-update in `main.py`
+  - Startup: `update_tzdata()`
+  - Background: `tzdata_update_loop()` every 7 days
+
+
 ## 2026-01-30 (session 2) — Fallback UX Improvement
 - **Feature**: Fallback now accepts either time OR city retry
 - **Spec**: Added fallback sequence diagram to `04_bot_logic.md`
 - **Spec**: Updated `06_city_to_timezone.md` fallback description  
 - **Code**: Refactored `process_fallback_input` handler
+- **UX**: Updated bot messages with ⬆️ REPLY emphasis## 2026-01-30 (session 2) — Fallback UX Improvement
 
 ## 2026-01-30 (session 1) — Refactoring & Fallback
 - **Refactor**: `get_utc_offset()` moved to `transform.py` (single source)
