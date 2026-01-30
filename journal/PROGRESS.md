@@ -1,4 +1,10 @@
 # Progress Journal
+## 2026-01-30 (session 8)
+
+- **Testing**: Implemented 47 unit/integration tests (100% pass).
+  - Covered Regex capture, Time conversion, Formatter, and Storage (SQLite).
+- **Fixed**: Regex patterns now support non-breaking spaces (`\u00a0`).
+- **Config**: Added `pytest.ini` for async test support.
 
 ## 2026-01-30 (session 7)
 - **Refactor**: middleware.py - moved to commands.py
