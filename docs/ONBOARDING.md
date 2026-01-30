@@ -2,7 +2,7 @@
 
 This guide will help you get the Timezone Bot up and running.
 
-## 🔑 Prerequisites
+## Prerequisites
 
 1.  **Telegram Bot Setup**:
     1.  Open [@BotFather](https://t.me/botfather) in Telegram.
@@ -19,7 +19,7 @@ This guide will help you get the Timezone Bot up and running.
 
 ---
 
-## 🚀 Manual Execution (Standard)
+## Manual Execution (Standard)
 
 Requires Python 3.12+.
 
@@ -36,12 +36,31 @@ Requires Python 3.12+.
 
 ---
 
-## 🧪 Running Tests
+## Running Tests
 ```bash
 uv run pytest tests/ -v
 ```
 
+---
+
+## plug-and-play Usage
+
+Once the bot is running:
+1.  **Add the bot** to any Telegram group.
+2.  **No setup required!** You don't need to send `/start` or any admin commands.
+3.  The bot listens passively. As soon as someone sends a message with time (e.g., *"Let's meet at 5pm"*), it will reply with conversions.
+
+---
+
 ## 🛠️ Configuration
-Edit `configuration.yaml`:
-- `cooldown_seconds`: Anti-spam delay.
-- `capture.patterns`: Regex rules for time extraction.
+
+The bot configurable via `configuration.yaml`.
+
+| Setting | Type | Description |
+| :--- | :--- | :--- |
+| `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
+| `bot.display_limit_per_chat` | Integer | Max number of timezones to show in one reply (default: 10). |
+| `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
+| `bot.show_usernames` | Boolean | If `true`, adds names: *"Anton: 17:00 London"*. |
+| `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
+| `capture.patterns` | List | **Regex Rules**. Define what the bot considers a "time string" (supports 12h/24h). |
