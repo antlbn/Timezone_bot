@@ -6,6 +6,16 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 
+def get_utc_offset(tz_name: str) -> float:
+    """Get UTC offset in hours for sorting timezones."""
+    try:
+        tz = ZoneInfo(tz_name)
+        now = datetime.now(tz)
+        return now.utcoffset().total_seconds() / 3600
+    except Exception:
+        return 0
+
+
 def parse_time_string(time_str: str) -> time:
     """
     Parse a time string into a time object.

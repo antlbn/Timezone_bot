@@ -69,12 +69,12 @@ Fallback Save Inline buttons
 
 ## 5. Fallback: System Time
 
-Если город не найден:
+If city is not found:
 
-1. Бот просит юзера написать текущее время (`"Напиши своё время, например: 14:30"`)
-2. Сравниваем с текущим UTC
-3. Вычисляем offset и подбираем ближайший IANA timezone
-4. Сохраняем
+1. Bot asks user for current time: `"City not found. Reply with your current time (e.g. 14:30):"`
+2. Compare with current UTC time
+3. Calculate offset and find nearest IANA timezone
+4. Save timezone with city="Unknown"
 
 ---
 

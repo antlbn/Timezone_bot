@@ -2,8 +2,7 @@
 Commands module.
 Telegram bot command handlers (/tb_*).
 """
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 from aiogram import Router, F
 from aiogram.types import Message
@@ -12,6 +11,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from src import storage, geo, formatter, capture
+from src.transform import get_utc_offset, parse_time_string
 from src.logger import get_logger
 
 router = Router()
@@ -21,21 +21,12 @@ logger = get_logger()
 class SetTimezone(StatesGroup):
     """FSM states for /tb_settz flow."""
     waiting_for_city = State()
+    waiting_for_time = State()  # Fallback when city not found
 
 
 class RemoveMember(StatesGroup):
     """FSM states for /tb_remove flow."""
     waiting_for_number = State()
-
-
-def get_utc_offset(tz_name: str) -> float:
-    """Get UTC offset in hours for sorting."""
-    try:
-        tz = ZoneInfo(tz_name)
-        now = datetime.now(tz)
-        return now.utcoffset().total_seconds() / 3600
-    except:
-        return 0
 
 
 @router.message(Command("tb_help"))
@@ -89,8 +80,9 @@ async def process_city(message: Message, state: FSMContext):
     location = geo.get_timezone_by_city(city_name)
     
     if not location:
-        await message.answer(f"City not found: {city_name}")
-        await state.clear()
+        # Trigger fallback: ask for current time
+        await state.set_state(SetTimezone.waiting_for_time)
+        await message.answer(f"City not found: {city_name}. Reply with your current time (e.g. 14:30):")
         return
     
     username = message.from_user.username or ""
@@ -125,6 +117,88 @@ async def process_city(message: Message, state: FSMContext):
                 user_name
             )
             await message.answer(reply)
+
+
+@router.message(SetTimezone.waiting_for_time)
+async def process_fallback_time(message: Message, state: FSMContext):
+    """Process user's current time for fallback timezone detection."""
+    data = await state.get_data()
+    
+    if data.get("user_id") != message.from_user.id:
+        return
+    
+    if not message.reply_to_message or message.reply_to_message.from_user.is_bot is False:
+        return
+    
+    # Try to extract time from message
+    times = capture.extract_times(message.text or "")
+    if not times:
+        await message.answer("Please enter a valid time (e.g. 14:30)")
+        await state.clear()
+        return
+    
+    try:
+        # Parse user's time
+        user_time = parse_time_string(times[0])
+        
+        # Get current UTC time
+        now_utc = datetime.now(timezone.utc)
+        
+        # Create user's datetime (assume today)
+        user_dt = datetime.combine(now_utc.date(), user_time)
+        
+        # Calculate offset in hours
+        utc_hours = now_utc.hour + now_utc.minute / 60
+        user_hours = user_time.hour + user_time.minute / 60
+        offset = user_hours - utc_hours
+        
+        # Handle day boundary
+        if offset > 12:
+            offset -= 24
+        elif offset < -12:
+            offset += 24
+        
+        # Get timezone by offset
+        location = geo.get_timezone_by_offset(offset)
+        
+        username = message.from_user.username or ""
+        await storage.set_user(
+            message.from_user.id,
+            location["city"],
+            location["timezone"],
+            location["flag"],
+            username
+        )
+        
+        if message.chat.id != message.from_user.id:
+            await storage.add_chat_member(message.chat.id, message.from_user.id)
+        
+        pending_time = data.get("pending_time")
+        user_name = message.from_user.first_name or "User"
+        
+        await state.clear()
+        
+        await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
+        logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']} (fallback)")
+        
+        # Process pending time if exists
+        if pending_time:
+            members = await storage.get_chat_members(message.chat.id)
+            if members:
+                reply = formatter.format_conversion_reply(
+                    pending_time,
+                    location["city"],
+                    location["timezone"],
+                    location["flag"],
+                    members,
+                    user_name
+                )
+                await message.answer(reply)
+                
+    except Exception as e:
+        logger.error(f"Fallback time parsing error: {e}")
+        await message.answer("Could not determine timezone. Please try /tb_settz again.")
+        await state.clear()
 
 
 @router.message(Command("tb_members"))

@@ -1,4 +1,17 @@
 # Progress Journal
+## 2026-01-30 (session 8) — Refactoring & Fallback
+- **Refactor**: `get_utc_offset()` moved to `transform.py` (single source)
+- **Spec**: Added Mermaid sequence diagram to `04_bot_logic.md` (New User flow)
+- **Feature**: Implemented city fallback via system time
+  - New FSM state `waiting_for_time`
+  - New `get_timezone_by_offset()` in `geo.py`
+  - Calculates UTC offset from user's current time
+
+**Backlog**:
+- Fallback UX: allow user to either enter time OR retry city input
+
+  
+
 ## 2026-01-29 (session 7) — MVP Implementation 🚀
 - **Complete**: 9 modules in `src/`, all specs covered
 - **Bug Found**: Bot responded to regular message → fixed (reply-only FSM)

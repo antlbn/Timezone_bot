@@ -2,21 +2,8 @@
 Formatter module.
 Builds reply messages according to 07_response_format.md spec.
 """
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from src.config import get_bot_settings
-from src.transform import convert_time, format_time_with_offset
-
-
-def get_utc_offset(tz_name: str) -> float:
-    """Get UTC offset in hours for sorting."""
-    try:
-        tz = ZoneInfo(tz_name)
-        now = datetime.now(tz)
-        return now.utcoffset().total_seconds() / 3600
-    except:
-        return 0
+from src.transform import convert_time, format_time_with_offset, get_utc_offset
 
 
 def format_conversion_reply(

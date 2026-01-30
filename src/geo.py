@@ -92,3 +92,63 @@ def get_multiple_locations(city_name: str, limit: int = 5) -> list[dict]:
         
     except (GeocoderTimedOut, GeocoderServiceError):
         return []
+
+
+# Common timezones by UTC offset (for fallback)
+OFFSET_TO_TIMEZONE = {
+    -12: "Etc/GMT+12",
+    -11: "Pacific/Midway",
+    -10: "Pacific/Honolulu",
+    -9: "America/Anchorage",
+    -8: "America/Los_Angeles",
+    -7: "America/Denver",
+    -6: "America/Chicago",
+    -5: "America/New_York",
+    -4: "America/Halifax",
+    -3: "America/Sao_Paulo",
+    -2: "Atlantic/South_Georgia",
+    -1: "Atlantic/Azores",
+    0: "Europe/London",
+    1: "Europe/Paris",
+    2: "Europe/Helsinki",
+    3: "Europe/Moscow",
+    4: "Asia/Dubai",
+    5: "Asia/Karachi",
+    6: "Asia/Dhaka",
+    7: "Asia/Bangkok",
+    8: "Asia/Singapore",
+    9: "Asia/Tokyo",
+    10: "Australia/Sydney",
+    11: "Pacific/Noumea",
+    12: "Pacific/Auckland",
+}
+
+
+def get_timezone_by_offset(offset_hours: float) -> dict:
+    """
+    Find IANA timezone matching given UTC offset.
+    
+    Args:
+        offset_hours: UTC offset in hours (e.g. 3.0 for UTC+3)
+        
+    Returns:
+        Dict with timezone and display info
+    """
+    # Round to nearest integer
+    rounded_offset = round(offset_hours)
+    
+    # Clamp to valid range
+    rounded_offset = max(-12, min(12, rounded_offset))
+    
+    timezone = OFFSET_TO_TIMEZONE.get(rounded_offset, "Etc/UTC")
+    
+    # Format offset for display
+    sign = "+" if rounded_offset >= 0 else ""
+    city_name = f"UTC{sign}{rounded_offset}"
+    
+    return {
+        "city": city_name,
+        "timezone": timezone,
+        "flag": "🌐",
+        "offset": rounded_offset
+    }
