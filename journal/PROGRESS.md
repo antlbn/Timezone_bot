@@ -1,5 +1,12 @@
 # Progress Journal
 
+## 2026-01-30 (session 5) — Multi-Chat Bug Hunt 🐛
+- **Bug**: User from Chat A not added to Chat B's members list
+- **Fixed** Bug fixed 
+
+- **Backlog**: when user tests time in format other then 14:00 (5 pm or other) show normalized in return message
+- **Backlog**: to fix bug middleware.py was created - let's find better place somewhere in existing modules 
+
 ## 2026-01-30 (session 4) — Spec Police & Memory Wipe 🧹
 - **Cooldown**: Bot now knows when to shut up! `cooldown_seconds` in config 🤫
 - **Spec Audit 04-06**: Renamed functions so specs stop lying

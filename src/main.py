@@ -11,6 +11,7 @@ from src.config import get_telegram_token
 from src.logger import get_logger
 from src.storage import init_db
 from src.commands import router
+from src.middleware import PassiveCollectionMiddleware
 
 logger = get_logger()
 
@@ -54,6 +55,9 @@ async def main():
     # Create bot and dispatcher
     bot = Bot(token=get_telegram_token())
     dp = Dispatcher(storage=MemoryStorage())
+    
+    # Register middleware
+    dp.message.middleware(PassiveCollectionMiddleware())
     
     # Register routers
     dp.include_router(router)

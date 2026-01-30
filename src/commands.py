@@ -34,6 +34,14 @@ class RemoveMember(StatesGroup):
     waiting_for_number = State()
 
 
+# ============================================================
+# PASSIVE COLLECTION: Handled by PassiveCollectionMiddleware
+# ============================================================
+
+# ============================================================
+# COMMANDS
+# ============================================================
+
 @router.message(Command("tb_help"))
 async def cmd_help(message: Message):
     """Show help menu."""
@@ -365,9 +373,7 @@ async def handle_time_mention(message: Message, state: FSMContext):
             return
         _last_reply[chat_id] = now
     
-    if message.chat.id != message.from_user.id:
-        await storage.add_chat_member(message.chat.id, message.from_user.id)
-    
+    # Note: add_chat_member already called by track_chat_member handler
     members = await storage.get_chat_members(message.chat.id)
     
     if not members:
