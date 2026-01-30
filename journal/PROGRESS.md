@@ -1,10 +1,9 @@
-# Progress Journal
 ## 2026-01-30 (session 8)
-
+- **Documentation**: Solit docs into `README` (overview), `ONBOARDING` (how to run), and `HANDOVER` (architecture).
 - **Testing**: Implemented 47 unit/integration tests (100% pass).
   - Covered Regex capture, Time conversion, Formatter, and Storage (SQLite).
 - **Fixed**: Regex patterns now support non-breaking spaces (`\u00a0`).
-- **Config**: Added `pytest.ini` for async test support.
+- **Dependencies**: Added `pytest-asyncio` to dev dependencies.
 
 ## 2026-01-30 (session 7)
 - **Refactor**: middleware.py - moved to commands.py
