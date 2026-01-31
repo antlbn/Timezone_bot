@@ -16,7 +16,7 @@ bot:
   # Time format: "24h" or "12h"
   time_format: "24h"
   # Show usernames next to timezone (default: false)
-  show_usernames: true
+  show_usernames: false
   # Cooldown between bot replies in same chat (0 = disabled)
   cooldown_seconds: 0
 

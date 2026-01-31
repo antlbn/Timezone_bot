@@ -2,6 +2,13 @@
 
 This guide will help you get the Timezone Bot up and running.
 
+## Clone Repository
+
+```bash
+git clone https://github.com/antlbn/Timezone_bot.git
+cd Timezone_bot
+```
+
 ## Prerequisites
 
 1.  **Telegram Bot Setup**:
@@ -61,6 +68,6 @@ The bot configurable via `configuration.yaml`.
 | `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
 | `bot.display_limit_per_chat` | Integer | Max number of timezones to show in one reply (default: 10). |
 | `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
-| `bot.show_usernames` | Boolean | If `true`, adds names: *"Anton: 17:00 London"*. |
+| `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
 | `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
 | `capture.patterns` | List | **Regex Rules**. Define what the bot considers a "time string" (supports 12h/24h). |

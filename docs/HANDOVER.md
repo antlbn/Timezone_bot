@@ -30,3 +30,5 @@ To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
 1.  **Multi-Platform**: Support Discord/WhatsApp.
 2.  **Inline Buttons**: Better disambiguation for cities.
 3.  **Fuzzy Detection**: Use `rapidfuzz` for typo tolerance.
+4.  **Error Handling**: Global middleware to catch unhandled exceptions and notify admins (e.g. Sentry).
+

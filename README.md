@@ -1,44 +1,117 @@
 # Timezone Bot
 
-A passive, zero-friction utility for distributed teams to synchronize time across multiple timezones.
+Passive timezone synchronization utility for distributed teams.
 
-## Project Goal
-To eliminate the mental load of manual timezone conversion in international group chats. The bot observes conversation, detects time mentions, and instantly broadcasts the equivalent time for all other participants in the chat.
+---
 
-## Mechanics
-The system operates on a **UTC-Pivot** architecture:
-1.  **Passive Capture**: Middleware monitors all incoming messages for time patterns (e.g., "15:00", "3 pm") using optimized Regex.
-2.  **Normalization**: The captured time is combined with the sender's stored timezone to generate a UTC-aware timestamp.
-3.  **Broadcasting**: This UTC timestamp is projected onto the timezones of all other active chat participants.
+## Goal
 
-[Message "Let's meet at 5pm"] 
-        │
-   (Middleware Capture)
-        │
-(Sender TZ + "5pm") -> [UTC Pivot] -> (Member A TZ)
-                                   -> (Member B TZ)
-                                   -> (Member C TZ)
+Eliminate manual timezone conversion in group chats. The bot monitors conversations, detects time mentions, and broadcasts equivalent times for all participants.
 
-## Concept: Zero Friction
-The solution prioritizes "invisibility". 
-- **No Commands**: Users do not issuing commands to convert time.
-- **Plug-and-Play**: Adding the bot to a group is the only setup step.
-- **Self-Registration**: Users register their location once, and the bot remembers them across all shared groups.
+---
 
-## MVP Scope & Limitations
-This release is a Minimum Viable Product with the following constraints:
-- **Platform**: Telegram only.
-- **Detection**: Regex-based. May miss complex natural language expressions (e.g., "quarter past five").
-- **Persistence**: InMemory storage (SQLite for user profiles, but state is lightweight).
-- **Interface**: Configuration requires replying to bot messages (current technical limitation).
+## How It Works
+
+```
+"Meet at 5pm"  ───>  Bot captures time  ───>  Reply with times for all members
+                                              
+                                              14:00 Berlin | 08:00 New York | 22:00 Tokyo
+```
+
+When someone mentions a time in the chat, the bot automatically:
+- Detects the time pattern in the message
+- Looks up timezones of all registered chat members
+- Converts and broadcasts the time for everyone
+
+---
+
+## Design Principles
+
+**Zero-friction approach:**
+- No commands needed for conversion — it happens automatically
+- Plug-and-play — adding bot to group is the only setup
+- Self-registration — user registers timezone once, remembered across all groups
+- Minimal interference — bot responds only when time is detected
+
+**Response format:**
+- Times sorted by UTC offset (west to east)
+- Day transition markers when time crosses midnight (+1 / -1)
+- Grouping by timezone — users in same location shown together
+- Country flags for visual clarity
+
+---
+
+## Architecture
+
+```
+Telegram Group
+      |
+      v
++--------------------------------------------------+
+|                    BOT CORE                      |
+|  +----------+   +-----------+   +-----------+    |
+|  | Capture  |-->| Transform |-->| Formatter |    |
+|  | (Regex)  |   | (UTC-Piv) |   | (Output)  |    |
+|  +----------+   +-----------+   +-----------+    |
+|        |              |                          |
+|        +-------+------+                          |
+|                v                                 |
+|           +----------+                           |
+|           | Storage  |                           |
+|           | (SQLite) |                           |
+|           +----------+                           |
++--------------------------------------------------+
+```
+
+**Modules:**
+- **Capture** — regex-based time pattern detection (configurable via YAML)
+- **Transform** — UTC-pivot conversion ensuring consistency with IANA timezone database
+- **Formatter** — output formatting with grouping and day markers
+- **Storage** — SQLite for users and chat membership
+- **Geocoding** — city name to timezone resolution (geopy + timezonefinder)
+
+---
+
+## MVP Status
+
+This is a Minimum Viable Product release.
+
+**Current limitations:**
+- Platform: Telegram only
+- Detection: Regex-based; may miss complex natural language expressions (e.g., "quarter past five")
+- Interaction: Setting timezone requires replying to bot messages
+- Storage: SQLite (lightweight, no external dependencies)
+
+---
 
 ## Roadmap
-1.  **Multi-Platform Support**: Extensibility for Discord and WhatsApp adapters.
-2.  **Fuzzy Detection**: Implementation of Levenshtein distance (`rapidfuzz`) to handle city name typos.
-3.  **Dialogue UX**: Transition from "reply-only" interaction to inline buttons or ephemeral state tracking.
-4.  **Error Middleware**: Global exception handling and administrative alerting (Sentry).
 
-## Getting Started
-For installation, configuration, and deployment instructions, refer to the documentation:
+**Planned improvements:**
+- Discord support via platform adapter
+- Fuzzy city detection using Levenshtein distance (rapidfuzz) to handle typos
+- Improved dialog UX — transition from reply-only to inline buttons or ephemeral state
+- Global error handling with Sentry integration
 
-[👉 Onboarding & Installation Guide](docs/ONBOARDING.md)
+---
+
+## Tech Stack
+
+- **Python 3.12+** — runtime
+- **aiogram** — async Telegram Bot API
+- **aiosqlite** — async SQLite interface
+- **zoneinfo / tzdata** — IANA timezone database
+- **geopy / timezonefinder** — geocoding pipeline
+- **PyYAML / python-dotenv** — configuration
+- **uv** — package management
+
+---
+
+## Quick Start
+
+See [ONBOARDING.md](docs/ONBOARDING.md) for installation and configuration.
+
+---
+
+## License
+
+MIT
