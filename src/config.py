@@ -48,3 +48,7 @@ def get_bot_settings() -> dict:
 def get_capture_patterns() -> list:
     """Get regex patterns for time capture."""
     return get_config().get("capture", {}).get("patterns", [])
+
+def get_capture_keywords() -> list:
+    """Get trigger keywords for NLP capture."""
+    return get_config().get("capture", {}).get("keywords", [])

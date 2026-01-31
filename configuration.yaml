@@ -29,5 +29,32 @@ capture:
     - '\b((1[0-2]|0?[1-9]):([0-5][0-9])\s?([AaPp][Mm]))\b'
     # 12h format without minutes (e.g. 5 pm, 10AM)
     - '\b((1[0-2]|0?[1-9])\s?([AaPp][Mm]))\b'
+  
+  # Trigger words for L1.5 Filter (case-insensitive)
+  # Only if these words are present, L2 (NLP) will run
+  keywords:
+    - "вечера"
+    - "утра"
+    - "дня"
+    - "ночи"
+    - "morning"
+    - "evening"
+    - "afternoon"
+    - "night"
+    - "noon"
+    - "midnight"
+    - "полдень"
+    - "полночь"
+    - "через"
+    - "ago"
+    - "later"
+    - "завтра"
+    - "tomorrow"
+    - "сегодня"
+    - "today"
+    - "часа"
+    - "минут"
+    - "hour"
+    - "minute"
 
 

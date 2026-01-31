@@ -85,7 +85,7 @@
 
 ### Алгоритм (Draft)
 1. Regex детекция времени.
-2. (Опционально/Позже) Второй слой детекции (rapidfuzz).
+2. (Post-MVP) Soft Detection using NLP & Fuzzy Logic (see [12_nlp_fuzzy_capture.md](12_nlp_fuzzy_capture.md)).
 3. Любая конвертация идёт через UTC, прямые Local→Local запрещены.
 
 ## Out of Scope (За рамками текущего MVP)
