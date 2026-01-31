@@ -1,5 +1,8 @@
+## 2026-01-31 (session 1)
+- **Documentation**:minor changes in README, ONBOARDING
+
 ## 2026-01-30 (session 9)
-- **Documentation**:minor changes in docs
+- **Documentation**:minor changes in HANDOVER.md
 
 ## 2026-01-30 (session 8)
 - **Documentation**: Solit docs into `README` (overview), `ONBOARDING` (how to run), and `HANDOVER` (architecture).
