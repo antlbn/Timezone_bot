@@ -1,3 +1,6 @@
+2026-01-31 (session 1)
+- **Feature**:force-replay to chat messages (to prevent chaos)
+
 ## 2026-01-31 (session 1)
 - **Documentation**:minor changes in README, ONBOARDING
 

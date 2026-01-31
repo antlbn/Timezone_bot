@@ -79,7 +79,6 @@ This is a Minimum Viable Product release.
 **Current limitations:**
 - Platform: Telegram only
 - Detection: Regex-based; may miss complex natural language expressions (e.g., "quarter past five")
-- Interaction: Setting timezone requires replying to bot messages
 - Storage: SQLite (lightweight, no external dependencies)
 
 ---
@@ -89,7 +88,6 @@ This is a Minimum Viable Product release.
 **Planned improvements:**
 - Discord support via platform adapter
 - Fuzzy city detection using Levenshtein distance (rapidfuzz) to handle typos
-- Improved dialog UX — transition from reply-only to inline buttons or ephemeral state
 - Global error handling with Sentry integration
 
 ---

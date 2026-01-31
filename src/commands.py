@@ -7,7 +7,7 @@ from time import time
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import Router, F, BaseMiddleware
-from aiogram.types import Message, ChatMemberUpdated
+from aiogram.types import Message, ChatMemberUpdated, ForceReply
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -105,7 +105,7 @@ async def cmd_settz(message: Message, state: FSMContext):
     """Start timezone setting flow."""
     await state.update_data(user_id=message.from_user.id)
     await state.set_state(SetTimezone.waiting_for_city)
-    await message.reply("⬆️ REPLY to this message with your city name:")
+    await message.reply("What city are you in?", reply_markup=ForceReply(selective=True))
 
 
 @router.message(SetTimezone.waiting_for_city)
@@ -125,9 +125,10 @@ async def process_city(message: Message, state: FSMContext):
     if not location:
         # Trigger fallback: ask for time or city retry
         await state.set_state(SetTimezone.waiting_for_time)
-        await message.answer(
+        await message.reply(
             f"City not found: {city_name}.\n"
-            "⬆️ REPLY with your current time (e.g. 14:30) or try another city name:"
+            "Enter your current time (e.g. 14:30) or try another city:",
+            reply_markup=ForceReply(selective=True)
         )
         return
     
@@ -277,9 +278,10 @@ async def process_fallback_input(message: Message, state: FSMContext):
             logger.error(f"Fallback time parsing error: {e}")
     
     # Neither city nor time - ask again
-    await message.answer(
+    await message.reply(
         f"Could not find '{user_input}'.\n"
-        "⬆️ REPLY with your current time (e.g. 14:30) or try another city name:"
+        "Enter your current time (e.g. 14:30) or try another city:",
+        reply_markup=ForceReply(selective=True)
     )
     # Stay in waiting_for_time state for retry
 
@@ -337,7 +339,7 @@ async def cmd_remove(message: Message, state: FSMContext):
         username = f"@{m['username']}" if m.get("username") else ""
         lines.append(f"{i}. {m['city']} {flag} {username}")
     
-    await message.reply("\n".join(lines))
+    await message.reply("\n".join(lines), reply_markup=ForceReply(selective=True))
 
 
 @router.message(RemoveMember.waiting_for_number)
@@ -389,7 +391,7 @@ async def handle_time_mention(message: Message, state: FSMContext):
     if not sender:
         await state.update_data(user_id=message.from_user.id, pending_time=times[0])
         await state.set_state(SetTimezone.waiting_for_city)
-        await message.reply(f"{user_name}, ⬆️ REPLY to this message with your city name:")
+        await message.reply(f"{user_name}, what city are you in?", reply_markup=ForceReply(selective=True))
         return
     
     # Check cooldown

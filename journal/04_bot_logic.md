@@ -41,6 +41,7 @@ This ensures reliability and follows standard practices for handling:
 - Message objects & updates (Long Polling)
 - User & Chat entities
 - Asynchronous event loop
+- **ForceReply**: Auto-opens reply mode when bot asks for user input (improves UX)
 
 ---
 
