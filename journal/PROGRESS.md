@@ -1,4 +1,15 @@
-2026-01-31 (session 1)
+## 2026-02-02 (session 1) — Commands Refactoring 🏗️
+- **Refactor**: Decomposed monolithic `src/commands.py` into `src/commands/` package:
+  - `settings.py`: `/tb_settz`, `/tb_mytz`
+  - `members.py`: `/tb_members`, `/tb_remove`
+  - `common.py`: `/tb_help`, time capture, event handlers
+  - `states.py` & `middleware.py`: Extracted to separate files
+- **Spec**: Updated `11_implementation_mapping.md` with new directory structure
+- **Docs**: Updated `HANDOVER.md` to reference new middleware path
+- **Discussion**: Config reload strategy (theoretical discussion, decided current singleton is sufficient)
+
+
+## 2026-01-31 (session 1)
 - **Feature**:force-replay to chat messages (to prevent chaos)
 
 ## 2026-01-31 (session 1)

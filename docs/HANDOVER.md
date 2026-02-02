@@ -10,7 +10,7 @@ To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
 
 ##  Key Components
 
-- **Middleware (`src/commands.py`)**: 
+- **Middleware (`src/commands/middleware.py`)**: 
   `PassiveCollectionMiddleware` monitors messages. Known participants (who set their timezone) are automatically added to the chat's active list.
 - **Capture Logic (`src/capture.py`)**: 
   regex-based extraction via `configuration.yaml`.
