@@ -2,8 +2,8 @@
 
 ## Philosophy
 - **1 Spec ≈ 1 Module** — легко найти код по спеку и наоборот
-- **Flat Structure** — все файлы в `src/`, без глубокой вложенности
-- **Small Files** — каждый модуль ~50-150 строк
+- **Clean Root** — в корне `src/` только общая бизнес-логика
+- **High Cohesion** — всё, что касается Telegram-бота, лежит внутри `src/commands/` (это наш адаптер)
 
 ---
 
@@ -16,7 +16,7 @@
 | `05_storage.md` | `src/storage.py` | SQLite operations |
 | `06_city_to_timezone.md` | `src/geo.py` | Nominatim + TimezoneFinder |
 | `07_response_format.md` | `src/formatter.py` | Build reply string |
-| `08_telegram_commands.md` | `src/commands.py` | All `/tb_*` handlers |
+| `08_telegram_commands.md` | `src/commands/` | **Package**: All Telegram handling logic |
 | `09_logging.md` | `src/logger.py` | Logging setup |
 | — | `src/config.py` | Load yaml + .env |
 | — | `src/main.py` | Entry point |
@@ -25,7 +25,7 @@
 
 ## Build Order (Dependencies First)
 ```
-config.py → logger.py → storage.py → capture.py → transform.py → geo.py → formatter.py → commands.py → main.py
+config.py → logger.py → storage.py → capture.py → transform.py → geo.py → formatter.py → src/commands/states.py → src/commands/*.py → main.py
 ```
 
 ---
@@ -34,6 +34,13 @@ config.py → logger.py → storage.py → capture.py → transform.py → geo.p
 ```
 Timezone_bot/
 ├── src/
+│   ├── commands/        # TELEGRAM ADAPTER (Cohesive Module)
+│   │   ├── __init__.py  # Exposes the main router
+│   │   ├── common.py    # /tb_help, Mentions, Kick event
+│   │   ├── members.py   # /tb_members, /tb_remove
+│   │   ├── settings.py  # /tb_settz, /tb_mytz
+│   │   ├── states.py    # FSM Classes (SetTimezone, RemoveMember)
+│   │   └── middleware.py # Middleware specific to this bot
 │   ├── main.py
 │   ├── config.py
 │   ├── logger.py
@@ -41,12 +48,9 @@ Timezone_bot/
 │   ├── transform.py
 │   ├── storage.py
 │   ├── geo.py
-│   ├── formatter.py
-│   └── commands.py
+│   └── formatter.py
 ├── tests/
-│   ├── test_capture.py
-│   └── test_transform.py
-├── journal/           # Specs
+├── journal/
 ├── configuration.yaml
 ├── .env
 └── env.example

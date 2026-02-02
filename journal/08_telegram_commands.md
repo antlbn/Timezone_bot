@@ -32,6 +32,14 @@
 
 ## 4. Command Flows
 
+Команды разделены на три логических модуля:
+
+- **settings.py** — управление личными настройками (`/tb_settz`, `/tb_mytz`) и FSM `SetTimezone`.
+- **members.py** — управление списком участников чата (`/tb_members`, `/tb_remove`) и FSM `RemoveMember`.
+- **common.py** — общие функции (`/tb_help`), обработка упоминаний времени и системные события (`on_bot_kicked`).
+
+
+
 ### /tb_help
 
 ```
@@ -94,7 +102,16 @@ Bot: "Removed @bob from chat list"
 
 ---
 
-## 5. Permissions
+## 5. Technical Organization
+
+
+Для чистоты кода и разделения ответственности вводятся вспомогательные модули:
+- **src/middleware.py**: Содержит логику, влияющую на все входящие сообщения (сбор участников).
+- **src/states.py**: Содержит классы состояний (FSM) для сценариев настройки и удаления.
+
+- команды разбиты на три файла в каталоге src/commands
+
+## 6. Permissions
 
 | Action | Who can do |
 |--------|------------|
@@ -106,7 +123,7 @@ Bot: "Removed @bob from chat list"
 
 ---
 
-## 6. Edge Cases
+## 7. Edge Cases
 
 | Case | Bot Response |
 |------|--------------|
