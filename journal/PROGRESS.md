@@ -1,3 +1,6 @@
+## 2026-02-03 (session 11)
+- **Refactor**: Eliminated duplicated code in `settings.py` by extracting logic into a helper function (adhering to the DRY principle).
+
 ## 2026-02-03 (session 10)
 - **Documentation** minor docs markups
 

@@ -63,39 +63,7 @@ async def process_city(message: Message, state: FSMContext):
         )
         return
     
-    username = message.from_user.username or ""
-    await storage.set_user(
-        user_id=message.from_user.id,
-        platform="telegram",
-        city=location["city"],
-        timezone=location["timezone"],
-        flag=location["flag"],
-        username=username
-    )
-    
-    if message.chat.id != message.from_user.id:
-        await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
-    
-    pending_time = data.get("pending_time")
-    user_name = message.from_user.first_name or "User"
-    
-    await state.clear()
-    
-    await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
-    logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']}")
-    
-    if pending_time:
-        members = await storage.get_chat_members(message.chat.id, platform="telegram")
-        if members:
-            reply = formatter.format_conversion_reply(
-                pending_time,
-                location["city"],
-                location["timezone"],
-                location["flag"],
-                members,
-                user_name
-            )
-            await message.answer(reply)
+    await _save_and_finish(message, state, location, data.get("pending_time"))
 
 
 @router.message(SetTimezone.waiting_for_time)
@@ -112,7 +80,6 @@ async def process_fallback_input(message: Message, state: FSMContext):
         return
     
     user_input = (message.text or "").strip()
-    user_name = message.from_user.first_name or "User"
     username = message.from_user.username or ""
     pending_time = data.get("pending_time")
     
@@ -121,38 +88,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
     
     if location and "error" not in location:
         # City found! Save and proceed
-        # Save to DB
-        await storage.set_user(
-            user_id=message.from_user.id,
-            platform="telegram",
-            city=location["city"],
-            timezone=location["timezone"],
-            flag=location["flag"],
-            username=message.from_user.username or ""
-        )
-        
-        # Update chat member if in group
-        if message.chat.type in ["group", "supergroup"]:
-            await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
-            
-        await state.clear()
-        
-        await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
-        logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']} (retry)")
-        
-        # Process pending time if exists
-        if pending_time:
-            members = await storage.get_chat_members(message.chat.id, platform="telegram")
-            if members:
-                reply = formatter.format_conversion_reply(
-                    pending_time,
-                    location["city"],
-                    location["timezone"],
-                    location["flag"],
-                    members,
-                    user_name
-                )
-                await message.answer(reply)
+        await _save_and_finish(message, state, location, pending_time, is_retry=True)
         return
     
     # City not found - try to extract time
@@ -180,36 +116,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
             # Get timezone by offset
             location = geo.get_timezone_by_offset(offset)
             
-            await storage.set_user(
-                message.from_user.id,
-                platform="telegram",
-                city=location["city"],
-                timezone=location["timezone"],
-                flag=location["flag"],
-                username=username
-            )
-            
-            if message.chat.id != message.from_user.id:
-                await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
-            
-            await state.clear()
-            
-            await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
-            logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']} (fallback)")
-            
-            # Process pending time if exists
-            if pending_time:
-                members = await storage.get_chat_members(message.chat.id, platform="telegram")
-                if members:
-                    reply = formatter.format_conversion_reply(
-                        pending_time,
-                        location["city"],
-                        location["timezone"],
-                        location["flag"],
-                        members,
-                        user_name
-                    )
-                    await message.answer(reply)
+            await _save_and_finish(message, state, location, pending_time, is_retry=True)
             return
                 
         except Exception as e:
@@ -222,3 +129,47 @@ async def process_fallback_input(message: Message, state: FSMContext):
         reply_markup=ForceReply(selective=True)
     )
     # Stay in waiting_for_time state for retry
+
+
+async def _save_and_finish(
+    message: Message, 
+    state: FSMContext, 
+    location: dict, 
+    pending_time: str | None,
+    is_retry: bool = False
+):
+    """Helper to save user data, update state, and send confirmation."""
+    username = message.from_user.username or ""
+    user_name = message.from_user.first_name or "User"
+    
+    await storage.set_user(
+        user_id=message.from_user.id,
+        platform="telegram",
+        city=location["city"],
+        timezone=location["timezone"],
+        flag=location["flag"],
+        username=username
+    )
+    
+    if message.chat.id != message.from_user.id:
+        await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
+    
+    await state.clear()
+    
+    await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
+    
+    log_suffix = " (retry)" if is_retry else ""
+    logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']}{log_suffix}")
+    
+    if pending_time:
+        members = await storage.get_chat_members(message.chat.id, platform="telegram")
+        if members:
+            reply = formatter.format_conversion_reply(
+                pending_time,
+                location["city"],
+                location["timezone"],
+                location["flag"],
+                members,
+                user_name
+            )
+            await message.answer(reply)

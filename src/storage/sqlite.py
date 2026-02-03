@@ -1,5 +1,6 @@
 
 import aiosqlite
+from sqlite3 import OperationalError
 from pathlib import Path
 from src.logger import get_logger
 from src.storage.base import Storage
@@ -57,23 +58,23 @@ class SQLiteStorage(Storage):
                 # Actually, duplicate IDs across platforms might be an issue if we don't migrate PK.
                 # For now, let's just add the column. 
                 logger.info("Migrated users table: added 'platform' column")
-            except Exception:
+            except OperationalError:
                 # Column likely exists
                 pass
 
             try:
                 await db.execute("ALTER TABLE chat_members ADD COLUMN platform TEXT DEFAULT 'telegram'")
-            except Exception:
+            except OperationalError:
                 pass
 
             # 2. Other existing migrations
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN flag TEXT DEFAULT ''")
-            except Exception:
+            except OperationalError:
                 pass
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN username TEXT DEFAULT ''")
-            except Exception:
+            except OperationalError:
                 pass
 
             await db.commit()
