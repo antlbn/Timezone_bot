@@ -32,3 +32,7 @@ To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
 3.  **Fuzzy Detection**: Use `rapidfuzz` for typo tolerance.
 4.  **Error Handling**: Global middleware to catch unhandled exceptions and notify admins (e.g. Sentry).
 
+##  Testing
+- **Zero Config**: Tests use temporary sqlite databases. No setup required.
+
+

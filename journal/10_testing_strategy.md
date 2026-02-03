@@ -13,6 +13,7 @@
 | Layer | Type | Scope | Automation | Tool |
 |-------|------|-------|------------|------|
 | **L1** | **Unit** | `src/capture.py` (Regex)<br>`src/transform.py` (Time math) | ✅ Automated | `unittest/pytest` |
+| **L1.5** | **Handlers** | `src/commands/*.py` (Flow logic) | ✅ Automated | `pytest` + `mock` |
 | **L2** | **Integration / Resilience** | `src/storage/`, `middleware` (Errors) + Mocked API | ✅ Automated | `pytest` |
 | **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App |
 
@@ -34,9 +35,13 @@
     -   Обработка ошибок API (Geo timeout)
     -   Устойчивость базы данных (Middleware catch)
     -   Парсинг мусорных данных
+4.  **Handlers (L1.5)**:
+    -   Unit-тесты команд (`cmd_me`, `cmd_settz`)
+    -   Mocking `aiogram.types.Message` и `storage`
+    -   Проверка вызова `message.answer` с ожидаемым текстом
 
 ### Location:
-`tests/test_capture.py`, `tests/test_transform.py`, `tests/test_storage.py`, `tests/test_exceptions_logging.py`
+`tests/test_capture.py`, `tests/test_transform.py`, `tests/test_storage.py`, `tests/test_exceptions_logging.py`, `tests/test_handlers.py`
 
 ---
 
@@ -58,3 +63,11 @@
 В будущем (Post-MVP) добавить GitHub Actions:
 - Linting (`ruff`)
 - Running tests (`python -m unittest discover tests`)
+
+---
+
+## 6. База данных в тестах
+**Важно:** Для запуска тестов **не нужен** файл `data/bot.db`.
+- **L1.5 (Handlers)**: Используют `unittest.mock` (вообще не трогают диск).
+- **L2 (Integration)**: Тесты `test_storage.py` автоматически создают и удаляют **временный файл БД** (`tests/test_bot.db`).
+Это гарантирует, что тесты можно запускать на чистой машине сразу после `git clone`.

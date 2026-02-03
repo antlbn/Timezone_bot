@@ -102,3 +102,50 @@ async def test_platform_separation():
     # Check Discord user
     dc_user = await storage.get_user(123, platform="discord")
     assert dc_user["city"] == "New York"
+
+
+@pytest.mark.asyncio
+async def test_update_user_fields():
+    """Test updating existing user data (e.g. city change)."""
+    # 1. Create initial user
+    await storage.set_user(777, "telegram", "London", "Europe/London", "🇬🇧")
+    
+    user_initial = await storage.get_user(777, platform="telegram")
+    assert user_initial["city"] == "London"
+
+    # 2. Update user (moved to Paris)
+    await storage.set_user(777, "telegram", "Paris", "Europe/Paris", "🇫🇷")
+    
+    user_updated = await storage.get_user(777, platform="telegram")
+    assert user_updated["city"] == "Paris"
+    assert user_updated["timezone"] == "Europe/Paris"
+    assert user_updated["flag"] == "🇫🇷"
+
+
+@pytest.mark.asyncio
+async def test_mixed_platform_members():
+    """Test that get_chat_members filters by platform correctly."""
+    CHAT_ID = 9000
+    
+    # User 1 on Telegram
+    await storage.set_user(1, "telegram", "T1", "UTC", "T")
+    await storage.add_chat_member(CHAT_ID, 1, platform="telegram")
+    
+    # User 2 on Discord (Same Chat ID, conceptually)
+    await storage.set_user(2, "discord", "D1", "UTC", "D")
+    await storage.add_chat_member(CHAT_ID, 2, platform="discord")
+    
+    # User 3 on Telegram
+    await storage.set_user(3, "telegram", "T2", "UTC", "T")
+    await storage.add_chat_member(CHAT_ID, 3, platform="telegram")
+    
+    # Get members for Telegram -> Should be [1, 3]
+    tg_members = await storage.get_chat_members(CHAT_ID, platform="telegram")
+    assert len(tg_members) == 2
+    ids = {m["user_id"] for m in tg_members}
+    assert ids == {1, 3}
+    
+    # Get members for Discord -> Should be [2]
+    dc_members = await storage.get_chat_members(CHAT_ID, platform="discord")
+    assert len(dc_members) == 1
+    assert dc_members[0]["user_id"] == 2

@@ -1,3 +1,8 @@
+## 2026-02-03 (session 6) — Testing & Handlers 🏗️
+- **Testing**: Implemented handler unit tests (`tests/test_handlers.py`) using mocks (L1.5 Layer).
+- **Docs**: Clarified Test DB independence in `HANDOVER.md` and `10_testing_strategy.md`.
+- **Docs**: Added note that tests run on temporary DBs, safe for new clones.
+
 ## 2026-02-02 (session 5)
 - **refactored** Rename `/tb_mytz` command to `/tb_me` and clarify database documentation details.
 
