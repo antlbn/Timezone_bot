@@ -12,7 +12,7 @@
 | Command | Description |
 |---------|-------------|
 | `/tb_help` | Show command menu |
-| `/tb_mytz` | Show your current location |
+| `/tb_me` | Show your current location |
 | `/tb_settz` | Change your timezone |
 | `/tb_members` | List chat members from DB |
 | `/tb_remove` | Remove member from list |
@@ -54,12 +54,12 @@ Bot:
 /tb_remove - remove
 ```
 
-### /tb_mytz
+### /tb_me
 
 ```
-User: /tb_mytz
+User: /tb_me
 
-Bot: "Your timezone: Berlin 🇩🇪 (Europe/Berlin)"
+Bot: Berlin 🇩🇪 (Europe/Berlin)
 ```
 
 ### /tb_settz

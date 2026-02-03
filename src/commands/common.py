@@ -23,7 +23,7 @@ async def cmd_help(message: Message):
     help_text = (
         "Timezone Bot\n"
         "/tb_help - this help\n"
-        "/tb_mytz - your timezone\n"
+        "/tb_me    - your location\n"
         "/tb_settz - set city\n"
         "/tb_members - chat members\n"
         "/tb_remove - remove member\n\n"

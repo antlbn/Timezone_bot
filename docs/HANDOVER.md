@@ -16,14 +16,14 @@ To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
   regex-based extraction via `configuration.yaml`.
 - **Geocoding (`src/geo.py`)**: 
   Uses Nominatim (OSM) and TimezoneFinder.
-- **Database (`src/storage.py`)**: 
-  SQLite (`aiosqlite`). Tables: `users`, `chat_members`.
+- **Database (`src/storage/`)**: 
+  SQLite (`aiosqlite` wrapper over standard `sqlite3`). Tables: `users`, `chat_members`.
 
 ##  Design Decisions
 
 | Choice | Reasoning | Trade-off |
 | :--- | :--- | :--- |
-| **SQLite** | Zero config, fast enough for MVP. | Not for large clusters. |
+| **SQLite** | Zero config (Python std lib), fast enough for MVP. | Not for large clusters. |
 | **MemoryStorage** | Simple FSM. | States lost on reboot. |
 
 ##  Future Roadmap

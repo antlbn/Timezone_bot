@@ -66,9 +66,9 @@
 
 | Component | Library | Purpose |
 |-----------|---------|---------|
-| **Core** | `python` (3.11+) | Runtime environment |
+| **Core** | `python` (3.11+) | Runtime environment (incl. `sqlite3`) |
 | **Bot API** | `aiogram` | Async Telegram Bot API wrapper |
-| **Storage** | `aiosqlite` | Asynchronous SQLite interface |
+| **Storage** | `aiosqlite` | Async wrapper for logical `sqlite3` |
 | **Timezone** | `zoneinfo`, `tzdata` | IANA timezone database (std lib + data) |
 | **Geocoding** | `geopy`, `timezonefinder` | City → Coords → Timezone |
 | **Config** | `PyYAML`, `python-dotenv` | Configuration management |

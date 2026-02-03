@@ -1,4 +1,7 @@
 ## 2026-02-02 (session 5)
+- **refactored** Rename `/tb_mytz` command to `/tb_me` and clarify database documentation details.
+
+## 2026-02-02 (session 5)
 - **Fixed** Few bugs realting to DB schema change
 - **Cleanup** __pycache__
 

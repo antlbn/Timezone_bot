@@ -14,8 +14,8 @@ from src.commands.states import SetTimezone
 router = Router()
 logger = get_logger()
 
-@router.message(Command("tb_mytz"))
-async def cmd_mytz(message: Message):
+@router.message(Command("tb_me"))
+async def cmd_me(message: Message):
     """Show user's current timezone."""
     existing_user = await storage.get_user(message.from_user.id, platform="telegram")
     

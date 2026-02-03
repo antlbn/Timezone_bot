@@ -38,7 +38,7 @@ Timezone_bot/
 │   │   ├── __init__.py  # Exposes the main router
 │   │   ├── common.py    # /tb_help, Mentions, Kick event
 │   │   ├── members.py   # /tb_members, /tb_remove
-│   │   ├── settings.py  # /tb_settz, /tb_mytz
+│   │   ├── settings.py  # /tb_settz, /tb_me
 │   │   ├── states.py    # FSM Classes (SetTimezone, RemoveMember)
 │   │   └── middleware.py # Middleware specific to this bot
 │   ├── main.py
