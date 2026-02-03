@@ -1,3 +1,10 @@
+## 2026-02-02 (session 5)
+- **Fixed** Few bugs realting to DB schema change
+- **Cleanup** __pycache__
+
+## 2026-02-02 (session 4)
+- **Method decomposition** def test_formatter_reply - now deomposited (it was too large)
+
 ## 2026-02-02 (session 3)
 - **Refactor**: Storage decoupled into `src/storage/` (SQLite + ABC).
 - **Feature**: Multi-Platform support schema (added `platform` col).

@@ -18,7 +18,7 @@ async def cmd_members(message: Message):
         await message.reply("Groups only")
         return
     
-    members = await storage.get_chat_members(message.chat.id)
+    members = await storage.get_chat_members(message.chat.id, platform="telegram")
     
     if not members:
         await message.reply("No members yet. Use /tb_settz")
@@ -44,7 +44,7 @@ async def cmd_remove(message: Message, state: FSMContext):
         await message.reply("Groups only")
         return
     
-    members = await storage.get_chat_members(message.chat.id)
+    members = await storage.get_chat_members(message.chat.id, platform="telegram")
     
     if not members:
         await message.reply("No members to remove")

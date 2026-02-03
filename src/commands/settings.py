@@ -60,15 +60,16 @@ async def process_city(message: Message, state: FSMContext):
     
     username = message.from_user.username or ""
     await storage.set_user(
-        message.from_user.id,
-        location["city"],
-        location["timezone"],
-        location["flag"],
-        username
+        user_id=message.from_user.id,
+        platform="telegram",
+        city=location["city"],
+        timezone=location["timezone"],
+        flag=location["flag"],
+        username=username
     )
     
     if message.chat.id != message.from_user.id:
-        await storage.add_chat_member(message.chat.id, message.from_user.id)
+        await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
     
     pending_time = data.get("pending_time")
     user_name = message.from_user.first_name or "User"
@@ -79,7 +80,7 @@ async def process_city(message: Message, state: FSMContext):
     logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']}")
     
     if pending_time:
-        members = await storage.get_chat_members(message.chat.id)
+        members = await storage.get_chat_members(message.chat.id, platform="telegram")
         if members:
             reply = formatter.format_conversion_reply(
                 pending_time,

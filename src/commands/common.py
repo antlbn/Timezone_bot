@@ -42,11 +42,14 @@ async def handle_time_mention(message: Message, state: FSMContext):
     if not times:
         return
     
-    sender = await storage.get_user(message.from_user.id)
+    user_id = message.from_user.id
+    chat_id = message.chat.id
     user_name = message.from_user.first_name or "User"
     
+    sender = await storage.get_user(user_id, platform="telegram")
+    
     if not sender:
-        await state.update_data(user_id=message.from_user.id, pending_time=times[0])
+        await state.update_data(user_id=user_id, pending_time=times[0])
         await state.set_state(SetTimezone.waiting_for_city)
         await message.reply(f"{user_name}, what city are you in?", reply_markup=ForceReply(selective=True))
         return
@@ -60,16 +63,6 @@ async def handle_time_mention(message: Message, state: FSMContext):
             logger.debug(f"[chat:{chat_id}] Cooldown active, skipping reply")
             return
         _last_reply[chat_id] = now
-    
-    # Get sender info
-    sender = await storage.get_user(user_id, platform="telegram")
-    if not sender:
-        # If user not set, we can't convert their time properly
-        # But maybe we can guess from chat context? For now, ignore.
-        await state.update_data(user_id=message.from_user.id, pending_time=times[0])
-        await state.set_state(SetTimezone.waiting_for_city)
-        await message.reply(f"{user_name}, what city are you in?", reply_markup=ForceReply(selective=True))
-        return
 
     # Get chat members
     members = await storage.get_chat_members(chat_id, platform="telegram")
@@ -89,7 +82,7 @@ async def handle_time_mention(message: Message, state: FSMContext):
         )
         await message.answer(reply)
     
-    logger.info(f"[chat:{message.chat.id}] Times: {times}")
+    logger.info(f"[chat:{chat_id}] Times: {times}")
 
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER))
