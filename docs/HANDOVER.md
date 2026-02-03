@@ -26,11 +26,15 @@ To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
 | **SQLite** | Zero config (Python std lib), fast enough for MVP. | Not for large clusters. |
 | **MemoryStorage** | Simple FSM. | States lost on reboot. |
 
+##  Design Patterns
+- **Singleton**: Used for `config`, `logger`, and `storage` (via `src/storage/__init__.py`). Ensures single point of truth and efficient connection reuse.
+
 ##  Future Roadmap
 1.  **Multi-Platform**: Support Discord/WhatsApp.
 2.  **Inline Buttons**: Better disambiguation for cities.
 3.  **Fuzzy Detection**: Use `rapidfuzz` for typo tolerance.
 4.  **Error Handling**: Global middleware to catch unhandled exceptions and notify admins (e.g. Sentry).
+5.  **In-Memory Caching (CachedDb)**: Implement a Write-Through cache (preload all users/chats at startup) to minimize DB disk I/O.
 
 ##  Testing
 - **Zero Config**: Tests use temporary sqlite databases. No setup required.
