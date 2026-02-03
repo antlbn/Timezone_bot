@@ -59,7 +59,7 @@ def test_normalize_time_debug_logging(caplog):
 async def test_middleware_db_failure_logging(caplog):
     """Test that middleware doesn't crash bot if DB fails."""
     # Mock storage to raise exception
-    with patch("src.storage.get_user", side_effect=Exception("Database connection missing")):
+    with patch("src.storage.storage.get_user", side_effect=Exception("Database connection missing")):
         middleware = PassiveCollectionMiddleware()
         
         # Dummy handler that just returns "OK"

@@ -5,7 +5,8 @@ from aiogram.types import Message, ChatMemberUpdated, ForceReply
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
 
-from src import storage, capture, formatter
+from src.storage import storage
+from src import capture, formatter
 from src.config import get_bot_settings
 from src.logger import get_logger
 from src.commands.states import SetTimezone
@@ -53,7 +54,6 @@ async def handle_time_mention(message: Message, state: FSMContext):
     # Check cooldown
     cooldown = get_bot_settings().get("cooldown_seconds", 0)
     if cooldown > 0:
-        chat_id = message.chat.id
         now = time()
         last = _last_reply.get(chat_id, 0)
         if now - last < cooldown:
@@ -61,9 +61,18 @@ async def handle_time_mention(message: Message, state: FSMContext):
             return
         _last_reply[chat_id] = now
     
-    # Note: add_chat_member already called by track_chat_member handler
-    members = await storage.get_chat_members(message.chat.id)
-    
+    # Get sender info
+    sender = await storage.get_user(user_id, platform="telegram")
+    if not sender:
+        # If user not set, we can't convert their time properly
+        # But maybe we can guess from chat context? For now, ignore.
+        await state.update_data(user_id=message.from_user.id, pending_time=times[0])
+        await state.set_state(SetTimezone.waiting_for_city)
+        await message.reply(f"{user_name}, what city are you in?", reply_markup=ForceReply(selective=True))
+        return
+
+    # Get chat members
+    members = await storage.get_chat_members(chat_id, platform="telegram")
     if not members:
         return
     
@@ -85,6 +94,6 @@ async def handle_time_mention(message: Message, state: FSMContext):
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER))
 async def on_bot_kicked(event: ChatMemberUpdated):
-    """Handle bot being kicked from chat - clear all chat members."""
-    await storage.clear_chat_members(event.chat.id)
+    """Clean up chat members when bot is kicked."""
+    await storage.clear_chat_members(event.chat.id, platform="telegram")
     logger.info(f"[chat:{event.chat.id}] Bot kicked, cleared chat members")

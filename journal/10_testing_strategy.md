@@ -12,8 +12,8 @@
 
 | Layer | Type | Scope | Automation | Tool |
 |-------|------|-------|------------|------|
-| **L1** | **Unit** | `core/capture.py` (Regex)<br>`core/transform.py` (Time math) | ✅ Automated | `unittest` |
-| **L2** | **Integration / Resilience** | `core/storage.py`, `middleware` (Errors) + Mocked API | ✅ Automated | `pytest` |
+| **L1** | **Unit** | `src/capture.py` (Regex)<br>`src/transform.py` (Time math) | ✅ Automated | `unittest/pytest` |
+| **L2** | **Integration / Resilience** | `src/storage/`, `middleware` (Errors) + Mocked API | ✅ Automated | `pytest` |
 | **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App |
 
 ---
@@ -36,7 +36,7 @@
     -   Парсинг мусорных данных
 
 ### Location:
-`tests/test_logic.py`, `tests/test_exceptions_logging.py`
+`tests/test_capture.py`, `tests/test_transform.py`, `tests/test_storage.py`, `tests/test_exceptions_logging.py`
 
 ---
 

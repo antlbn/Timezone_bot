@@ -1,3 +1,8 @@
+## 2026-02-02 (session 3)
+- **Refactor**: Storage decoupled into `src/storage/` (SQLite + ABC).
+- **Feature**: Multi-Platform support schema (added `platform` col).
+
+
 ## 2026-02-02 (session 2) — Robustness & Logging 🛡️
 - **Refactor**: Added missing exception logging in `geo.py`, `middleware.py`, and `storage.py`
 - **Docs**: Updated `09_logging.md` and `10_testing_strategy.md` specifications with error handling improvements

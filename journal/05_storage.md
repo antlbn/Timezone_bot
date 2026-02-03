@@ -5,6 +5,10 @@
 Модуль хранения данных о пользователях и их принадлежности к чатам.
 Используем **aiosqlite** (async SQLite) — быстро, надёжно, совместимо с aiogram.
 
+> [!NOTE]
+> **UPDATE 2026-02-03**: Модуль рефакторинг в пакет `src/storage/`.
+> Добавлена поддержка мульти-платформенности (Telegram/Discord) через колонку `platform`. (на будующее)
+
 **Файл БД:** `./data/bot.db`
 
 ```
@@ -33,12 +37,15 @@
 
 ```sql
 CREATE TABLE users (
-    user_id     INTEGER PRIMARY KEY,  -- Telegram user ID
+    user_id     INTEGER,               -- Platform-specific user ID
+    platform    TEXT DEFAULT 'telegram', -- 'telegram', 'discord'
     username    TEXT,                  -- @username (может быть NULL)
     timezone    TEXT NOT NULL,         -- IANA name: 'Europe/Berlin'
     city        TEXT,                  -- Город для отображения: 'Berlin'
+    flag        TEXT DEFAULT '',       -- Flag emoji
     created_at  TEXT DEFAULT (datetime('now')),
-    updated_at  TEXT DEFAULT (datetime('now'))
+    updated_at  TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, platform)
 );
 ```
 
@@ -48,14 +55,15 @@ CREATE TABLE users (
 
 ```sql
 CREATE TABLE chat_members (
-    chat_id     INTEGER NOT NULL,      -- Telegram chat ID
-    user_id     INTEGER NOT NULL,      -- FK → users.user_id
+    chat_id     INTEGER NOT NULL,      -- Platform chat ID
+    user_id     INTEGER NOT NULL,      -- Part of FK
+    platform    TEXT DEFAULT 'telegram', -- Part of FK
     joined_at   TEXT DEFAULT (datetime('now')),
-    PRIMARY KEY (chat_id, user_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    PRIMARY KEY (chat_id, user_id, platform),
+    FOREIGN KEY (user_id, platform) REFERENCES users(user_id, platform) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_chat_members_chat ON chat_members(chat_id);
+CREATE INDEX idx_chat_members_chat ON chat_members(chat_id, platform);
 ```
 
 ---
@@ -78,23 +86,26 @@ CREATE INDEX idx_chat_members_chat ON chat_members(chat_id);
 
 ```python
 # Получить timezone юзера
-get_user(user_id: int) -> dict | None
+get_user(user_id: int, platform: str) -> dict | None
 
 # Создать/обновить юзера
-set_user(user_id: int, city: str, timezone: str, flag: str, username: str) -> None
+set_user(user_id: int, city: str, timezone: str, flag: str, username: str, platform: str) -> None
 ```
 
 ### 4.2 Chat Members
 
 ```python
 # Получить всех юзеров чата (с их timezone)
-get_chat_members(chat_id: int) -> list[dict]
+get_chat_members(chat_id: int, platform: str) -> list[dict]
 
 # Добавить юзера в чат
-add_chat_member(chat_id: int, user_id: int) -> None
+add_chat_member(chat_id: int, user_id: int, platform: str) -> None
 
 # Удалить юзера из чата (вышел/кикнут)
-remove_chat_member(chat_id: int, user_id: int) -> None
+remove_chat_member(chat_id: int, user_id: int, platform: str) -> None
+
+# Очистить чат
+clear_chat_members(chat_id: int, platform: str) -> None
 ```
 
 ---

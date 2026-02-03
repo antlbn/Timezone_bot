@@ -42,18 +42,27 @@ async def tzdata_update_loop():
         update_tzdata()
 
 
-async def main():
-    """Main async entry point."""
-    # Update timezone data on startup
-    update_tzdata()
+async def on_startup(bot: Bot):
+    """Startup hook."""
+    logger.info("Bot starting...")
     
-    # Initialize database
-    await init_db()
+    # Initialize DB
+    await storage.init()
     logger.info("Database initialized")
     
+    # Update tzdata
+    logger.info("Checking tzdata version...")
+    update_tzdata()
+
+
+async def main():
+    """Main async entry point."""
     # Create bot and dispatcher
     bot = Bot(token=get_telegram_token())
     dp = Dispatcher(storage=MemoryStorage())
+    
+    # Register startup hook
+    dp.startup.register(on_startup)
     
     # Register middleware
     dp.message.middleware(PassiveCollectionMiddleware())

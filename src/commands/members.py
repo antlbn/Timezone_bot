@@ -3,7 +3,7 @@ from aiogram.types import Message, ForceReply
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from src import storage
+from src.storage import storage
 from src.transform import get_utc_offset
 from src.logger import get_logger
 from src.commands.states import RemoveMember
@@ -93,7 +93,7 @@ async def process_remove(message: Message, state: FSMContext):
         return
     
     user_id = member_ids[num - 1]
-    await storage.remove_chat_member(message.chat.id, user_id)
+    await storage.remove_chat_member(message.chat.id, user_id, platform="telegram")
     
     await state.clear()
     await message.answer(f"Removed member #{num}")

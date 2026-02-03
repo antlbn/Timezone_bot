@@ -5,7 +5,8 @@ from aiogram.types import Message, ForceReply
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from src import storage, geo, formatter, capture
+from src.storage import storage
+from src import geo, formatter, capture
 from src.transform import parse_time_string
 from src.logger import get_logger
 from src.commands.states import SetTimezone
@@ -16,14 +17,13 @@ logger = get_logger()
 @router.message(Command("tb_mytz"))
 async def cmd_mytz(message: Message):
     """Show user's current timezone."""
-    user = await storage.get_user(message.from_user.id)
+    existing_user = await storage.get_user(message.from_user.id, platform="telegram")
     
-    if not user:
+    if not existing_user:
         await message.reply("Not set. Use /tb_settz")
         return
     
-    flag = user.get("flag", "")
-    await message.reply(f"{user['city']} {flag} ({user['timezone']})")
+    await message.reply(f"{existing_user['city']} {existing_user['flag']} ({existing_user['timezone']})")
 
 
 @router.message(Command("tb_settz"))
@@ -113,17 +113,20 @@ async def process_fallback_input(message: Message, state: FSMContext):
     
     if location:
         # City found! Save and proceed
+        # Save to DB
         await storage.set_user(
-            message.from_user.id,
-            location["city"],
-            location["timezone"],
-            location["flag"],
-            username
+            user_id=message.from_user.id,
+            platform="telegram",
+            city=location["city"],
+            timezone=location["timezone"],
+            flag=location["flag"],
+            username=message.from_user.username or ""
         )
         
-        if message.chat.id != message.from_user.id:
-            await storage.add_chat_member(message.chat.id, message.from_user.id)
-        
+        # Update chat member if in group
+        if message.chat.type in ["group", "supergroup"]:
+            await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
+            
         await state.clear()
         
         await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
@@ -131,7 +134,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
         
         # Process pending time if exists
         if pending_time:
-            members = await storage.get_chat_members(message.chat.id)
+            members = await storage.get_chat_members(message.chat.id, platform="telegram")
             if members:
                 reply = formatter.format_conversion_reply(
                     pending_time,
@@ -171,14 +174,15 @@ async def process_fallback_input(message: Message, state: FSMContext):
             
             await storage.set_user(
                 message.from_user.id,
-                location["city"],
-                location["timezone"],
-                location["flag"],
-                username
+                platform="telegram",
+                city=location["city"],
+                timezone=location["timezone"],
+                flag=location["flag"],
+                username=username
             )
             
             if message.chat.id != message.from_user.id:
-                await storage.add_chat_member(message.chat.id, message.from_user.id)
+                await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
             
             await state.clear()
             
@@ -187,7 +191,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
             
             # Process pending time if exists
             if pending_time:
-                members = await storage.get_chat_members(message.chat.id)
+                members = await storage.get_chat_members(message.chat.id, platform="telegram")
                 if members:
                     reply = formatter.format_conversion_reply(
                         pending_time,

@@ -13,7 +13,7 @@
 |------|-----------|----------------|
 | `02_capture_logic.md` | `src/capture.py` | Regex time extraction |
 | `03_transformation_specs.md` | `src/transform.py` | UTC-pivot conversion |
-| `05_storage.md` | `src/storage.py` | SQLite operations |
+| `05_storage.md` | `src/storage/` | **Package**: SQLite operations (Abstract + Impl) |
 | `06_city_to_timezone.md` | `src/geo.py` | Nominatim + TimezoneFinder |
 | `07_response_format.md` | `src/formatter.py` | Build reply string |
 | `08_telegram_commands.md` | `src/commands/` | **Package**: All Telegram handling logic |
@@ -25,7 +25,7 @@
 
 ## Build Order (Dependencies First)
 ```
-config.py → logger.py → storage.py → capture.py → transform.py → geo.py → formatter.py → src/commands/states.py → src/commands/*.py → main.py
+config.py → logger.py → src/storage/ → capture.py → transform.py → geo.py → formatter.py → src/commands/states.py → src/commands/*.py → main.py
 ```
 
 ---
@@ -46,7 +46,10 @@ Timezone_bot/
 │   ├── logger.py
 │   ├── capture.py
 │   ├── transform.py
-│   ├── storage.py
+│   ├── storage/         # Storage Package
+│   │   ├── __init__.py  # Singleton export
+│   │   ├── base.py      # Abstract Interface
+│   │   └── sqlite.py    # Implementation
 │   ├── geo.py
 │   └── formatter.py
 ├── tests/
