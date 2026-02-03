@@ -9,6 +9,11 @@ from src.config import PROJECT_ROOT
 DB_PATH = PROJECT_ROOT / "data" / "bot.db"
 
 
+
+# Initialize logger
+from src.logger import get_logger
+logger = get_logger()
+
 async def init_db():
     """Initialize database and create tables if not exist."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -35,12 +40,14 @@ async def init_db():
         # Migrations for existing DBs
         try:
             await db.execute("ALTER TABLE users ADD COLUMN flag TEXT DEFAULT ''")
-        except:
-            pass
+        except Exception as e:
+            if "duplicate column" not in str(e).lower():
+                logger.warning(f"Migration error (flags): {e}")
         try:
             await db.execute("ALTER TABLE users ADD COLUMN username TEXT DEFAULT ''")
-        except:
-            pass
+        except Exception as e:
+            if "duplicate column" not in str(e).lower():
+                logger.warning(f"Migration error (username): {e}")
         await db.commit()
 
 

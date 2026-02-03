@@ -2,6 +2,9 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 from src import storage
+from src.logger import get_logger
+
+logger = get_logger()
 
 class PassiveCollectionMiddleware(BaseMiddleware):
     """
@@ -22,7 +25,7 @@ class PassiveCollectionMiddleware(BaseMiddleware):
                     user = await storage.get_user(event.from_user.id)
                     if user:
                         await storage.add_chat_member(event.chat.id, event.from_user.id)
-                except Exception:
-                    pass  # Don't fail if storage fails
+                except Exception as e:
+                    logger.warning(f"Middleware storage error: {e}")
         
         return await handler(event, data)

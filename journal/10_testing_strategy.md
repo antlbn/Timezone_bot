@@ -13,7 +13,7 @@
 | Layer | Type | Scope | Automation | Tool |
 |-------|------|-------|------------|------|
 | **L1** | **Unit** | `core/capture.py` (Regex)<br>`core/transform.py` (Time math) | ✅ Automated | `unittest` |
-| **L2** | **Integration** | `core/storage.py` (SQLite)<br>`core/geo.py` (API) | ❌ Manual / dev-test | (Run script) |
+| **L2** | **Integration / Resilience** | `core/storage.py`, `middleware` (Errors) + Mocked API | ✅ Automated | `pytest` |
 | **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App |
 
 ---
@@ -30,9 +30,13 @@
     -   Конвертация UTC → Target TZ
     -   Обработка смены дня (Day +1 / -1)
     -   Форматирование строки ответа
+3.  **Resilience (L2)**:
+    -   Обработка ошибок API (Geo timeout)
+    -   Устойчивость базы данных (Middleware catch)
+    -   Парсинг мусорных данных
 
 ### Location:
-`tests/test_logic.py`
+`tests/test_logic.py`, `tests/test_exceptions_logging.py`
 
 ---
 

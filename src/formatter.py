@@ -6,12 +6,18 @@ from src.config import get_bot_settings
 from src.transform import convert_time, format_time_with_offset, get_utc_offset, parse_time_string
 
 
+
+from src.logger import get_logger
+
+logger = get_logger()
+
 def normalize_time(time_str: str) -> str:
     """Normalize time string to 24h format (e.g. '5 pm' → '17:00')."""
     try:
         t = parse_time_string(time_str)
         return t.strftime("%H:%M")
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Time normalization failed for '{time_str}': {e}")
         return time_str  # fallback to original if parsing fails
 
 

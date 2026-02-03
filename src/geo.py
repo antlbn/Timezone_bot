@@ -6,6 +6,11 @@ from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
+
+# Initialize logger
+from src.logger import get_logger
+logger = get_logger()
+
 # Initialize clients
 _geolocator = Nominatim(user_agent="timezone_bot", timeout=5)
 _tf = TimezoneFinder()
@@ -53,45 +58,9 @@ def get_timezone_by_city(city_name: str) -> dict | None:
         }
         
     except (GeocoderTimedOut, GeocoderServiceError) as e:
-        # Log error but return None to trigger fallback
+        logger.warning(f"Geocoding error for '{city_name}': {e}")
         return None
 
-
-def get_multiple_locations(city_name: str, limit: int = 5) -> list[dict]:
-    """
-    Get multiple location options for a city name.
-    Used for disambiguation when city name is ambiguous.
-    """
-    try:
-        locations = _geolocator.geocode(
-            city_name, 
-            exactly_one=False, 
-            limit=limit,
-            language="en",
-            addressdetails=True
-        )
-        
-        if not locations:
-            return []
-        
-        results = []
-        for loc in locations:
-            tz = _tf.timezone_at(lat=loc.latitude, lng=loc.longitude)
-            if tz:
-                address = loc.raw.get("address", {})
-                country_code = address.get("country_code", "").upper()
-                results.append({
-                    "city": city_name.title(),
-                    "timezone": tz,
-                    "country_code": country_code,
-                    "flag": get_country_flag(country_code),
-                    "display_name": loc.address
-                })
-        
-        return results
-        
-    except (GeocoderTimedOut, GeocoderServiceError):
-        return []
 
 
 # Common timezones by UTC offset (for fallback)

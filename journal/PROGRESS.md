@@ -1,3 +1,9 @@
+## 2026-02-02 (session 2) — Robustness & Logging 🛡️
+- **Refactor**: Added missing exception logging in `geo.py`, `middleware.py`, and `storage.py`
+- **Docs**: Updated `09_logging.md` and `10_testing_strategy.md` specifications with error handling improvements
+- **Testing**: Added automated tests in `tests/test_exceptions_logging.py` for API and DB resilience
+- **Discussion**: Config reload strategy (theoretical discussion, decided current singleton is sufficient)
+
 ## 2026-02-02 (session 1) — Commands Refactoring 🏗️
 - **Refactor**: Decomposed monolithic `src/commands.py` into `src/commands/` package:
   - `settings.py`: `/tb_settz`, `/tb_mytz`
