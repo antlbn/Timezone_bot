@@ -1,4 +1,7 @@
-## 2026-02-03 (session 6) — Testing & Handlers 🏗️
+## 2026-02-03 (session) - docs and specs minor changes
+- **Docs**: Synchronize journal specifications and onboarding guide with the codebase
+
+## 2026-02-03 (session 6) — Testing & Handlers 
 - **Testing**: Implemented handler unit tests (`tests/test_handlers.py`) using mocks (L1.5 Layer).
 - **Docs**: Clarified Test DB independence in `HANDOVER.md` and `10_testing_strategy.md`.
 - **Docs**: Clarified Test DB independence in `HANDOVER.md` and `10_testing_strategy.md`.

@@ -36,9 +36,9 @@
 ## 4. Maintenance & Data Integrity
 Для обеспечения актуальности данных (защита от внезапных изменений часовых поясов правительством):
 
-* **Update Strategy**: 
-  * При старте бота: `update_tzdata()` в `main.py`  
-  * Background task: обновление каждые 7 дней (`TZDATA_UPDATE_INTERVAL`)
-* **Command**: `uv pip install --upgrade tzdata`
+* **Update Strategy**:
+  * **Manual Maintenance**: Обновление пакета `tzdata` через `uv lock --upgrade` при выходе новых версий IANA базы.
+  * (Future) Auto-update task - deferred.
+* **Command**: `uv sync --upgrade`
 * **Storage Policy**: В базе данных (SQLite) разрешено хранить только **IANA имена** (напр. `Europe/Moscow`). Хранение числовых смещений (напр. `+3`) строго запрещено.
 

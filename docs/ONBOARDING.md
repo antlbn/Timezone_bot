@@ -34,7 +34,6 @@ Requires Python 3.12+.
     ```bash
     uv sync
     ```
-    *(Or `pip install -r requirements.txt`)*
 
 2.  **Run**:
     ```bash

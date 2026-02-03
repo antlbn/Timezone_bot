@@ -34,7 +34,7 @@
 
 Команды разделены на три логических модуля:
 
-- **settings.py** — управление личными настройками (`/tb_settz`, `/tb_mytz`) и FSM `SetTimezone`.
+- **settings.py** — управление личными настройками (`/tb_settz`, `/tb_me`) и FSM `SetTimezone`.
 - **members.py** — управление списком участников чата (`/tb_members`, `/tb_remove`) и FSM `RemoveMember`.
 - **common.py** — общие функции (`/tb_help`), обработка упоминаний времени и системные события (`on_bot_kicked`).
 
@@ -48,7 +48,7 @@ User: /tb_help
 Bot:
 🕐 Timezone Bot Commands
 
-/tb_mytz   - your location
+/tb_me     - your location
 /tb_settz  - change TZ  
 /tb_members - members
 /tb_remove - remove

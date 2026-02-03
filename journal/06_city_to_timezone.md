@@ -46,8 +46,7 @@ Fallback Save Inline buttons
 ### Логика:
 
 1. **0 результатов** → Fallback (спросить системное время)
-2. **1 результат** → Сохраняем timezone, подтверждаем юзеру
-3. **>1 результат** → Показываем inline buttons с вариантами (max 5)
+2. **1+ результат** → MVP: Берем первый (Best Match), сохраняем timezone, подтверждаем юзеру. (Disambiguation — Future Scope).
 
 ---
 
