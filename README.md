@@ -101,6 +101,7 @@ This is a Minimum Viable Product release.
 - **geopy / timezonefinder** — geocoding pipeline
 - **PyYAML / python-dotenv** — configuration
 - **uv** — package management
+- **ruff** — linter & formatter
 
 ---
 

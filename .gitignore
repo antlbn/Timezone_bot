@@ -13,3 +13,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Specs to ignore
+docs/TEST.md

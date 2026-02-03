@@ -1,5 +1,4 @@
 """Tests for time capture module."""
-import pytest
 from src.capture import extract_times
 
 

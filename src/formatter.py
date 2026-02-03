@@ -3,7 +3,7 @@ Formatter module.
 Builds reply messages according to 07_response_format.md spec.
 """
 from src.config import get_bot_settings
-from src.transform import convert_time, format_time_with_offset, get_utc_offset, parse_time_string
+from src.transform import convert_time, get_utc_offset, parse_time_string
 
 
 

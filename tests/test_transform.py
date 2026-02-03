@@ -1,6 +1,4 @@
 """Tests for time transformation module."""
-import pytest
-from datetime import time
 from src.transform import parse_time_string, convert_time, get_utc_offset
 
 

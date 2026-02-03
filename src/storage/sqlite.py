@@ -1,7 +1,6 @@
 
 import aiosqlite
 from pathlib import Path
-from src.config import PROJECT_ROOT
 from src.logger import get_logger
 from src.storage.base import Storage
 from typing import List, Dict, Optional
@@ -58,7 +57,7 @@ class SQLiteStorage(Storage):
                 # Actually, duplicate IDs across platforms might be an issue if we don't migrate PK.
                 # For now, let's just add the column. 
                 logger.info("Migrated users table: added 'platform' column")
-            except Exception as e:
+            except Exception:
                 # Column likely exists
                 pass
 

@@ -1,6 +1,5 @@
 """Integration tests for storage module."""
 import pytest
-import aiosqlite
 import os
 from pathlib import Path
 from src.storage.sqlite import SQLiteStorage

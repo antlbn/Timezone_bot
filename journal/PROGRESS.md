@@ -1,5 +1,10 @@
 ## 2026-02-03 (session) - docs and specs minor changes
+- **Cleanup**: unused imports (`ruff`).
+- **Cleanup**: .gitignored few files
+
+## 2026-02-03 (session) - docs and specs minor changes
 - **Docs**: Synchronize journal specifications and onboarding guide with the codebase
+- **Cleanup**: Removed experimental auto-update logic (`update_tzdata`) from `main.py` and unused imports (`ruff`).
 
 ## 2026-02-03 (session 6) — Testing & Handlers 
 - **Testing**: Implemented handler unit tests (`tests/test_handlers.py`) using mocks (L1.5 Layer).

@@ -73,6 +73,7 @@
 | **Geocoding** | `geopy`, `timezonefinder` | City → Coords → Timezone |
 | **Config** | `PyYAML`, `python-dotenv` | Configuration management |
 | **Package Manager** | `uv` | Dependency & environment management |
+| **Linter** | `ruff` | Fast Python linter & formatter (replacing flake8/black) |
 
 ## High-level Configuration (Конфигурация и поведение)
 

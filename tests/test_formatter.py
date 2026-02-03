@@ -1,6 +1,5 @@
 """Tests for formatter module."""
-import pytest
-from src.formatter import normalize_time
+from src.formatter import normalize_time, format_conversion_reply
 
 
 class TestNormalizeTime:
@@ -59,7 +58,7 @@ class TestNormalizeTime:
         assert normalize_time("5 PM") == "17:00"
         assert normalize_time("5 pM") == "17:00"
 
-from src.formatter import format_conversion_reply
+
 
 class TestFormatConversionReply:
     """Test format_conversion_reply function."""
