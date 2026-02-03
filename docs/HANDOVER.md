@@ -29,6 +29,23 @@ To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
 ##  Design Patterns
 - **Singleton**: Used for `config`, `logger`, and `storage` (via `src/storage/__init__.py`). Ensures single point of truth and efficient connection reuse.
 
+## Known Limitations
+
+### Cooldown Tracking
+The bot tracks reply cooldown in-memory (`_last_reply` dict in `src/commands/common.py`):
+- Prevents spam in a single session
+-  **Does NOT persist** between bot restarts
+-  Not suitable for multi-instance deployments
+
+**Future improvement:** Move to Redis or database.
+
+### Database Caching
+Currently, the bot performs direct SQLite reads for every message to check member existence.
+-  Simple and consistent (ACID)
+-  Disk I/O heavy on high load
+
+**Future improvement:** Implement `In-Memory Caching (CachedDb)` to preload data.
+
 ##  Future Roadmap
 1.  **Multi-Platform**: Support Discord/WhatsApp.
 2.  **Inline Buttons**: Better disambiguation for cities.

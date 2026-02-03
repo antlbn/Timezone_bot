@@ -1,4 +1,5 @@
-# 01. Scope and MVP Specification
+# 01. Scope and MVP Specification  
+## Scope: Telegram MVP (с архитектурным заделом под мультиплатформенность)
 
 ## Основные принципы разработки
 - **MVP-first**: Убираем за скобки всё, что не является критически важным.
