@@ -15,22 +15,25 @@ from aiogram.types import Message, Chat, User
 def test_geo_timeout_logging(caplog):
     """Test that GeocoderTimedOut is caught and logged as warning."""
     with patch("src.geo._geolocator.geocode", side_effect=GeocoderTimedOut("Connection lost")):
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.ERROR):
             result = get_timezone_by_city("Lost City")
             
-            # Should return None (handled), not raise
-            assert result is None
+            # Should return error dict
+            assert isinstance(result, dict)
+            assert "error" in result
+            assert "Geocoding service unavailable" in result["error"]
             
-            # Should capture warning log
+            # Should capture error log
             assert "Geocoding error for 'Lost City'" in caplog.text
             assert "Connection lost" in caplog.text
 
 def test_geo_service_error_logging(caplog):
     """Test that GeocoderServiceError (500/503) is caught and logged."""
     with patch("src.geo._geolocator.geocode", side_effect=GeocoderServiceError("Service unavailable")):
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.ERROR):
             result = get_timezone_by_city("Berlin")
-            assert result is None
+            assert isinstance(result, dict)
+            assert "error" in result
             assert "Geocoding error for 'Berlin'" in caplog.text
 
 # ----------------------------------------------------------------------

@@ -1,8 +1,13 @@
-## 2026-02-03 (session) - docs and specs minor changes
+## 2026-02-03 (session 9)
+- **Fixes**: Address critical logic gaps based on code review:
+  - **Middleware**: Added full traceback logging (`exc_info=True`) for DB errors to prevent silent failures.
+  - **Logic**: Added validation for missing user timezone in `common.py` (self-healing flow).
+
+## 2026-02-03 (session 8) - docs and specs minor changes
 - **Cleanup**: unused imports (`ruff`).
 - **Cleanup**: .gitignored few files
 
-## 2026-02-03 (session) - docs and specs minor changes
+## 2026-02-03 (session 7) - docs and specs minor changes
 - **Docs**: Synchronize journal specifications and onboarding guide with the codebase
 - **Cleanup**: Removed experimental auto-update logic (`update_tzdata`) from `main.py` and unused imports (`ruff`).
 

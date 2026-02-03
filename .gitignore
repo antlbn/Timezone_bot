@@ -16,3 +16,6 @@ __pycache__/
 
 # Specs to ignore
 docs/TEST.md
+
+# AI Analysis
+ai_driven_analysis/

@@ -40,19 +40,24 @@ async def process_city(message: Message, state: FSMContext):
     data = await state.get_data()
     
     if data.get("user_id") != message.from_user.id:
+        await state.clear()
         return
     
     if not message.reply_to_message or message.reply_to_message.from_user.is_bot is False:
+        await state.clear()
         return
     
     city_name = message.text.strip()
     location = geo.get_timezone_by_city(city_name)
     
-    if not location:
+    if not location or "error" in location:
+        if location and "error" in location:
+            logger.warning(f"Geo error: {location['error']}")
+            
         # Trigger fallback: ask for time or city retry
         await state.set_state(SetTimezone.waiting_for_time)
         await message.reply(
-            f"City not found: {city_name}.\n"
+            f"Could not find '{city_name}' (or service error).\n"
             "Enter your current time (e.g. 14:30) or try another city:",
             reply_markup=ForceReply(selective=True)
         )
@@ -99,9 +104,11 @@ async def process_fallback_input(message: Message, state: FSMContext):
     data = await state.get_data()
     
     if data.get("user_id") != message.from_user.id:
+        await state.clear()
         return
     
     if not message.reply_to_message or message.reply_to_message.from_user.is_bot is False:
+        await state.clear()
         return
     
     user_input = (message.text or "").strip()
@@ -112,7 +119,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
     # First, try to geocode as city (user might retry with correct spelling)
     location = geo.get_timezone_by_city(user_input)
     
-    if location:
+    if location and "error" not in location:
         # City found! Save and proceed
         # Save to DB
         await storage.set_user(

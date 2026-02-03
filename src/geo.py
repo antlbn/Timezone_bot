@@ -58,8 +58,8 @@ def get_timezone_by_city(city_name: str) -> dict | None:
         }
         
     except (GeocoderTimedOut, GeocoderServiceError) as e:
-        logger.warning(f"Geocoding error for '{city_name}': {e}")
-        return None
+        logger.error(f"Geocoding error for '{city_name}': {e}")
+        return {"error": "Geocoding service unavailable", "details": str(e)}
 
 
 

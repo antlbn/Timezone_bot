@@ -26,6 +26,6 @@ class PassiveCollectionMiddleware(BaseMiddleware):
                     if user:
                         await storage.add_chat_member(event.chat.id, event.from_user.id, platform="telegram")
                 except Exception as e:
-                    logger.warning(f"Middleware storage error: {e}")
+                    logger.error(f"Middleware storage error: {e}", exc_info=True)
         
         return await handler(event, data)

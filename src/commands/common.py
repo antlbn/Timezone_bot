@@ -48,7 +48,10 @@ async def handle_time_mention(message: Message, state: FSMContext):
     
     sender = await storage.get_user(user_id, platform="telegram")
     
-    if not sender:
+    if not sender or not sender.get("timezone"):
+        if sender and not sender.get("timezone"):
+             logger.error(f"User {user_id} has no timezone data")
+
         await state.update_data(user_id=user_id, pending_time=times[0])
         await state.set_state(SetTimezone.waiting_for_city)
         await message.reply(f"{user_name}, what city are you in?", reply_markup=ForceReply(selective=True))
