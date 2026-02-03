@@ -58,3 +58,61 @@ class TestNormalizeTime:
         """AM/PM case insensitive."""
         assert normalize_time("5 PM") == "17:00"
         assert normalize_time("5 pM") == "17:00"
+
+from src.formatter import format_conversion_reply
+
+class TestFormatConversionReply:
+    """Test format_conversion_reply function."""
+
+    def test_single_user_no_groups(self):
+        """Test with no other members."""
+        reply = format_conversion_reply(
+            original_time="14:00",
+            sender_city="Berlin",
+            sender_tz="Europe/Berlin",
+            sender_flag="🇩🇪",
+            members=[],
+            sender_name="Alice"
+        )
+        assert "Alice: 14:00 Berlin 🇩🇪" in reply
+        assert "/tb_help" in reply
+        assert "|" not in reply
+
+    def test_multiple_timezones(self):
+        """Test with members in different timezones."""
+        members = [
+            {"city": "New York", "timezone": "America/New_York", "flag": "🇺🇸", "username": "bob"},
+            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"}
+        ]
+        
+        reply = format_conversion_reply(
+            original_time="14:00",
+            sender_city="Berlin",
+            sender_tz="Europe/Berlin",
+            sender_flag="🇩🇪",
+            members=members,
+            sender_name="Alice"
+        )
+        
+        # 14:00 Berlin -> 08:00 NY, 22:00 Tokyo
+        assert "Alice: 14:00 Berlin 🇩🇪" in reply
+        assert "08:00 New York 🇺🇸" in reply
+        assert "22:00 Tokyo 🇯🇵" in reply
+        assert "|" in reply
+
+    def test_day_offset(self):
+        """Test day shift indicator (+1)."""
+        # Berlin 23:00 -> Tokyo 07:00 next day
+        members = [
+            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"}
+        ]
+        
+        reply = format_conversion_reply(
+            original_time="23:00",
+            sender_city="Berlin",
+            sender_tz="Europe/Berlin",
+            sender_flag="🇩🇪",
+            members=members
+        )
+        
+        assert "07:00⁺¹ Tokyo 🇯🇵" in reply
