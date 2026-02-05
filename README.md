@@ -75,6 +75,7 @@ Telegram Group
 ## MVP Status
 
 This is a Minimum Viable Product release.
+**Scope:** Telegram only (Discord support planned for v0.2)
 
 **Current limitations:**
 - Platform: Telegram only

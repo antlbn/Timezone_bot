@@ -219,4 +219,115 @@ def init_db(db_path: str = "./data/bot.db"):
 - [x] ~~Нужен ли rate limiting для запросов к БД?~~ → Нет, SQLite справляется
 - [x] ~~Использовать async sqlite?~~ → Да, `aiosqlite` (см. Overview)
 - [x] ~~Максимум юзеров на чат?~~ → `display_limit_per_chat` в `configuration.yaml`
+- [ ] **In-Memory Caching** → Описано в секции 9
 
+---
+
+## 9. In-Memory Caching Layer (Future Enhancement)
+
+### 9.1 Motivation
+
+Текущая реализация обращается к SQLite при каждом запросе данных. Для высоконагруженных сценариев это может стать узким местом:
+
+| Операция | Текущее поведение | С кешированием |
+|----------|-------------------|----------------|
+| `get_user()` | Disk I/O каждый раз | Memory lookup (O(1)) |
+| `get_chat_members()` | JOIN query каждый раз | Memory lookup (O(1)) |
+| `set_user()` | Disk write | Memory + Disk write |
+
+> [!NOTE]
+> Это **опциональная оптимизация**. Для MVP текущая SQLite-реализация достаточна.
+
+---
+
+### 9.2 Architecture: CachedStorage Decorator
+
+Паттерн: **Decorator** поверх существующего интерфейса `Storage`.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Application Layer                       │
+│   (commands, handlers — обращаются к storage.get_user())    │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   CachedStorage (Singleton)                 │
+│  ┌──────────────────┐     ┌──────────────────────────────┐  │
+│  │  In-Memory Cache │     │  Delegated Storage (SQLite)  │  │
+│  │  ─────────────── │────▶│  ──────────────────────────  │  │
+│  │  users: Dict     │     │  Actual disk I/O             │  │
+│  │  chats: Dict     │     │  Source of truth             │  │
+│  └──────────────────┘     └──────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                       ┌─────────────┐
+                       │   SQLite    │
+                       │   bot.db    │
+                       └─────────────┘
+```
+
+---
+
+### 9.3 Data Flow
+
+**Startup:** При `init()` — читаем всех юзеров и чаты из БД в память.
+
+**Read (Cache-First):** Сначала ищем в `dict`, если нет — идём в БД и кешируем.
+
+**Write (Write-Through):** Сначала пишем в БД (source of truth), затем обновляем кеш.
+
+> [!IMPORTANT]
+> **Write-Through** гарантирует consistency: при crash данные не теряются.
+
+---
+
+### 9.4 Implementation
+
+**Новый файл:** `src/storage/cached.py` — класс `CachedStorage(Storage)` как decorator над `SQLiteStorage`.
+
+**Структуры данных:**
+- `_users: dict[(user_id, platform), user_data]`
+- `_chats: dict[(chat_id, platform), list[members]]`
+
+**Включение:** Флаг `storage.use_cache: true` в `configuration.yaml`.
+
+---
+
+### 9.5 Trade-offs
+
+| Aspect | Benefit | Cost |
+|--------|---------|------|
+| **Latency** | ✅ O(1) reads | — |
+| **Disk I/O** | ✅ Reduced | — |
+| **Memory** | — | ⚠️ All data in RAM |
+| **Cold Start** | — | ⚠️ Slower init |
+
+---
+
+### 9.6 Resolved Questions
+
+- [x] **Инвалидация кеша?** → Не нужна (single-instance + write-through)
+- [x] **TTL?** → Не нужен (данные меняются только через наш код)
+- [x] **Метрики hit/miss?** → Достаточно unit-тестов
+
+---
+
+### 9.7 Out of Scope
+
+| Технология | Почему не применимо |
+|------------|---------------------|
+| **Read Replicas** | SQLite не поддерживает |
+| **Connection Pooling** | SQLite = single-writer |
+| **Redis** | Overkill для single-instance |
+| **LRU Eviction** | Весь датасет ~50KB |
+
+---
+
+## 10. Future Considerations
+
+> [!NOTE]
+> Реализована стандартная SQLite версия. Раздел 9 — готовая архитектура для будущей оптимизации.
+
+- **In-Memory Caching**: Включается через `storage.use_cache: true`

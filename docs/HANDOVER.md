@@ -36,6 +36,8 @@ The bot tracks reply cooldown in-memory (`_last_reply` dict in `src/commands/com
 - Prevents spam in a single session
 -  **Does NOT persist** between bot restarts
 -  Not suitable for multi-instance deployments
+- "Silent users" (lurkers) will not be included in the conversion list.
+
 
 **Future improvement:** Move to Redis or database.
 
@@ -43,6 +45,12 @@ The bot tracks reply cooldown in-memory (`_last_reply` dict in `src/commands/com
 Currently, the bot performs direct SQLite reads for every message to check member existence.
 -  Simple and consistent (ACID)
 -  Disk I/O heavy on high load
+-  The architecture is ready and described in [05_storage.md (Section 9)](../journal/05_storage.md#9-in-memory-caching-layer-future-enhancement).
+***Implementation decision deferred***
+
+
+
+
 
 **Future improvement:** Implement `In-Memory Caching (CachedDb)` to preload data.
 
