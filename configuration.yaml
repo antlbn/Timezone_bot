@@ -30,4 +30,9 @@ capture:
     # 12h format without minutes (e.g. 5 pm, 10AM)
     - '\b((1[0-2]|0?[1-9])\s?([AaPp][Mm]))\b'
 
+# Platform Settings
+telegram:
+  enabled: true
 
+discord:
+  enabled: true

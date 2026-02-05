@@ -1,3 +1,37 @@
+
+## 2026-02-05 (session 3) - Discord Integration Research
+- **Research**: Analyzed Discord member discovery logic. Unlike Telegram, Discord allows fetching the full member list; evaluating whether to pre-fetch users or maintain reactive registration.
+- **Q&A**:
+  - Implementation of `force_reply` equivalents and interactive commands in Discord.
+  - Risks and benefits of a unified runner for both Telegram and Discord.
+  - Logging strategy: balancing unified output with platform-specific debugging needs.
+  - Identifying architectural gaps between platform adapters.
+
+
+- **Code**: Implemented Discord adapter (`src/discord/`), slash commands, event handlers
+- **Code**: Created unified launcher (`src/unified_main.py`) — runs both bots via `asyncio.gather()`
+- **Updated**: `run.sh`, `configuration.yaml`, `env.example`, `pyproject.toml`
+
+### Thoughts — Member Collection Logic
+Discord's user capture logic is different — the entire member list can be retrieved at once (via `guild.members`).
+
+**Decision**: Keep it lazy (consistent with Telegram) — simpler, uniform architecture, and minimizes database load.
+
+### Gaps Between Adapters
+- **FSM states**: Discord does not use FSM (parameters are passed directly in slash commands).
+- **Cooldown**: Not implemented for Discord (not required for now).
+- **Fallback flow**: Discord lacks time-based fallback — only city via parameter.
+
+- **Next Steps**: 
+- Resolve open questions, review specifications, and prototype the dual-platform runner.
+- [ ] **⚠️ IMPORTANT**: Add signal handler (SIGINT/SIGTERM) to `unified_main.py` for graceful shutdown
+  - Current issue: Bot hangs on Ctrl+C because `asyncio.gather()` waits indefinitely for both tasks
+  - Discord bot may not close connections properly, causing process to stay in `S+` state
+  - Need: Signal handler with timeout to force-stop tasks if graceful shutdown fails
+- [ ] Experiment with Discord buttons (optional)
+- Tests
+
+
 ## 2026-02-05 (session 2) - Discord introducing
 - **Docs**: Spec draft for Discord, minor changes in Scope_and_MVP
 
