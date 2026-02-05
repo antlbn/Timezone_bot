@@ -1,4 +1,10 @@
 
+## 2026-02-05 (session 4) - Stability & Cleanup
+- **investigation issue** - Bot hangs on Ctrl+C, and didn't stop properly.
+- **Fixed**: `run.sh` now reliably kills both bots on a single Ctrl+C.
+- **Next Steps**: 
+  Fallback for city-input issue : ask user to input system time - to determine timezone
+
 ## 2026-02-05 (session 3) - Discord Integration Research
 - **Research**: Analyzed Discord member discovery logic. Unlike Telegram, Discord allows fetching the full member list; evaluating whether to pre-fetch users or maintain reactive registration.
 - **Q&A**:

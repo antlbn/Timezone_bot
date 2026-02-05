@@ -75,10 +75,9 @@ Telegram Group
 ## MVP Status
 
 This is a Minimum Viable Product release.
-**Scope:** Telegram only (Discord support planned for v0.2)
+**Scope:** Telegram + Discord (both platforms supported)
 
 **Current limitations:**
-- Platform: Telegram only
 - Detection: Regex-based; may miss complex natural language expressions (e.g., "quarter past five")
 - Storage: SQLite (lightweight, no external dependencies)
 
@@ -87,7 +86,6 @@ This is a Minimum Viable Product release.
 ## Roadmap
 
 **Planned improvements:**
-- Discord support via platform adapter
 - Fuzzy city detection using Levenshtein distance (rapidfuzz) to handle typos
 - Global error handling with Sentry integration
 
@@ -97,6 +95,7 @@ This is a Minimum Viable Product release.
 
 - **Python 3.12+** — runtime
 - **aiogram** — async Telegram Bot API
+- **discord.py** — async Discord Bot API
 - **aiosqlite** — async SQLite interface
 - **zoneinfo / tzdata** — IANA timezone database
 - **geopy / timezonefinder** — geocoding pipeline

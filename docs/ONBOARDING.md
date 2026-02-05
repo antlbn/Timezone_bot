@@ -17,11 +17,22 @@ cd Timezone_bot
     3.  **Copy the API Token** provided by BotFather.
     4.  **Configure Privacy** (Critical):
         *   Send `/mybots` -> Select Bot -> `Bot Settings` -> `Group Privacy` -> **Turn off**.
+
+2.  **Discord Bot Setup** (optional):
+    1.  [Discord Developer Portal](https://discord.com/developers/applications) → New Application → Bot → Copy **Token**.
+    2.  **Privileged Gateway Intents** (scroll down in Bot section):
+        - ✅ Server Members Intent
+        - ✅ Message Content Intent
+        - Save Changes.
+    3.  **OAuth2 → URL Generator**:
+        - Scopes: `bot`, `applications.commands`
+        - Permissions: `Send Messages`, `Read Message History`, `Use Slash Commands`
+        - Copy Generated URL → open in browser → select server.
     
-2.  **Environment**:
+3.  **Environment**:
     ```bash
     cp env.example .env
-    # Edit .env and paste TELEGRAM_BOT_TOKEN
+    # Edit .env and paste TELEGRAM_TOKEN and/or DISCORD_TOKEN
     ```
 
 ---
@@ -35,9 +46,15 @@ Requires Python 3.12+.
     uv sync
     ```
 
-2.  **Run**:
+2.  **Run** (both Telegram and Discord bots together):
     ```bash
     ./run.sh
+    ```
+    
+    Or run separately:
+    ```bash
+    uv run python -m src.main           # Telegram only
+    uv run python -m src.discord_main   # Discord only
     ```
 
 ---
