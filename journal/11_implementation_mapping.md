@@ -16,10 +16,12 @@
 | `05_storage.md` | `src/storage/` | **Package**: SQLite operations (Abstract + Impl) |
 | `06_city_to_timezone.md` | `src/geo.py` | Nominatim + TimezoneFinder |
 | `07_response_format.md` | `src/formatter.py` | Build reply string |
-| `08_telegram_commands.md` | `src/commands/` | **Package**: All Telegram handling logic |
+| `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram adapter |
 | `09_logging.md` | `src/logger.py` | Logging setup |
+| `12_discord_integration.md` | `src/discord/` | **[PLANNED]** Discord adapter |
 | — | `src/config.py` | Load yaml + .env |
-| — | `src/main.py` | Entry point |
+| — | `src/main.py` | Telegram entry point |
+| — | `src/discord_main.py` | **[PLANNED]** Discord entry point |
 
 ---
 
@@ -34,22 +36,27 @@ config.py → logger.py → src/storage/ → capture.py → transform.py → geo
 ```
 Timezone_bot/
 ├── src/
-│   ├── commands/        # TELEGRAM ADAPTER (Cohesive Module)
+│   ├── commands/        # TELEGRAM ADAPTER
 │   │   ├── __init__.py  # Exposes the main router
 │   │   ├── common.py    # /tb_help, Mentions, Kick event
 │   │   ├── members.py   # /tb_members, /tb_remove
 │   │   ├── settings.py  # /tb_settz, /tb_me
 │   │   ├── states.py    # FSM Classes (SetTimezone, RemoveMember)
-│   │   └── middleware.py # Middleware specific to this bot
-│   ├── main.py
+│   │   └── middleware.py
+│   ├── discord/         # [PLANNED] DISCORD ADAPTER  
+│   │   ├── __init__.py  # Bot instance, intents
+│   │   ├── commands.py  # Slash command handlers
+│   │   └── events.py    # Message & member events
+│   ├── main.py          # Telegram entry
+│   ├── discord_main.py  # [PLANNED] Discord entry
 │   ├── config.py
 │   ├── logger.py
 │   ├── capture.py
 │   ├── transform.py
-│   ├── storage/         # Storage Package
-│   │   ├── __init__.py  # Singleton export
-│   │   ├── base.py      # Abstract Interface
-│   │   └── sqlite.py    # Implementation
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   └── sqlite.py
 │   ├── geo.py
 │   └── formatter.py
 ├── tests/

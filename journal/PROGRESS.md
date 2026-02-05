@@ -1,3 +1,10 @@
+## 2026-02-05 (session 2) - Discord introducing
+- **Docs**: Spec draft for Discord, minor changes in Scope_and_MVP
+
+## 2026-02-05 (session 1)
+- **Docs**: Updated `storage.md` and `HANDOVER.md` with future DB caching architecture.
+- **Decision**: Implementation deferred (YAGNI) to maintain simplicity; specifications are documented for future.
+
 ## 2026-02-03 (session 11)
 - **Refactor**: Eliminated duplicated code in `settings.py` by extracting logic into a helper function (adhering to the DRY principle).
 
