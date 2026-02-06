@@ -1,3 +1,6 @@
+## 2026-02-06 (session 6)
+- **Docs**: Сhanges in specifications and documentation. scope_and_MVP.md, HANDOVER.md
+- 
 
 ## 2026-02-06 (session 6)
 - **Logic**: Configured buttons in Discord; testing confirmed this is more intuitive.
