@@ -2,8 +2,8 @@
 
 ## 1. Overview
 
-Модуль для определения IANA timezone по названию города.
-Использует геокодинг (Nominatim/OSM) + TimezoneFinder.
+Module for determining IANA timezone by city name.
+Uses geocoding (Nominatim/OSM) + TimezoneFinder.
 
 ---
 
@@ -12,11 +12,11 @@
 | Library | Purpose |
 |---------|---------|
 | `geopy` | Geocoding (OpenStreetMap Nominatim) |
-| `timezonefinder` | Координаты → IANA timezone |
+| `timezonefinder` | Coordinates → IANA timezone |
 
 ### Country Flags
 
-Nominatim возвращает `country_code` (DE, US, JP). Маппинг в emoji:
+Nominatim returns `country_code` (DE, US, JP). Mapping to emoji:
 
 ```python
 def get_country_flag(country_code: str) -> str:
@@ -30,39 +30,39 @@ def get_country_flag(country_code: str) -> str:
 
 
 ```
-Юзер вводит город
+User enters city
        │
        ▼
    Geocoding
        │
    ┌───┴───┐
    ▼   ▼   ▼
-   0   1   >1  результатов
+   0   1   >1  results
    │   │    │
    ▼   ▼    ▼
 Fallback Save Inline buttons
 ```
 
-### Логика:
+### Logic:
 
-1. **0 результатов** → Fallback (спросить системное время)
-2. **1+ результат** → MVP: Берем первый (Best Match), сохраняем timezone, подтверждаем юзеру. (Disambiguation — Future Scope).
+1. **0 results** → Fallback (ask for system time)
+2. **1+ results** → MVP: Take the first (Best Match), save timezone, confirm to user. (Disambiguation — Future Scope).
 
 ---
 
 ## 4. Disambiguation (Inline Buttons)
 
-Если найдено несколько городов с одинаковым названием:
+If multiple cities with the same name are found:
 
 ```
-🌍 Нашёл несколько вариантов для "Paris":
+🌍 Found multiple options for "Paris":
 
 [Paris, France 🇫🇷]  [Paris, Texas, USA 🇺🇸]
 ```
 
 
-- Юзер нажимает кнопку → сохраняем выбранный timezone
-- Callback data формат: `tz:Europe/Moscow`
+- User clicks button → save selected timezone
+- Callback data format: `tz:Europe/Moscow`
 
 ---
 
@@ -80,11 +80,11 @@ If city is not found:
 
 ## 6. Rate Limiting
 
-Nominatim требует:
+Nominatim requires:
 - Max 1 request/second
-- Обязательный User-Agent
+- Mandatory User-Agent
 
-Использовать `RateLimiter` из geopy.
+Use `RateLimiter` from geopy.
 
 ---
 
@@ -92,21 +92,21 @@ Nominatim требует:
 
 | Case | Handling |
 |------|----------|
-| Typo в названии | Nominatim часто находит fuzzy match |
-| Город на разных языках | Nominatim multilingual |
-| Пустой ввод | Повторить вопрос |
-| В fallback к времени - время '14:00' срабатыволо как топоним | fallback -> проверяем REGEX, затем geocoding
+| Typo in name | Nominatim often finds fuzzy match |
+| City in different languages | Nominatim is multilingual |
+| Empty input | Repeat the question |
+| Fallback time '14:00' matched as toponym | fallback -> check REGEX first, then geocoding |
 ---
 
 ## 8. Out of Scope (MVP)
 
-- **Inline buttons disambiguation** — при >1 результате берём первый
-- **RateLimiter** — Nominatim timeout=5s достаточен для MVP
-- **`get_multiple_locations()`** — функция есть, но не используется
+- **Inline buttons disambiguation** — when >1 result, take the first
+- **RateLimiter** — Nominatim timeout=5s is sufficient for MVP
+- **`get_multiple_locations()`** — function exists but not used
 
 ---
 
 ## 9. Future Improvements
 
-- [ ] Распознавание IANA timezone напрямую (`Europe/Berlin`) — для продвинутых юзеров
-- [ ] Inline buttons для выбора из нескольких городов (впринципе еслинаписать Paris, TEXAS, - верно определяет)
+- [ ] Direct IANA timezone recognition (`Europe/Berlin`) — for advanced users
+- [ ] Inline buttons for selecting from multiple cities (though writing "Paris, TEXAS" already works correctly)

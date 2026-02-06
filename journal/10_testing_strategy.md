@@ -1,10 +1,10 @@
 # Technical Spec: Testing Strategy
 
 ## 1. Philosophy (MVP)
-Мы придерживаемся **Прагматичного подхода**:
-1.  **Logic First**: Автоматически тестируем только сложную бизнес-логику (Regex, математика времени).
-2.  **Manual UI**: Взаимодействие с Telegram (кнопки, команды) тестируем руками
-3.  **Zero External Deps**: Используем стандартную библиотеку `unittest` (или простой `pytest` без сложных плагинов).
+We follow a **Pragmatic approach**:
+1.  **Logic First**: Automatically test only complex business logic (Regex, time math).
+2.  **Manual UI**: Test Telegram interactions (buttons, commands) manually.
+3.  **Zero External Deps**: Use standard library `unittest` (or simple `pytest` without complex plugins).
 
 ---
 
@@ -22,24 +22,24 @@
 
 ## 3. Automated Logic Tests (L1)
 
-Эти тесты должны запускаться перед каждым коммитом.
+These tests should run before every commit.
 
 ### Scope:
 1.  **Capture Patterns**:
-    -   Проверка всех примеров из `configuration.yaml`
-    -   Edge cases (нет времени, мусор, "цена 500")
+    -   Check all examples from `configuration.yaml`
+    -   Edge cases (no time, garbage, "price 500")
 2.  **Transformation Logic**:
-    -   Конвертация UTC → Target TZ
-    -   Обработка смены дня (Day +1 / -1)
-    -   Форматирование строки ответа
+    -   UTC → Target TZ conversion
+    -   Day change handling (Day +1 / -1)
+    -   Response string formatting
 3.  **Resilience (L2)**:
-    -   Обработка ошибок API (Geo timeout)
-    -   Устойчивость базы данных (Middleware catch)
-    -   Парсинг мусорных данных
+    -   API error handling (Geo timeout)
+    -   Database stability (Middleware catch)
+    -   Garbage data parsing
 4.  **Handlers (L1.5)**:
-    -   Unit-тесты команд (`cmd_me`, `cmd_settz`)
-    -   Mocking `aiogram.types.Message` и `storage`
-    -   Проверка вызова `message.answer` с ожидаемым текстом
+    -   Unit tests for commands (`cmd_me`, `cmd_settz`)
+    -   Mocking `aiogram.types.Message` and `storage`
+    -   Verify `message.answer` is called with expected text
 
 ### Location:
 - `tests/test_capture.py` — Regex patterns
@@ -56,27 +56,27 @@
 
 ## 4. Manual Verification Logic (L2 & L3)
 
-Для проверки интеграций и UI используем чек-лист (`task.md` Phase 4).
+For integration and UI verification, use a checklist (`task.md` Phase 4).
 
-**Ключевые сценарии:**
-1.  **Startup**: Бот запускается, БД создается.
-2.  **New User Flow**: `/tb_settz` → ввод города → сохранение.
+**Key scenarios:**
+1.  **Startup**: Bot starts, DB is created.
+2.  **New User Flow**: `/tb_settz` → enter city → save.
 3.  **Group Chat**:
-    -   Юзер А (Berlin) пишет "15:00"
-    -   Юзер Б (NY) видит "09:00 New York"
-4.  **Error Handling**: Ввод несуществующего города (должен быть fallback).
+    -   User A (Berlin) writes "15:00"
+    -   User B (NY) sees "09:00 New York"
+4.  **Error Handling**: Enter non-existent city (fallback should work).
 
 ---
 
 ## 5. Continuous Integration (Future)
-В будущем (Post-MVP) добавить GitHub Actions:
+In the future (Post-MVP) add GitHub Actions:
 - Linting (`ruff`)
 - Running tests (`python -m unittest discover tests`)
 
 ---
 
-## 6. База данных в тестах
-**Важно:** Для запуска тестов **не нужен** файл `data/bot.db`.
-- **L1.5 (Handlers)**: Используют `unittest.mock` (вообще не трогают диск).
-- **L2 (Integration)**: Тесты `test_storage.py` автоматически создают и удаляют **временный файл БД** (`tests/test_bot.db`).
-Это гарантирует, что тесты можно запускать на чистой машине сразу после `git clone`.
+## 6. Database in Tests
+**Important:** Running tests does **not require** the `data/bot.db` file.
+- **L1.5 (Handlers)**: Use `unittest.mock` (don't touch disk at all).
+- **L2 (Integration)**: Tests in `test_storage.py` automatically create and delete a **temporary DB file** (`tests/test_bot.db`).
+This guarantees that tests can run on a clean machine right after `git clone`.

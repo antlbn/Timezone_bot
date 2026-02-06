@@ -1,9 +1,9 @@
 # Implementation Mapping: Specs → Code
 
 ## Philosophy
-- **1 Spec ≈ 1 Module** — легко найти код по спеку и наоборот
-- **Clean Root** — в корне `src/` только общая бизнес-логика
-- **High Cohesion** — всё, что касается Telegram-бота, лежит внутри `src/commands/` (это наш адаптер)
+- **1 Spec ≈ 1 Module** — easy to find code by spec and vice versa
+- **Clean Root** — only shared business logic in `src/` root
+- **High Cohesion** — everything related to Telegram bot lives inside `src/commands/` (our adapter)
 
 ---
 

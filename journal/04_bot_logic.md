@@ -48,41 +48,41 @@ This ensures reliability and follows standard practices for handling:
 ## 2. Core Workflow
 
 ### Trigger
-Бот слушает все сообщения в чатах и проверяет на срабатывание capture module (обнаружение времени).
+Bot listens to all messages in chats and checks for capture module triggers (time detection).
 
-### Flow: Happy Path (юзер в БД)
+### Flow: Happy Path (user exists in DB)
 
 ```
-1. [TRIGGER]     → Capture module находит время в сообщении
-2. [LOOKUP]      → Проверка sender_id в SQLite
-3. [FOUND]       → Получаем timezone отправителя
-4. [SCAN]        → Получаем список других юзеров чата из БД
-5. [TRANSFORM]   → Вызов TTM для конвертации во все зоны
-6. [REPLY]       → Бот реплеит:
+1. [TRIGGER]     → Capture module finds time in message
+2. [LOOKUP]      → Check sender_id in SQLite
+3. [FOUND]       → Get sender's timezone
+4. [SCAN]        → Get list of other chat users from DB
+5. [TRANSFORM]   → Call TTM to convert to all zones
+6. [REPLY]       → Bot replies:
                    "14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵"
 ```
 
 
-### Flow: New User (юзера нет в БД)
+### Flow: New User (user not in DB)
 
 ```
-1. [TRIGGER]     → Capture module находит время
-2. [LOOKUP]      → Проверка sender_id в SQLite
-3. [NOT FOUND]   → Юзер отсутствует в БД
-4. [SAVE TIME]   → Сохраняем pending_time в FSM state
-5. [ASK CITY]    → Бот спрашивает: "Reply with your city name:"
-6. [PARSE]       → Попытка определить timezone по городу
+1. [TRIGGER]     → Capture module finds time
+2. [LOOKUP]      → Check sender_id in SQLite
+3. [NOT FOUND]   → User not in DB
+4. [SAVE TIME]   → Save pending_time in FSM state
+5. [ASK CITY]    → Bot asks: "Reply with your city name:"
+6. [PARSE]       → Attempt to determine timezone by city
    │
-   ├─ [SUCCESS]  → Сохраняем в SQLite
+   ├─ [SUCCESS]  → Save to SQLite
    │              → "Set: Berlin 🇩🇪"
-   │              → Используем pending_time для конвертации
+   │              → Use pending_time for conversion
    │              → "Anton: 15:00 Berlin 🇩🇪 | 09:00 New York 🇺🇸"
    │
    └─ [FAIL]     → "City not found. Reply with your current time (e.g. 14:30)
                     or try another city name:"
-                 → Юзер отвечает:
-                    ├─ [TIME]  → Вычисляем offset, сохраняем UTC+X
-                    └─ [CITY]  → Повторяем geocoding
+                 → User replies:
+                    ├─ [TIME]  → Calculate offset, save UTC+X
+                    └─ [CITY]  → Repeat geocoding
 ```
 
 #### Sequence Diagram: New User Flow
@@ -141,8 +141,5 @@ sequenceDiagram
 
 ## 3. Resolved Questions
 
-- [x] ~~Rate limiting для ответов бота?~~ → `cooldown_seconds` в конфиге (default: 0 = off)
-- [x] ~~Приватные чаты vs групповые?~~ → Только групповые. Приватные не нужны.
-
-
-
+- [x] ~~Rate limiting for bot responses?~~ → `cooldown_seconds` in config (default: 0 = off)
+- [x] ~~Private chats vs group chats?~~ → Group only. Private not needed.

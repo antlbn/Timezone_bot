@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Расширение бота для поддержки Discord серверов. Используется **discord.py** — async библиотека с поддержкой slash commands.
+Bot extension to support Discord servers. Uses **discord.py** — async library with slash commands support.
 
 ### Architecture: Parallel Adapters
 
@@ -29,7 +29,7 @@
          └───────────────────────┘
 ```
 
-**Принцип:** Platform adapters (Telegram/Discord) — тонкие слои. Вся логика в shared core.
+**Principle:** Platform adapters (Telegram/Discord) — thin layers. All logic in shared core.
 
 ---
 
@@ -55,15 +55,15 @@
 
 ### Button-Based Timezone Flow
 
-В Discord вместо текстовых ответов используются интерактивные элементы:
+In Discord, interactive elements are used instead of text responses:
 
-1. **Незарегистрированный пользователь** упоминает время → бот отвечает сообщением с кнопкой **"Set Timezone"**.
-2. **Кнопка защищена** — только целевой пользователь может её нажать (другие получат "This button is not for you!").
-3. **Нажатие** открывает модальное окно (форму) для ввода города.
-4. **Если город не найден** — появляются две кнопки: "Try Again" и "Enter Time" (ручной ввод времени).
+1. **Unregistered user** mentions time → bot responds with a message containing **"Set Timezone"** button.
+2. **Button is protected** — only the target user can click it (others get "This button is not for you!").
+3. **Click** opens a modal window (form) for entering city.
+4. **If city not found** — two buttons appear: "Try Again" and "Enter Time" (manual time input).
 
 > [!IMPORTANT]
-> Под капотом используется та же функция `geo.resolve_timezone_from_input()` что и в Telegram.
+> Under the hood, the same function `geo.resolve_timezone_from_input()` is used as in Telegram.
 
 ---
 
@@ -77,13 +77,13 @@
 | `/tb_help` | Help message |
 
 > [!NOTE]
-> `/tb_remove` **отсутствует** в Discord — не нужна благодаря автоочистке.
+> `/tb_remove` is **absent** in Discord — not needed thanks to auto-cleanup.
 
 ### Auto-Cleanup of Stale Members
 
-При каждом упоминании времени бот проверяет, находятся ли пользователи из БД ещё на сервере:
-- Если пользователь покинул сервер (пока бот был выключен) — он автоматически удаляется из списка.
-- Это решает проблему "зависших" пользователей без ручного вмешательства.
+On each time mention, bot checks if users from DB are still on the server:
+- If user left the server (while bot was offline) — they are automatically removed from the list.
+- This solves the problem of "stuck" users without manual intervention.
 
 ```python
 # events.py - auto-cleanup logic
@@ -118,7 +118,7 @@ DISCORD_TOKEN=...    # If set, Discord bot starts
 - Token present → Bot starts
 - Token missing → Skip with warning (no crash)
 
-Такой подход позволяет запускать только нужных ботов — достаточно указать или убрать токен.
+This approach allows running only needed bots — just set or remove the token.
 
 ---
 

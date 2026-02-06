@@ -2,8 +2,8 @@
 
 ## 1. Overview
 
-Команды бота для управления настройками и участниками чата.
-В каждом ответе бота внизу отображается текст `/tb_help`.
+Bot commands for managing settings and chat members.
+Each bot response displays `/tb_help` text at the bottom.
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## 3. Response Footer
 
-Каждый ответ бота заканчивается строкой:
+Each bot response ends with the line:
 
 ```
 14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵
@@ -32,11 +32,11 @@
 
 ## 4. Command Flows
 
-Команды разделены на три логических модуля:
+Commands are divided into three logical modules:
 
-- **settings.py** — управление личными настройками (`/tb_settz`, `/tb_me`) и FSM `SetTimezone`.
-- **members.py** — управление списком участников чата (`/tb_members`, `/tb_remove`) и FSM `RemoveMember`.
-- **common.py** — общие функции (`/tb_help`), обработка упоминаний времени и системные события (`on_bot_kicked`).
+- **settings.py** — personal settings management (`/tb_settz`, `/tb_me`) and FSM `SetTimezone`.
+- **members.py** — chat member list management (`/tb_members`, `/tb_remove`) and FSM `RemoveMember`.
+- **common.py** — common functions (`/tb_help`), time mention handling and system events (`on_bot_kicked`).
 
 
 
@@ -105,11 +105,11 @@ Bot: "Removed @bob from chat list"
 ## 5. Technical Organization
 
 
-Для чистоты кода и разделения ответственности вводятся вспомогательные модули:
-- **src/middleware.py**: Содержит логику, влияющую на все входящие сообщения (сбор участников).
-- **src/states.py**: Содержит классы состояний (FSM) для сценариев настройки и удаления.
+For code clarity and separation of concerns, helper modules are introduced:
+- **src/middleware.py**: Contains logic affecting all incoming messages (member collection).
+- **src/states.py**: Contains state classes (FSM) for setup and removal scenarios.
 
-- команды разбиты на три файла в каталоге src/commands
+- Commands are split into three files in the src/commands directory
 
 ## 6. Permissions
 

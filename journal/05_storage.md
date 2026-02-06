@@ -2,14 +2,14 @@
 
 ## 1. Overview
 
-Модуль хранения данных о пользователях и их принадлежности к чатам.
-Используем **aiosqlite** (async SQLite) — быстро, надёжно, совместимо с aiogram.
+Data storage module for users and their chat membership.
+Using **aiosqlite** (async SQLite) — fast, reliable, compatible with aiogram.
 
 > [!NOTE]
-> **UPDATE 2026-02-03**: Модуль рефакторинг в пакет `src/storage/`.
-> Добавлена поддержка мульти-платформенности (Telegram/Discord) через колонку `platform`. (на будующее)
+> **UPDATE 2026-02-03**: Module refactored into package `src/storage/`.
+> Added multi-platform support (Telegram/Discord) via `platform` column.
 
-**Файл БД:** `./data/bot.db`
+**DB File:** `./data/bot.db`
 
 ```
 ┌─────────────────────┐         ┌─────────────────────┐
@@ -31,17 +31,17 @@
 ## 2. Schema
 
 
-### 2.1 Таблица `users`
+### 2.1 Table `users`
 
-Хранит информацию о юзерах и их таймзонах.
+Stores user information and their timezones.
 
 ```sql
 CREATE TABLE users (
     user_id     INTEGER,               -- Platform-specific user ID
     platform    TEXT DEFAULT 'telegram', -- 'telegram', 'discord'
-    username    TEXT,                  -- @username (может быть NULL)
+    username    TEXT,                  -- @username (can be NULL)
     timezone    TEXT NOT NULL,         -- IANA name: 'Europe/Berlin'
-    city        TEXT,                  -- Город для отображения: 'Berlin'
+    city        TEXT,                  -- City for display: 'Berlin'
     flag        TEXT DEFAULT '',       -- Flag emoji
     created_at  TEXT DEFAULT (datetime('now')),
     updated_at  TEXT DEFAULT (datetime('now')),
@@ -49,9 +49,9 @@ CREATE TABLE users (
 );
 ```
 
-### 2.2 Таблица `chat_members`
+### 2.2 Table `chat_members`
 
-Связь many-to-many: какие юзеры в каких чатах.
+Many-to-many relationship: which users are in which chats.
 
 ```sql
 CREATE TABLE chat_members (
@@ -72,11 +72,11 @@ CREATE INDEX idx_chat_members_chat ON chat_members(chat_id, platform);
 
 | Rule | Description |
 |------|-------------|
-| **IANA Only** | Timezone хранится ТОЛЬКО как IANA name (`Europe/Moscow`). Числовые offset (`+3`) запрещены. |
-| **No History** | При смене timezone — просто UPDATE, историю не храним. |
-| **Passive Collection** | Бот накапливает юзеров по мере чтения сообщений в чате. |
-| **Exit Listening** | Если юзер вышел из чата — удаляем запись из `chat_members`. |
-| **Display Limit** | Максимум юзеров в ответе — задаётся в `configuration.yaml`. |
+| **IANA Only** | Timezone is stored ONLY as IANA name (`Europe/Moscow`). Numeric offsets (`+3`) are prohibited. |
+| **No History** | When changing timezone — just UPDATE, no history stored. |
+| **Passive Collection** | Bot accumulates users as it reads messages in the chat. |
+| **Exit Listening** | If user left the chat — delete record from `chat_members`. |
+| **Display Limit** | Maximum users in response — set in `configuration.yaml`. |
 
 ---
 
@@ -85,26 +85,26 @@ CREATE INDEX idx_chat_members_chat ON chat_members(chat_id, platform);
 ### 4.1 Users
 
 ```python
-# Получить timezone юзера
+# Get user timezone
 get_user(user_id: int, platform: str) -> dict | None
 
-# Создать/обновить юзера
+# Create/update user
 set_user(user_id: int, city: str, timezone: str, flag: str, username: str, platform: str) -> None
 ```
 
 ### 4.2 Chat Members
 
 ```python
-# Получить всех юзеров чата (с их timezone)
+# Get all chat users (with their timezone)
 get_chat_members(chat_id: int, platform: str) -> list[dict]
 
-# Добавить юзера в чат
+# Add user to chat
 add_chat_member(chat_id: int, user_id: int, platform: str) -> None
 
-# Удалить юзера из чата (вышел/кикнут)
+# Remove user from chat (left/kicked)
 remove_chat_member(chat_id: int, user_id: int, platform: str) -> None
 
-# Очистить чат
+# Clear chat
 clear_chat_members(chat_id: int, platform: str) -> None
 ```
 
@@ -112,18 +112,18 @@ clear_chat_members(chat_id: int, platform: str) -> None
 
 ## 5. Member Tracking Strategy
 
-### Принцип: Passive Collection + Exit Listening
+### Principle: Passive Collection + Exit Listening
 
-Бот **НЕ требует прав админа** и не может получить полный список участников чата.
-Вместо этого — накапливает базу постепенно.
+Bot **does NOT require admin rights** and cannot get the full list of chat participants.
+Instead — it accumulates the database gradually.
 
-### События для отслеживания:
+### Events to Track:
 
 | Event | Action |
 |-------|--------|
-| Любое сообщение в чате | `add_chat_member(chat_id, user_id)` если юзера нет |
-| `ChatMemberUpdated` (юзер left/kicked) | `remove_chat_member(chat_id, user_id)` |
-| `ChatMemberUpdated` (бот кикнут) | `clear_chat_members(chat_id)` — забываем про чат |
+| Any message in chat | `add_chat_member(chat_id, user_id)` if user not present |
+| `ChatMemberUpdated` (user left/kicked) | `remove_chat_member(chat_id, user_id)` |
+| `ChatMemberUpdated` (bot kicked) | `clear_chat_members(chat_id)` — forget the chat |
 
 ### Bot Kicked Flow:
 
@@ -141,12 +141,12 @@ sequenceDiagram
     Bot->>Bot: Log "Bot kicked, cleared chat members"
 ```
 
-**Что сохраняется:**
-- Таблица `users` (timezone каждого юзера)
-- Связи юзеров с другими чатами
+**What is preserved:**
+- Table `users` (each user's timezone)
+- User connections to other chats
 
-**Что удаляется:**
-- Только записи `chat_members` для данного `chat_id`
+**What is deleted:**
+- Only `chat_members` records for the given `chat_id`
 ### aiogram Handler:
 
 ```python
@@ -155,39 +155,39 @@ from aiogram.types import Message, ChatMemberUpdated
 
 router = Router()
 
-# Passive collection: записываем юзера при любом сообщении
+# Passive collection: record user on any message
 @router.message()
 async def on_any_message(message: Message):
     await add_user_to_chat(message.chat.id, message.from_user.id)
 
-# Exit listening: удаляем при выходе
+# Exit listening: remove on exit
 @router.chat_member()
 async def on_member_update(event: ChatMemberUpdated):
     if event.new_chat_member.status in ('left', 'kicked'):
         await remove_user_from_chat(event.chat.id, event.new_chat_member.user.id)
 ```
 
-### Ограничения:
+### Limitations:
 
-- Юзеры появляются в БД только после первого сообщения
-- "Молчуны" не будут в списке конвертации
-- Это **ожидаемое поведение**, не баг
+- Users appear in DB only after their first message
+- "Lurkers" won't be in the conversion list
+- This is **expected behavior**, not a bug
 
 ---
 
 ## 6. Example Queries
 
 ```sql
--- Все юзеры конкретного чата с их timezone
+-- All users of a specific chat with their timezone
 SELECT u.user_id, u.username, u.timezone, u.city
 FROM users u
 JOIN chat_members cm ON u.user_id = cm.user_id
 WHERE cm.chat_id = ?;
 
--- Проверить есть ли юзер в БД
+-- Check if user exists in DB
 SELECT timezone, city FROM users WHERE user_id = ?;
 
--- Обновить timezone юзера
+-- Update user timezone
 UPDATE users 
 SET timezone = ?, city = ?, updated_at = datetime('now')
 WHERE user_id = ?;
@@ -216,10 +216,10 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ## 8. Resolved Questions
 
-- [x] ~~Нужен ли rate limiting для запросов к БД?~~ → Нет, SQLite справляется
-- [x] ~~Использовать async sqlite?~~ → Да, `aiosqlite` (см. Overview)
-- [x] ~~Максимум юзеров на чат?~~ → `display_limit_per_chat` в `configuration.yaml`
-- [ ] **In-Memory Caching** → Описано в секции 9
+- [x] ~~Rate limiting for DB queries?~~ → No, SQLite handles it
+- [x] ~~Use async sqlite?~~ → Yes, `aiosqlite` (see Overview)
+- [x] ~~Maximum users per chat?~~ → `display_limit_per_chat` in `configuration.yaml`
+- [ ] **In-Memory Caching** → Described in section 9
 
 ---
 
@@ -227,27 +227,27 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ### 9.1 Motivation
 
-Текущая реализация обращается к SQLite при каждом запросе данных. Для высоконагруженных сценариев это может стать узким местом:
+Current implementation queries SQLite on every request. For high-load scenarios this may become a bottleneck:
 
-| Операция | Текущее поведение | С кешированием |
+| Operation | Current Behavior | With Caching |
 |----------|-------------------|----------------|
-| `get_user()` | Disk I/O каждый раз | Memory lookup (O(1)) |
-| `get_chat_members()` | JOIN query каждый раз | Memory lookup (O(1)) |
+| `get_user()` | Disk I/O every time | Memory lookup (O(1)) |
+| `get_chat_members()` | JOIN query every time | Memory lookup (O(1)) |
 | `set_user()` | Disk write | Memory + Disk write |
 
 > [!NOTE]
-> Это **опциональная оптимизация**. Для MVP текущая SQLite-реализация достаточна.
+> This is an **optional optimization**. For MVP the current SQLite implementation is sufficient.
 
 ---
 
 ### 9.2 Architecture: CachedStorage Decorator
 
-Паттерн: **Decorator** поверх существующего интерфейса `Storage`.
+Pattern: **Decorator** over existing `Storage` interface.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Application Layer                       │
-│   (commands, handlers — обращаются к storage.get_user())    │
+│   (commands, handlers — call storage.get_user())            │
 └─────────────────────────────┬───────────────────────────────┘
                               │
                               ▼
@@ -272,26 +272,26 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ### 9.3 Data Flow
 
-**Startup:** При `init()` — читаем всех юзеров и чаты из БД в память.
+**Startup:** On `init()` — read all users and chats from DB into memory.
 
-**Read (Cache-First):** Сначала ищем в `dict`, если нет — идём в БД и кешируем.
+**Read (Cache-First):** First look in `dict`, if not found — go to DB and cache.
 
-**Write (Write-Through):** Сначала пишем в БД (source of truth), затем обновляем кеш.
+**Write (Write-Through):** First write to DB (source of truth), then update cache.
 
 > [!IMPORTANT]
-> **Write-Through** гарантирует consistency: при crash данные не теряются.
+> **Write-Through** guarantees consistency: data is not lost on crash.
 
 ---
 
 ### 9.4 Implementation
 
-**Новый файл:** `src/storage/cached.py` — класс `CachedStorage(Storage)` как decorator над `SQLiteStorage`.
+**New file:** `src/storage/cached.py` — class `CachedStorage(Storage)` as decorator over `SQLiteStorage`.
 
-**Структуры данных:**
+**Data structures:**
 - `_users: dict[(user_id, platform), user_data]`
 - `_chats: dict[(chat_id, platform), list[members]]`
 
-**Включение:** Флаг `storage.use_cache: true` в `configuration.yaml`.
+**Enabling:** Flag `storage.use_cache: true` in `configuration.yaml`.
 
 ---
 
@@ -308,26 +308,26 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ### 9.6 Resolved Questions
 
-- [x] **Инвалидация кеша?** → Не нужна (single-instance + write-through)
-- [x] **TTL?** → Не нужен (данные меняются только через наш код)
-- [x] **Метрики hit/miss?** → Достаточно unit-тестов
+- [x] **Cache invalidation?** → Not needed (single-instance + write-through)
+- [x] **TTL?** → Not needed (data changes only through our code)
+- [x] **Hit/miss metrics?** → Unit tests are sufficient
 
 ---
 
 ### 9.7 Out of Scope
 
-| Технология | Почему не применимо |
+| Technology | Why Not Applicable |
 |------------|---------------------|
-| **Read Replicas** | SQLite не поддерживает |
+| **Read Replicas** | SQLite doesn't support |
 | **Connection Pooling** | SQLite = single-writer |
-| **Redis** | Overkill для single-instance |
-| **LRU Eviction** | Весь датасет ~50KB |
+| **Redis** | Overkill for single-instance |
+| **LRU Eviction** | Entire dataset ~50KB |
 
 ---
 
 ## 10. Future Considerations
 
 > [!NOTE]
-> Реализована стандартная SQLite версия. Раздел 9 — готовая архитектура для будущей оптимизации.
+> Standard SQLite version is implemented. Section 9 — ready architecture for future optimization.
 
-- **In-Memory Caching**: Включается через `storage.use_cache: true`
+- **In-Memory Caching**: Enabled via `storage.use_cache: true`

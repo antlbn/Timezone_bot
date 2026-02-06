@@ -1,29 +1,29 @@
 # 01. Scope and MVP Specification  
 ## Scope: Telegram + Discord (v1.1)
 
-## Основные принципы разработки
-- **MVP-first**: Убираем за скобки всё, что не является критически важным.
-- **Agentic Development**: Разработка опирается на работу с AI-агентами.
+## Core Development Principles
+- **MVP-first**: Exclude everything that is not critically important.
+- **Agentic Development**: Development relies on working with AI agents.
 - **Spec-driven**: 
-  - Основные источники истины — файлы `journal/XX_spec_name.md`. 
-  - В них описываются архитектурные и продуктовые решения.
-  - На эти спецификации опирается агент при написании кода.
-  - Они служат основой для будущей документации.
-- **Итерационный процесс**:
-  1. Написание спецификации (specs).
-  2. Запуск агента и ревью его плана.
-  3. Ревью кода и результатов.
-  4. Обновление specs.
-  5. Запись в `journal/PROGRESS.md` после каждого значимого изменения.
-- **Документация**: `README.md` и другие пользовательские документы создаются ближе к готовности MVP.
+  - Primary sources of truth are `journal/XX_spec_name.md` files. 
+  - They describe architectural and product decisions.
+  - The agent relies on these specifications when writing code.
+  - They serve as the basis for future documentation.
+- **Iterative Process**:
+  1. Writing specifications (specs).
+  2. Running the agent and reviewing its plan.
+  3. Reviewing code and results.
+  4. Updating specs.
+  5. Recording in `journal/PROGRESS.md` after each significant change.
+- **Documentation**: `README.md` and other user documents are created closer to MVP readiness.
 
-## Мы строим MVP
+## We Are Building an MVP
 
-### Objective (Цель)
-Создание устойчивого Telegram / Discord бота, который:
-1. Работает в групповых Telegram чатах и Discord каналах.
-2. Запоминает часовые пояса пользователей.
-3. Отвечает расширенным сообщением на упоминание времени, конвертируя его для всех участников.
+### Objective
+Create a stable Telegram / Discord bot that:
+1. Works in group Telegram chats and Discord servers.
+2. Remembers users' timezones.
+3. Responds with an expanded message when time is mentioned, converting it for all participants.
 
 ### Architecture Overview
 
@@ -57,11 +57,11 @@
 └───────────────────────────────────────────────────┘
 ```
 
-### Qualities (Качества)
-- **Простота**: Не требует сложных действий от пользователя.
-- **Детекция**: Распознавание времени основано на Regex.
-- **Точность времени**: Трансформация устойчива к сезонным сдвигам (IANA database).
-- **Легкое администрирование**: Конфигурация через `.yaml` и `.env`.
+### Qualities
+- **Simplicity**: Does not require complex actions from the user.
+- **Detection**: Time recognition is based on Regex.
+- **Time Accuracy**: Transformation is resistant to seasonal shifts (IANA database).
+- **Easy Administration**: Configuration via `.yaml` and `.env`.
 
 ---
 
@@ -95,28 +95,27 @@
 
 ## High-level Configuration
 
-### Структура ответа
-- Четко определенная схема сообщения.
-- Единый формат времени.
-- **Обработка дат**: Пометка если время переходит на следующий день.
-- **Группировка**: Совпадающие часовые пояса — время один раз, города через запятую.
+### Response Structure
+- Clearly defined message schema.
+- Unified time format.
+- **Date Handling**: Marking if time transitions to the next day.
+- **Grouping**: Matching timezones — time once, cities comma-separated.
 
-### Алгоритм
-1. Regex детекция времени.
-2. Любая конвертация идёт через UTC (прямые Local→Local запрещены).
-
----
-
-## Out of Scope (За рамками текущего MVP)
-- Активное подтверждение действий (переспрашивание геолокации)
-- LLM fallbacks для распознавания
-- Поддержка WhatsApp
-- Fuzzy matching для детекции времени (e.g. `rapidfuzz`)
-- Объединение нескольких времён в одно сообщение
+### Algorithm
+1. Regex time detection.
+2. Any conversion goes through UTC (direct Local→Local is prohibited).
 
 ---
 
-## Constraints (Чего делать не надо)
-- **No Hardcode**: Никакого хардкода городов и часовых поясов.
-- **No LLM Fallbacks**: Не используем LLM в рантайме (дорого).
-- **No Private Chats**: Бот работает только в групповых чатах/серверах.
+## Out of Scope (Beyond Current MVP)
+- LLM fallbacks for recognition
+- WhatsApp support
+- Fuzzy matching for time detection (e.g. `rapidfuzz`)
+- Combining multiple times into one message
+
+---
+
+## Constraints (What Not To Do)
+- **No Hardcode**: No hardcoding of cities and timezones.
+- **No LLM Fallbacks**: No LLM usage at runtime (expensive).
+- **No Private Chats**: Bot works only in group chats/servers.

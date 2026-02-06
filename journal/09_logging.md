@@ -1,10 +1,10 @@
 # Technical Spec: Logging
 
 ## 1. Overview (MVP)
-Минималистичная стратегия:
-- **Output**: Стандартный вывод (`stdout`) — идеально для Docker.
-- **Library**: Встроенный Python `logging`.
-- **Никаких сторонних сервисов** (Sentry и т.д. — out of scope).
+Minimalistic strategy:
+- **Output**: Standard output (`stdout`) — ideal for Docker.
+- **Library**: Built-in Python `logging`.
+- **No external services** (Sentry, etc. — out of scope).
 
 ---
 
@@ -13,7 +13,7 @@
 `configuration.yaml`:
 ```yaml
 logging:
-  level: INFO   # DEBUG — для разработки, INFO — для продакшена
+  level: INFO   # DEBUG — for development, INFO — for production
 ```
 
 ---
@@ -22,20 +22,20 @@ logging:
 
 | Level | Usage |
 |-------|-------|
-| `DEBUG` | Сырые апдейты Telegram (JSON) |
-| `INFO` | Основные события: "Bot started", "Converted time for user X" |
-| `WARNING` | Нештатные ситуации (API timeout, DB lock), работа продолжается |
-| `ERROR` | Критические ошибки (Traceback) |
+| `DEBUG` | Raw Telegram updates (JSON) |
+| `INFO` | Main events: "Bot started", "Converted time for user X" |
+| `WARNING` | Non-standard situations (API timeout, DB lock), operation continues |
+| `ERROR` | Critical errors (Traceback) |
 
 ---
 
 ## 4. Simple Context
-В сообщение лога просто добавляем ID чата, если он есть:
+In log messages, simply add chat ID if available:
 `[chat:123] Timezone set to Europe/Berlin`
 
 ---
 
 ## 5. Exception Handling
-Мы **не скрываем** ошибки.
-- **Failures**: Все исключения в `except` блоках (Geo API, DB) должны логироваться как `WARNING` или `ERROR`.
-- **Silent Failures**: `except: pass` **запрещен** для критической логики.
+We do **not hide** errors.
+- **Failures**: All exceptions in `except` blocks (Geo API, DB) must be logged as `WARNING` or `ERROR`.
+- **Silent Failures**: `except: pass` is **prohibited** for critical logic.

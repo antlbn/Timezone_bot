@@ -107,10 +107,9 @@ Currently, direct SQLite reads for every message. Simple but disk I/O heavy on h
 
 ##  Future Roadmap
 
-1.  **Fuzzy Detection**: Use `rapidfuzz` for typo tolerance.
-2.  **Error Handling**: Global middleware to catch exceptions (e.g. Sentry).
-3.  **In-Memory Caching**: Write-Through cache to minimize DB I/O.
-4.  **WhatsApp Support**: New adapter following same pattern.
+1.  **Error Handling**: Global middleware to catch exceptions (e.g. Sentry).
+2.  **In-Memory Caching**: Write-Through cache to minimize DB I/O.
+3.  **WhatsApp Support**: New adapter following same pattern.
 
 ---
 

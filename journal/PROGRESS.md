@@ -1,3 +1,9 @@
+
+## 2026-02-07 (session 2)
+- **Translated** all specs to English
+**Next Steps** (FOR NEXT SESSIONS):
+  - Make time setting messages visible only to the user instead of the entire chat
+
 ## 2026-02-07 (session)
 - **Fixed** placeholder in discord bot dialog
 

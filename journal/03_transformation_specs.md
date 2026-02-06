@@ -1,15 +1,15 @@
 # 📄 Technical Spec: Time Transformation Module (TTM)
 
 ## 1. Overview
-Модуль предназначен для конвертации времени между произвольными часовыми поясами с защитой от "политических" сдвигов времени (изменений законодательства) и переходов DST (летнее/зимнее время).
+Module designed for converting time between arbitrary timezones with protection from "political" time shifts (legislative changes) and DST transitions (daylight saving time).
 
 ## 2. Technology Stack
 * **Core Libraries:** 
-    * `zoneinfo`: Нативная работа с IANA-базой (стандарт PEP 615).
-    * `tzdata`: Первоисточник актуальных данных о часовых поясах.
+    * `zoneinfo`: Native IANA database support (PEP 615 standard).
+    * `tzdata`: Primary source of up-to-date timezone data.
 
 ## 3. Core Architecture: "UTC-Pivot"
-Любая трансформация времени должна проходить через "нулевую точку" (UTC). Прямая конвертация между локальными зонами («Пояс А -> Пояс Б») запрещена для минимизации ошибок.
+Any time transformation must go through a "zero point" (UTC). Direct conversion between local zones ("Zone A -> Zone B") is prohibited to minimize errors.
 
 ```
     Local Time          UTC              Target Zones
@@ -26,19 +26,19 @@
 ```
 
 ### Workflow:
-1. **Extraction**: Получение от capture_module
-2. **Anchoring**: Привязка к текущей дате (`datetime.now()`) для определения актуального режима DST.
-3. **Localization**: Создание `Aware datetime` объекта в зоне отправителя.
-4. **Normalization**: Смещение объекта в **UTC** (точка отсчета).
-5. **Projection**: Смещение из UTC в список целевых зон (`target_timezone_names`).
+1. **Extraction**: Received from capture_module
+2. **Anchoring**: Binding to current date (`datetime.now()`) to determine the current DST mode.
+3. **Localization**: Creating an `Aware datetime` object in the sender's zone.
+4. **Normalization**: Shifting the object to **UTC** (reference point).
+5. **Projection**: Shifting from UTC to the list of target zones (`target_timezone_names`).
 
 
 ## 4. Maintenance & Data Integrity
-Для обеспечения актуальности данных (защита от внезапных изменений часовых поясов правительством):
+To ensure data relevance (protection from sudden timezone changes by governments):
 
 * **Update Strategy**:
-  * **Manual Maintenance**: Обновление пакета `tzdata` через `uv lock --upgrade` при выходе новых версий IANA базы.
+  * **Manual Maintenance**: Updating the `tzdata` package via `uv lock --upgrade` when new IANA database versions are released.
   * (Future) Auto-update task - deferred.
 * **Command**: `uv sync --upgrade`
-* **Storage Policy**: В базе данных (SQLite) разрешено хранить только **IANA имена** (напр. `Europe/Moscow`). Хранение числовых смещений (напр. `+3`) строго запрещено.
+* **Storage Policy**: Only **IANA names** (e.g. `Europe/Moscow`) are allowed in the database (SQLite). Storing numeric offsets (e.g. `+3`) is strictly prohibited.
 
