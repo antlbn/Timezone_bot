@@ -1,4 +1,11 @@
-## 2026-02-06 (session )
+## 2026-02-07 (session)
+- **Fixed** placeholder in discord bot dialog
+
+## 2026-02-06 (session 9)
+- **Fixed**: Discord now returns a message after the initial city input. (same logic as in Telegramm)
+
+
+## 2026-02-06 (session 8)
 - **Linter Check** - minor fixes, then PASSED, gitignore update
 
 ## 2026-02-06 (session 7)

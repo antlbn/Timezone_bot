@@ -12,7 +12,7 @@ class TimezoneModal(ui.Modal, title="Set Your Timezone"):
     
     city = ui.TextInput(
         label="Your City",
-        placeholder="e.g. Paris (France), Paris (Texas), London",
+        placeholder="e.g. Paris 🇫🇷 | Paris, Texas 🇺🇸 | London 🇬🇧",
         min_length=2,
         max_length=100,
         required=True
