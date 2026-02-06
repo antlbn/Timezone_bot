@@ -93,6 +93,9 @@ def format_conversion_reply(
     """
     settings = get_bot_settings()
     display_limit = settings.get("display_limit_per_chat", 10)
+    # 0 means no limit
+    if display_limit == 0:
+        display_limit = len(members) + 1  # effectively unlimited
     show_usernames = settings.get("show_usernames", False)
     
     # Filter out sender from members (avoid self-conversion)

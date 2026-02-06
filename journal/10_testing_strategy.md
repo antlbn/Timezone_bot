@@ -8,14 +8,15 @@
 
 ---
 
-## 2. Test Pyramid (MVP Scope)
+## 2. Test Pyramid (Telegram + Discord)
 
 | Layer | Type | Scope | Automation | Tool |
 |-------|------|-------|------------|------|
-| **L1** | **Unit** | `src/capture.py` (Regex)<br>`src/transform.py` (Time math) | ✅ Automated | `unittest/pytest` |
-| **L1.5** | **Handlers** | `src/commands/*.py` (Flow logic) | ✅ Automated | `pytest` + `mock` |
-| **L2** | **Integration / Resilience** | `src/storage/`, `middleware` (Errors) + Mocked API | ✅ Automated | `pytest` |
-| **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App |
+| **L1** | **Unit** | `src/capture.py` (Regex)<br>`src/transform.py` (Time math)<br>`src/geo.py` (Geocoding) | ✅ Automated | `pytest` |
+| **L1.5** | **Handlers** | `src/commands/*.py` (Telegram)<br>`src/discord/commands.py` (Discord) | ✅ Automated | `pytest` + `mock` |
+| **L2** | **Integration** | `src/storage/`, `middleware`, events | ✅ Automated | `pytest` |
+| **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App, Discord |
+
 
 ---
 
@@ -41,7 +42,15 @@
     -   Проверка вызова `message.answer` с ожидаемым текстом
 
 ### Location:
-`tests/test_capture.py`, `tests/test_transform.py`, `tests/test_storage.py`, `tests/test_exceptions_logging.py`, `tests/test_handlers.py`
+- `tests/test_capture.py` — Regex patterns
+- `tests/test_transform.py` — UTC-pivot logic
+- `tests/test_formatter.py` — Reply formatting
+- `tests/test_geo.py` — Geocoding and timezone resolution
+- `tests/test_storage.py` — Database operations (platform separation)
+- `tests/test_handlers.py` — Telegram handlers
+- `tests/test_discord_handlers.py` — Discord handlers
+- `tests/test_discord_events.py` — Discord events (auto-cleanup)
+- `tests/test_exceptions_logging.py` — Error handling
 
 ---
 

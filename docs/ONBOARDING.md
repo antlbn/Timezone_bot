@@ -80,7 +80,7 @@ The bot configurable via `configuration.yaml`.
 | Setting | Type | Description |
 | :--- | :--- | :--- |
 | `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
-| `bot.display_limit_per_chat` | Integer | Max number of timezones to show in one reply (default: 0). |
+| `bot.display_limit_per_chat` | Integer | Max timezones to show (0 = no limit). |
 | `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
 | `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
 | `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
