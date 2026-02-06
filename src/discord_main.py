@@ -22,14 +22,8 @@ async def main():
     setup_logging()
     
     config = get_config()
-    discord_config = config.get("discord", {})
     
-    # Check if Discord is enabled
-    if not discord_config.get("enabled", False):
-        logger.info("Discord bot disabled in config")
-        return
-    
-    # Check for token
+    # Check for token - if present, start bot
     token = os.getenv("DISCORD_TOKEN")
     if not token:
         logger.warning("DISCORD_TOKEN not set, skipping Discord bot")

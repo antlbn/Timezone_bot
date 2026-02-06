@@ -15,7 +15,7 @@
 | `/tb_me` | Show your current location |
 | `/tb_settz` | Change your timezone |
 | `/tb_members` | List chat members from DB |
-| `/tb_remove` | Remove member from list |
+| `/tb_remove` | Remove stale member (left chat while bot offline) |
 
 ---
 

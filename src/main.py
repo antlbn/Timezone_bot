@@ -29,8 +29,14 @@ async def on_startup(bot: Bot):
 
 async def main():
     """Main async entry point."""
+    # Check for token - if not present, skip gracefully
+    token = get_telegram_token()
+    if not token:
+        logger.warning("TELEGRAM_TOKEN not set, skipping Telegram bot")
+        return
+    
     # Create bot and dispatcher
-    bot = Bot(token=get_telegram_token())
+    bot = Bot(token=token)
     dp = Dispatcher(storage=MemoryStorage())
     
     # Register startup hook

@@ -35,6 +35,9 @@ cd Timezone_bot
     # Edit .env and paste TELEGRAM_TOKEN and/or DISCORD_TOKEN
     ```
 
+> [!TIP]
+> **Startup Logic**: Each bot checks its own token. If `TELEGRAM_TOKEN` is set — Telegram bot starts. If `DISCORD_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
+
 ---
 
 ## Manual Execution (Standard)
@@ -51,12 +54,6 @@ Requires Python 3.12+.
     ./run.sh
     ```
     
-    Or run separately:
-    ```bash
-    uv run python -m src.main           # Telegram only
-    uv run python -m src.discord_main   # Discord only
-    ```
-
 ---
 
 ## Running Tests
@@ -68,10 +65,11 @@ uv run pytest tests/ -v
 
 ## plug-and-play Usage
 
+
 Once the bot is running:
-1.  **Add the bot** to any Telegram group.
-2.  **No setup required!** You don't need to send `/start` or any admin commands.
-3.  The bot listens passively. As soon as someone sends a message with time (e.g., *"Let's meet at 5pm"*), it will reply with conversions.
+1.  **Add the bot** to any Telegram group or Discord channel.
+2.  **No setup required**: You don't need to send `/start` or any configuration commands.
+3.  **Passive Detection**: The bot listens for messages containing time (e.g., *"Let's meet at 5pm"*) and automatically replies with conversions for other members.
 
 ---
 
@@ -82,7 +80,7 @@ The bot configurable via `configuration.yaml`.
 | Setting | Type | Description |
 | :--- | :--- | :--- |
 | `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
-| `bot.display_limit_per_chat` | Integer | Max number of timezones to show in one reply (default: 10). |
+| `bot.display_limit_per_chat` | Integer | Max number of timezones to show in one reply (default: 0). |
 | `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
 | `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
 | `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |

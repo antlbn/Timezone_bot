@@ -15,9 +15,6 @@ PLATFORM = "discord"
 @bot.event
 async def on_message(message: discord.Message):
     """Handle messages - detect time mentions and convert."""
-    from src.discord import state
-    from src import geo
-    
     # Ignore bot messages
     if message.author.bot:
         return
@@ -25,35 +22,6 @@ async def on_message(message: discord.Message):
     # Only in guilds
     if not message.guild:
         return
-    
-    # Check if user is in fallback state
-    if state.is_waiting_fallback(message.author.id):
-        location = geo.resolve_timezone_from_input(message.content)
-        
-        if location:
-            # Success! Save user and clear state
-            username = message.author.display_name or ""
-            await storage.set_user(
-                user_id=message.author.id,
-                platform=PLATFORM,
-                city=location["city"],
-                timezone=location["timezone"],
-                flag=location["flag"],
-                username=username
-            )
-            await storage.add_chat_member(message.guild.id, message.author.id, platform=PLATFORM)
-            state.clear_state(message.author.id)
-            
-            await message.reply(f"Set: {location['city']} {location['flag']} ({location['timezone']})")
-            logger.info(f"[guild:{message.guild.id}] User {message.author.id} -> {location['timezone']} (fallback)")
-            return
-        else:
-            # Still not found - ask again
-            await message.reply(
-                f"Could not find '{message.content}'.\n"
-                "Try another city name or enter your current time (e.g. 15:30)."
-            )
-            return
     
     # Check for time patterns
     times = capture.extract_times(message.content)
@@ -63,16 +31,32 @@ async def on_message(message: discord.Message):
     sender = await storage.get_user(message.author.id, platform=PLATFORM)
     
     if not sender or not sender.get("timezone"):
-        # User not registered - prompt to use /tb_settz
+        # User not registered - prompt with button
+        from src.discord.commands import SetTimezoneView
         await message.reply(
-            f"{message.author.display_name}, set your timezone first: `/tb_settz`",
+            f"{message.author.display_name}, set your timezone to convert times!",
+            view=SetTimezoneView(message.author.id),
             mention_author=True
         )
         return
     
-    # Get guild members
-    members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
-    if not members:
+    # Get guild members and auto-cleanup stale ones
+    db_members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
+    if not db_members:
+        return
+    
+    # Filter: keep only members still in the guild, remove stale ones
+    active_members = []
+    for m in db_members:
+        discord_member = message.guild.get_member(m["user_id"])
+        if discord_member:
+            active_members.append(m)
+        else:
+            # User left while bot was offline - cleanup
+            await storage.remove_chat_member(message.guild.id, m["user_id"], platform=PLATFORM)
+            logger.info(f"[guild:{message.guild.id}] Auto-removed stale user {m['user_id']}")
+    
+    if not active_members:
         return
     
     sender_flag = sender.get("flag", "")
@@ -84,7 +68,7 @@ async def on_message(message: discord.Message):
             sender["city"],
             sender["timezone"],
             sender_flag,
-            members,
+            active_members,
             user_name
         )
         await message.reply(reply)

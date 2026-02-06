@@ -12,7 +12,7 @@ logging:
 # Bot Settings
 bot:
   # Maximum users to show in timezone conversion reply
-  display_limit_per_chat: 10
+  display_limit_per_chat: 0
   # Time format: "24h" or "12h"
   time_format: "24h"
   # Show usernames next to timezone (default: false)
@@ -29,10 +29,3 @@ capture:
     - '\b((1[0-2]|0?[1-9]):([0-5][0-9])\s?([AaPp][Mm]))\b'
     # 12h format without minutes (e.g. 5 pm, 10AM)
     - '\b((1[0-2]|0?[1-9])\s?([AaPp][Mm]))\b'
-
-# Platform Settings
-telegram:
-  enabled: true
-
-discord:
-  enabled: true

@@ -1,13 +1,13 @@
 # 12. Discord Integration
 
 > [!NOTE]
-> **Status: Specified, not implemented**
+> **Status: Implemented**
 
 ## 1. Overview
 
-Расширение бота для поддержки Discord серверов. Используем **discord.py** — зрелую async библиотеку с поддержкой slash commands.
+Расширение бота для поддержки Discord серверов. Используется **discord.py** — async библиотека с поддержкой slash commands.
 
-### Architecture Approach: Parallel Adapters
+### Architecture: Parallel Adapters
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
@@ -39,162 +39,103 @@
 |-----------|---------|-------|
 | **Discord API** | `discord.py` (2.x) | Async, slash commands, intents |
 | **Commands** | Slash Commands | Modern Discord UX |
-| **Storage** | Existing SQLite | `platform='discord'` already supported |
+| **Storage** | Existing SQLite | `platform='discord'` |
 
 ---
 
-## 3. Discord-Specific Concepts
+## 3. Discord vs Telegram: Key Differences
 
-| Telegram | Discord | Notes |
-|----------|---------|-------|
-| Chat ID | Guild ID + Channel ID | Discord has servers (guilds) |
-| User ID | User ID | Snowflake (int64) |
-| @username | Display Name | Discord usernames are unique |
-| Reply | Message Reference | Similar concept |
-| ForceReply | Modals / Follow-up | Different UX pattern |
+| Aspect | Telegram | Discord |
+|--------|----------|---------|
+| **Set Timezone UX** | Text-based `/tb_settz` + ForceReply | Button → Modal (form) |
+| **Fallback (city not found)** | Text reply with time | Buttons: "Try Again" / "Enter Time" |
+| **Button security** | N/A | Only target user can click |
+| **Stale user removal** | Manual `/tb_remove` | Auto-cleanup on time mention |
+| **User exit detection** | Bot doesn't know (unless admin) | `on_member_remove` event |
+
+### Button-Based Timezone Flow
+
+В Discord вместо текстовых ответов используются интерактивные элементы:
+
+1. **Незарегистрированный пользователь** упоминает время → бот отвечает сообщением с кнопкой **"Set Timezone"**.
+2. **Кнопка защищена** — только целевой пользователь может её нажать (другие получат "This button is not for you!").
+3. **Нажатие** открывает модальное окно (форму) для ввода города.
+4. **Если город не найден** — появляются две кнопки: "Try Again" и "Enter Time" (ручной ввод времени).
+
+> [!IMPORTANT]
+> Под капотом используется та же функция `geo.resolve_timezone_from_input()` что и в Telegram.
 
 ---
 
-## 4. Commands Mapping
+## 4. Commands
 
 | Command | Description |
 |---------|-------------|
-| `/tb_settz` | Set timezone |
+| `/tb_settz` | Set timezone (opens modal) |
 | `/tb_me` | Show my timezone |
-| `/tb_members` | List chat members |
-| `/tb_remove` | Remove timezone |
+| `/tb_members` | List server members |
 | `/tb_help` | Help message |
 
-**Команды идентичны Telegram** — единый UX для обеих платформ.
+> [!NOTE]
+> `/tb_remove` **отсутствует** в Discord — не нужна благодаря автоочистке.
+
+### Auto-Cleanup of Stale Members
+
+При каждом упоминании времени бот проверяет, находятся ли пользователи из БД ещё на сервере:
+- Если пользователь покинул сервер (пока бот был выключен) — он автоматически удаляется из списка.
+- Это решает проблему "зависших" пользователей без ручного вмешательства.
+
+```python
+# events.py - auto-cleanup logic
+for m in db_members:
+    if not message.guild.get_member(m["user_id"]):
+        await storage.remove_chat_member(...)  # Auto-remove stale user
+```
 
 ---
 
-## 5. Implementation Plan
-
-### 5.1 New Files
+## 5. File Structure
 
 ```
 src/discord/
-├── __init__.py      # Discord bot setup, intents
-├── commands.py      # Slash command handlers
-├── events.py        # on_message, on_member_remove
-└── utils.py         # Discord-specific helpers
+├── __init__.py      # Bot instance, intents setup
+├── commands.py      # Slash commands + UI components (modals, views)
+└── events.py        # on_message (with auto-cleanup), on_member_remove
 ```
-
-### 5.2 Shared Core (No Changes)
-
-| Module | Discord Compatibility |
-|--------|----------------------|
-| `capture.py` | ✅ Works as-is (text → time) |
-| `transform.py` | ✅ Works as-is (UTC pivot) |
-| `storage/` | ✅ Already supports `platform='discord'` |
-| `geo.py` | ✅ Works as-is (city → tz) |
-| `formatter.py` | ⚠️ May need Discord-specific formatting |
-
-### 5.3 Entry Point
-
-Отдельный entry point для Discord бота:
-
-```python
-# src/discord_main.py
-from src.discord import bot
-bot.run(os.getenv("DISCORD_TOKEN"))
-```
-
-Можно запускать оба бота параллельно или выбрать один.
 
 ---
 
-## 6. Configuration & Startup Logic
-
-**configuration.yaml:**
-```yaml
-telegram:
-  enabled: true
-
-discord:
-  enabled: true
-```
+## 6. Configuration
 
 **.env:**
 ```
-TELEGRAM_TOKEN=...
-DISCORD_TOKEN=...
+TELEGRAM_TOKEN=...   # If set, Telegram bot starts
+DISCORD_TOKEN=...    # If set, Discord bot starts
 ```
 
-**Startup Logic:**
+**Startup Logic (both platforms):**
+- Token present → Bot starts
+- Token missing → Skip with warning (no crash)
 
-| Flag | Token | Result |
-|------|-------|--------|
-| `enabled: true` | ✅ Present | Bot starts |
-| `enabled: true` | ❌ Missing | Skip + log warning |
-| `enabled: false` | Any | Skip |
-
-Такой подход: если флаг стоит, но токена нет — бот просто не запускается для этой платформы (не crash).
+Такой подход позволяет запускать только нужных ботов — достаточно указать или убрать токен.
 
 ---
 
-## 7. Gaps & Changes Required
+## 7. Shared Core (No Changes Required)
 
-### 7.1 Existing Specs to Update
-
-| Spec | Change |
-|------|--------|
-| `01_scope_and_MVP.md` | Move Discord from "Out of Scope" to supported |
-| `11_implementation_mapping.md` | Add Discord module mapping |
-
-### 7.2 Existing Code to Modify
-
-| File | Change |
-|------|--------|
-| `formatter.py` | Add Discord-specific output format (optional) |
-| `configuration.yaml` | Add `discord` section |
-| `env.example` | Add `DISCORD_TOKEN` |
-
-### 7.3 New Code to Create
-
-| File | Purpose |
-|------|---------|
-| `src/discord/__init__.py` | Bot instance, intents setup |
-| `src/discord/commands.py` | Slash command handlers |
-| `src/discord/events.py` | Message events, member tracking |
-| `src/discord_main.py` | Entry point |
+| Module | Discord Compatibility |
+|--------|----------------------|
+| `capture.py` | ✅ Works as-is |
+| `transform.py` | ✅ Works as-is |
+| `storage/` | ✅ `platform='discord'` supported |
+| `geo.py` | ✅ Works as-is |
+| `formatter.py` | ✅ Works as-is |
 
 ---
 
-## 8. Trade-offs
-
-| Aspect | Decision | Reasoning |
-|--------|----------|-----------|
-| **Separate entry point** | Yes | Simpler than unified runner |
-| **Slash commands only** | Yes | Modern Discord UX, no prefix needed |
-| **Shared formatter** | Maybe | Discord supports embeds, may want richer output |
-
----
-
-## 9. Out of Scope (This Iteration)
-
-- Discord-specific features (embeds, buttons, reactions)
-- Voice channel integration
-- Thread support
-- Multi-server bot settings
-
----
-
-## 10. Verification Plan
-
-### Unit Tests
-- Reuse existing tests for shared core
-- Add Discord-specific mocks for `discord.py` objects
-
-### Integration Test
-- Deploy test Discord bot
-- Manual: `/settz Berlin`, send "meeting at 15:00", verify response
-
----
-
-## 11. Resolved Questions
+## 8. Resolved Questions
 
 - [x] **Separate codebase?** → No. Shared core, platform adapters.
 - [x] **Bot per server?** → No. One bot instance, multi-server.
 - [x] **Storage changes?** → No. `platform` column already exists.
+- [x] **/tb_remove needed?** → No. Auto-cleanup handles stale users.

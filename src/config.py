@@ -30,12 +30,9 @@ def get_config() -> dict:
     return _config
 
 # Quick access
-def get_telegram_token() -> str:
-    """Get Telegram bot token from environment."""
-    token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        raise ValueError("TELEGRAM_TOKEN not found in .env")
-    return token
+def get_telegram_token() -> str | None:
+    """Get Telegram bot token from environment. Returns None if not set."""
+    return os.getenv("TELEGRAM_TOKEN")
 
 def get_log_level() -> str:
     """Get logging level from config."""

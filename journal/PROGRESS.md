@@ -1,3 +1,21 @@
+
+## 2026-02-06 (session 6)
+- **Logic**: Configured buttons in Discord; testing confirmed this is more intuitive.
+- **Docs**: Minor changes in specifications and documentation.
+- **Logic**: Verified logic for removing stuck users in Discord; replaced with auto-update.
+
+- **Next Steps** (FOR NEXT SESSIONS):
+  - Review specifications.
+  - Check for logic gaps.
+  - Add test coverage.
+  - Clean up and refactor code.
+
+- **Further** (FOR NEXT SESSIONS):
+  - Perform manual installation test following README / ONBOARDING.
+
+
+
+
 ## 2026-02-05 (session 5)
 - **Fixed** - resolved Fallback to time-based timezone detection.
   -Spec city_to_timezone updated
