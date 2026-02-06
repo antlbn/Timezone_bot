@@ -7,7 +7,7 @@ from discord import app_commands
 from src.discord import bot
 from src.discord.ui import FallbackView
 from src.storage import storage
-from src import geo
+from src import geo, formatter
 from src.transform import get_utc_offset
 from src.logger import get_logger
 
@@ -52,7 +52,7 @@ async def cmd_me(interaction: discord.Interaction):
     )
 
 
-async def handle_settz(interaction: discord.Interaction, city: str):
+async def handle_settz(interaction: discord.Interaction, city: str, pending_time: str | None = None):
     """Shared logic for setting timezone via command or modal."""
     # Check if interaction was already deferred (slash command) or not (modal)
     if not interaction.response.is_done():
@@ -92,6 +92,20 @@ async def handle_settz(interaction: discord.Interaction, city: str):
         f"Set: {location['city']} {location['flag']} ({location['timezone']})"
     )
     logger.info(f"[guild:{interaction.guild_id}] User {interaction.user.id} -> {location['timezone']}")
+    
+    # Process pending time if present (analogous to Telegram behavior)
+    if pending_time and interaction.guild:
+        members = await storage.get_chat_members(interaction.guild.id, platform=PLATFORM)
+        if members:
+            reply = formatter.format_conversion_reply(
+                pending_time,
+                location["city"],
+                location["timezone"],
+                location["flag"],
+                members,
+                username
+            )
+            await interaction.followup.send(reply)
 
 
 @bot.tree.command(name="tb_settz", description="Set your timezone")

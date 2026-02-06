@@ -31,11 +31,11 @@ async def on_message(message: discord.Message):
     sender = await storage.get_user(message.author.id, platform=PLATFORM)
     
     if not sender or not sender.get("timezone"):
-        # User not registered - prompt with button
+        # User not registered - prompt with button, save pending time
         from src.discord.ui import SetTimezoneView
         await message.reply(
             f"{message.author.display_name}, set your timezone to convert times!",
-            view=SetTimezoneView(message.author.id),
+            view=SetTimezoneView(message.author.id, pending_time=times[0]),
             mention_author=True
         )
         return
