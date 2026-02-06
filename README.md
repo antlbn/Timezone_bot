@@ -104,8 +104,8 @@ This is a Minimum Viable Product release.
 ## Roadmap
 
 **Planned improvements:**
-- Fuzzy city detection using Levenshtein distance (rapidfuzz) to handle typos
 - Global error handling with Sentry integration
+- Whatsup support
 
 ---
 
