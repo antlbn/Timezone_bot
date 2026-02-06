@@ -32,7 +32,7 @@ async def on_message(message: discord.Message):
     
     if not sender or not sender.get("timezone"):
         # User not registered - prompt with button
-        from src.discord.commands import SetTimezoneView
+        from src.discord.ui import SetTimezoneView
         await message.reply(
             f"{message.author.display_name}, set your timezone to convert times!",
             view=SetTimezoneView(message.author.id),

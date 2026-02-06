@@ -163,7 +163,7 @@ class TestUIComponents:
     @pytest.mark.asyncio
     async def test_set_timezone_view_has_button(self):
         """Test SetTimezoneView has the expected button."""
-        from src.discord.commands import SetTimezoneView
+        from src.discord.ui import SetTimezoneView
         
         view = SetTimezoneView(target_user_id=12345)
         
@@ -176,7 +176,7 @@ class TestUIComponents:
     @pytest.mark.asyncio
     async def test_fallback_view_has_two_buttons(self):
         """Test FallbackView has 'Try Again' and 'Enter Time' buttons."""
-        from src.discord.commands import FallbackView
+        from src.discord.ui import FallbackView
         
         view = FallbackView(target_user_id=12345)
         
@@ -191,7 +191,7 @@ class TestUIComponents:
     @pytest.mark.asyncio
     async def test_view_interaction_check_blocks_other_users(self):
         """Test that views block non-target users."""
-        from src.discord.commands import SetTimezoneView
+        from src.discord.ui import SetTimezoneView
         
         view = SetTimezoneView(target_user_id=12345)
         
@@ -213,7 +213,7 @@ class TestUIComponents:
     @pytest.mark.asyncio
     async def test_view_interaction_check_allows_target_user(self):
         """Test that views allow target user."""
-        from src.discord.commands import SetTimezoneView
+        from src.discord.ui import SetTimezoneView
         
         view = SetTimezoneView(target_user_id=12345)
         

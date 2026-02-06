@@ -99,7 +99,8 @@ for m in db_members:
 ```
 src/discord/
 ├── __init__.py      # Bot instance, intents setup
-├── commands.py      # Slash commands + UI components (modals, views)
+├── commands.py      # Slash commands + handlers
+├── ui.py            # UI components (Views, Modals)
 └── events.py        # on_message (with auto-cleanup), on_member_remove
 ```
 
