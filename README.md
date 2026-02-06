@@ -23,6 +23,24 @@ When someone mentions a time in the chat, the bot automatically:
 - Looks up timezones of all registered chat members
 - Converts and broadcasts the time for everyone
 
+### Use Cases
+
+**1. Smart City Recognition**
+```
+Bot:  What city are you in?
+User: Paris, Texas
+Bot:  Set: Paris 🇺🇸 (America/Chicago)
+```
+The bot understands qualified toponyms — "Paris, Texas" vs "Paris".
+
+**2. Automatic Time Conversion**
+```
+👤 Maria: Let's sync at 3pm tomorrow
+
+🤖 Maria: 15:00 Berlin 🇩🇪 | 09:00 New York 🇺🇸 | 23:00 Tokyo 🇯🇵
+   /tb_help
+```
+
 ---
 
 ## Design Principles
@@ -44,9 +62,9 @@ When someone mentions a time in the chat, the bot automatically:
 ## Architecture
 
 ```
-Telegram Group
-      |
-      v
+Telegram Group                     Discord server
+      |                                  |
+      v                                  v
 +--------------------------------------------------+
 |                    BOT CORE                      |
 |  +----------+   +-----------+   +-----------+    |

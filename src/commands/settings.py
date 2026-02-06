@@ -1,13 +1,10 @@
-from datetime import datetime, timezone
-
 from aiogram import Router
 from aiogram.types import Message, ForceReply
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
-from src import geo, formatter, capture
-from src.transform import parse_time_string
+from src import geo, formatter
 from src.logger import get_logger
 from src.commands.states import SetTimezone
 
@@ -80,47 +77,14 @@ async def process_fallback_input(message: Message, state: FSMContext):
         return
     
     user_input = (message.text or "").strip()
-    username = message.from_user.username or ""
     pending_time = data.get("pending_time")
     
-    # First, try to geocode as city (user might retry with correct spelling)
-    location = geo.get_timezone_by_city(user_input)
+    # Use unified resolver
+    location = geo.resolve_timezone_from_input(user_input)
     
-    if location and "error" not in location:
-        # City found! Save and proceed
+    if location:
         await _save_and_finish(message, state, location, pending_time, is_retry=True)
         return
-    
-    # City not found - try to extract time
-    times = capture.extract_times(user_input)
-    
-    if times:
-        try:
-            # Parse user's time
-            user_time = parse_time_string(times[0])
-            
-            # Get current UTC time
-            now_utc = datetime.now(timezone.utc)
-            
-            # Calculate offset in hours
-            utc_hours = now_utc.hour + now_utc.minute / 60
-            user_hours = user_time.hour + user_time.minute / 60
-            offset = user_hours - utc_hours
-            
-            # Handle day boundary
-            if offset > 12:
-                offset -= 24
-            elif offset < -12:
-                offset += 24
-            
-            # Get timezone by offset
-            location = geo.get_timezone_by_offset(offset)
-            
-            await _save_and_finish(message, state, location, pending_time, is_retry=True)
-            return
-                
-        except Exception as e:
-            logger.error(f"Fallback time parsing error: {e}")
     
     # Neither city nor time - ask again
     await message.reply(

@@ -121,3 +121,59 @@ def get_timezone_by_offset(offset_hours: float) -> dict:
         "flag": "🌐",
         "offset": rounded_offset
     }
+
+
+def resolve_timezone_from_input(user_input: str) -> dict | None:
+    """
+    Universal timezone resolver: checks TIME pattern first (via regex),
+    then falls back to city geocoding.
+    
+    This order prevents false geo matches like '19:53' -> Jakarta.
+    
+    Args:
+        user_input: City name OR current time string (e.g. "Berlin" or "15:30")
+        
+    Returns:
+        Location dict with city/timezone/flag, or None if unresolved
+    """
+    from datetime import datetime, timezone as tz
+    from src import capture
+    from src.transform import parse_time_string
+    
+    user_input = user_input.strip()
+    
+    # 1. Check if input matches time pattern (regex) — FIRST
+    times = capture.extract_times(user_input)
+    if times:
+        try:
+            user_time = parse_time_string(times[0])
+            now_utc = datetime.now(tz.utc)
+            
+            # Calculate offset in hours
+            utc_hours = now_utc.hour + now_utc.minute / 60
+            user_hours = user_time.hour + user_time.minute / 60
+            offset = user_hours - utc_hours
+            
+            logger.debug(f"Offset calc: user_input='{user_input}' user_time={user_time} utc_now={now_utc.strftime('%H:%M')} offset={offset:.2f}")
+            
+            # Handle day boundary
+            if offset > 12:
+                offset -= 24
+            elif offset < -12:
+                offset += 24
+            
+            logger.debug(f"Final offset after boundary: {offset:.2f}")
+            
+            return get_timezone_by_offset(offset)
+            
+        except Exception as e:
+            logger.error(f"Time parsing error: {e}")
+            # Fall through to city lookup
+    
+    # 2. Not a time pattern — try city geocoding
+    location = get_timezone_by_city(user_input)
+    if location and "error" not in location:
+        return location
+    
+    return None
+

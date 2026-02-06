@@ -48,12 +48,23 @@ async def cmd_me(interaction: discord.Interaction):
 @app_commands.describe(city="Your city name (e.g. Berlin, Tokyo, New York)")
 async def cmd_settz(interaction: discord.Interaction, city: str):
     """Set user's timezone by city name."""
+    from src.discord import state
+    
+    # Defer to avoid 3-second timeout during geocoding
+    await interaction.response.defer()
+    
     location = geo.get_timezone_by_city(city)
     
     if not location or "error" in location:
-        await interaction.response.send_message(
-            f"Could not find '{city}'. Try another city name.",
-            ephemeral=True
+        # Set fallback state and ask for time
+        state.set_state(
+            interaction.user.id, 
+            "waiting_for_fallback",
+            guild_id=interaction.guild.id if interaction.guild else None
+        )
+        await interaction.followup.send(
+            f"Could not find '{city}'.\n"
+            "Reply with your current time (e.g. 15:30) or try another city name."
         )
         return
     
@@ -76,7 +87,7 @@ async def cmd_settz(interaction: discord.Interaction, city: str):
             platform=PLATFORM
         )
     
-    await interaction.response.send_message(
+    await interaction.followup.send(
         f"Set: {location['city']} {location['flag']} ({location['timezone']})"
     )
     logger.info(f"[guild:{interaction.guild_id}] User {interaction.user.id} -> {location['timezone']}")

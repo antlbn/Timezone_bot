@@ -1,3 +1,7 @@
+## 2026-02-05 (session 5)
+- **Fixed** - resolved Fallback to time-based timezone detection.
+  -Spec city_to_timezone updated
+  -Readme.md - Use case added
 
 ## 2026-02-05 (session 4) - Stability & Cleanup
 - **investigation issue** - Bot hangs on Ctrl+C, and didn't stop properly.

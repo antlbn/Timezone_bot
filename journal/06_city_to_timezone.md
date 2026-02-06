@@ -95,7 +95,7 @@ Nominatim требует:
 | Typo в названии | Nominatim часто находит fuzzy match |
 | Город на разных языках | Nominatim multilingual |
 | Пустой ввод | Повторить вопрос |
-
+| В fallback к времени - время '14:00' срабатыволо как топоним | fallback -> проверяем REGEX, затем geocoding
 ---
 
 ## 8. Out of Scope (MVP)
@@ -109,4 +109,4 @@ Nominatim требует:
 ## 9. Future Improvements
 
 - [ ] Распознавание IANA timezone напрямую (`Europe/Berlin`) — для продвинутых юзеров
-- [ ] Inline buttons для выбора из нескольких городов
+- [ ] Inline buttons для выбора из нескольких городов (впринципе еслинаписать Paris, TEXAS, - верно определяет)

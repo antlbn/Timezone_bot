@@ -15,6 +15,9 @@ PLATFORM = "discord"
 @bot.event
 async def on_message(message: discord.Message):
     """Handle messages - detect time mentions and convert."""
+    from src.discord import state
+    from src import geo
+    
     # Ignore bot messages
     if message.author.bot:
         return
@@ -22,6 +25,35 @@ async def on_message(message: discord.Message):
     # Only in guilds
     if not message.guild:
         return
+    
+    # Check if user is in fallback state
+    if state.is_waiting_fallback(message.author.id):
+        location = geo.resolve_timezone_from_input(message.content)
+        
+        if location:
+            # Success! Save user and clear state
+            username = message.author.display_name or ""
+            await storage.set_user(
+                user_id=message.author.id,
+                platform=PLATFORM,
+                city=location["city"],
+                timezone=location["timezone"],
+                flag=location["flag"],
+                username=username
+            )
+            await storage.add_chat_member(message.guild.id, message.author.id, platform=PLATFORM)
+            state.clear_state(message.author.id)
+            
+            await message.reply(f"Set: {location['city']} {location['flag']} ({location['timezone']})")
+            logger.info(f"[guild:{message.guild.id}] User {message.author.id} -> {location['timezone']} (fallback)")
+            return
+        else:
+            # Still not found - ask again
+            await message.reply(
+                f"Could not find '{message.content}'.\n"
+                "Try another city name or enter your current time (e.g. 15:30)."
+            )
+            return
     
     # Check for time patterns
     times = capture.extract_times(message.content)
