@@ -2,9 +2,10 @@
 Discord Slash Commands - mirrors Telegram commands.
 """
 import discord
-from discord import app_commands, ui
+from discord import app_commands
 
 from src.discord import bot
+from src.discord.ui import FallbackView
 from src.storage import storage
 from src import geo
 from src.transform import get_utc_offset
@@ -12,10 +13,6 @@ from src.logger import get_logger
 
 logger = get_logger()
 PLATFORM = "discord"
-
-
-
-from src.discord.ui import FallbackView
 
 
 

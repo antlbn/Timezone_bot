@@ -9,7 +9,6 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from src.config import get_config
 from src.logger import get_logger, setup_logging
 from src.storage import storage
 
@@ -20,8 +19,6 @@ async def main():
     """Start the Discord bot."""
     load_dotenv()
     setup_logging()
-    
-    config = get_config()
     
     # Check for token - if present, start bot
     token = os.getenv("DISCORD_TOKEN")

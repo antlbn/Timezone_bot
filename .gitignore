@@ -5,6 +5,11 @@ __pycache__/
 
 # Database
 *.db
+data/
+
+# Caches
+.pytest_cache/
+.ruff_cache/
 
 # IDE
 .idea/
@@ -19,4 +24,3 @@ docs/TEST.md
 
 # AI Analysis
 ai_driven_analysis/
-
