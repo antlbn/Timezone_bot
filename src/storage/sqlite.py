@@ -42,41 +42,6 @@ class SQLiteStorage(Storage):
                 )
             """)
             
-            # -----------------------------------------------------------
-            # Migrations for existing DBs
-            # -----------------------------------------------------------
-            
-            # 1. Add 'platform' column if missing
-            try:
-                # Check if column exists by trying to select it (hacky but works for sqlite)
-                # Or just try ADD COLUMN and catch error
-                await db.execute("ALTER TABLE users ADD COLUMN platform TEXT DEFAULT 'telegram'")
-                
-                # If we succeeded, we need to update the PRIMARY KEY.
-                # SQLite doesn't support altering PK easily. We have to recreate the table.
-                # But for MVP, let's keep the old table structure if we can't easily migrate PK.
-                # Actually, duplicate IDs across platforms might be an issue if we don't migrate PK.
-                # For now, let's just add the column. 
-                logger.info("Migrated users table: added 'platform' column")
-            except OperationalError:
-                # Column likely exists
-                pass
-
-            try:
-                await db.execute("ALTER TABLE chat_members ADD COLUMN platform TEXT DEFAULT 'telegram'")
-            except OperationalError:
-                pass
-
-            # 2. Other existing migrations
-            try:
-                await db.execute("ALTER TABLE users ADD COLUMN flag TEXT DEFAULT ''")
-            except OperationalError:
-                pass
-            try:
-                await db.execute("ALTER TABLE users ADD COLUMN username TEXT DEFAULT ''")
-            except OperationalError:
-                pass
-
             await db.commit()
 
 
