@@ -1,16 +1,12 @@
 # Timezone Bot
 
-Passive timezone synchronization utility for distributed teams.
+Passive timezone synchronization utility for distributed around globe teams.
 
 ---
 
 ## Goal
 
-Eliminate manual timezone conversion in group chats. The bot monitors conversations, detects time mentions, and broadcasts equivalent times for all participants.
-
----
-
-## How It Works
+Eliminate manual timezone conversion in group chats. Bot detects time mentions and broadcasts equivalent times for all participants.
 
 ```
 "Meet at 5pm"  ───>  Bot captures time  ───>  Reply with times for all members
@@ -52,10 +48,8 @@ The bot understands qualified toponyms — "Paris, Texas" vs "Paris".
 - Minimal interference — bot responds only when time is detected
 
 **Response format:**
-- Times sorted by UTC offset (west to east)
 - Day transition markers when time crosses midnight (+1 / -1)
 - Grouping by timezone — users in same location shown together
-- Country flags for visual clarity
 
 ---
 
@@ -90,42 +84,30 @@ Telegram Group                     Discord server
 
 ---
 
-## MVP Status
+## Current Status
 
-This is a Minimum Viable Product release.
-**Scope:** Telegram + Discord (both platforms supported)
+**MVP Release** — Telegram + Discord supported.
 
-**Current limitations:**
-- Detection: Regex-based; may miss complex natural language expressions (e.g., "quarter past five")
-- Storage: SQLite (lightweight, no external dependencies)
+| Limitation | Note |
+|------------|------|
+| Detection | Regex-based; misses natural language ("quarter past five") |
+| Storage | SQLite (lightweight, no external deps) |
 
----
-
-## Roadmap
-
-**Planned improvements:**
-- Global error handling with Sentry integration
-- Whatsup support
+**Roadmap:** Dockerization, WhatsApp support, in-memory caching.
 
 ---
 
 ## Tech Stack
 
-- **Python 3.12+** — runtime
-- **aiogram** — async Telegram Bot API
-- **discord.py** — async Discord Bot API
-- **aiosqlite** — async SQLite interface
-- **zoneinfo / tzdata** — IANA timezone database
-- **geopy / timezonefinder** — geocoding pipeline
-- **PyYAML / python-dotenv** — configuration
-- **uv** — package management
-- **ruff** — linter & formatter
+Python 3.12+ · aiogram · discord.py · aiosqlite · zoneinfo · geopy · uv
 
 ---
 
 ## Quick Start
 
-See [ONBOARDING.md](docs/ONBOARDING.md) for installation and configuration.
+See [ONBOARDING.md](docs/ONBOARDING.md) for installation.
+
+For architecture details: [HANDOVER.md](docs/HANDOVER.md)
 
 ---
 

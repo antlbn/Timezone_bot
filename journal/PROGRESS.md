@@ -1,3 +1,8 @@
+## 2026-02-07 (session 3)
+- **Docs**: Refined `HANDOVER.md` — focus on design decisions with trade-offs (Regex vs LLM, Nominatim, Passive Collection, MemoryStorage)
+- **Docs**: Added clickable links to specs in `HANDOVER.md`
+- **Docs**: Optimized `README.md` — clearer structure, fixed typo (WhatsApp)
+- **Ready for merge** 
 
 ## 2026-02-07 (session 2)
 - **Translated** all specs to English

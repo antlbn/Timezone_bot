@@ -1,21 +1,22 @@
 # Handover: Architecture & Design Decisions
 
-This document summarizes the technical "brain" of the project for future maintainers.
+Technical "brain" of the project for future maintainers. For usage instructions see [ONBOARDING.md](ONBOARDING.md).
 
 ---
 
-##  Core Architecture: UTC-Pivot
+## 1. Core Concept: UTC-Pivot
 
-To avoid messy N-to-N timezone conversions, we use a **UTC-Pivot** strategy:
-1.  Captured time (e.g., "5 pm") is parsed into a `time` object.
-2.  It is combined with the sender's timezone to create a UTC-aware datetime.
-3.  This UTC "pivot" is then converted to all active chat members' timezones.
+All time conversions go through UTC to avoid N-to-N timezone complexity:
+
+```
+User time → Sender's TZ → UTC (pivot) → Each member's TZ
+```
+
+**Why:** Direct Local→Local conversions are error-prone and don't scale. Single pivot point simplifies DST handling.
 
 ---
 
-## Platform Architecture
-
-The bot supports **Telegram** and **Discord** via separate adapters sharing a common core:
+## 2. Platform Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐
@@ -26,93 +27,132 @@ The bot supports **Telegram** and **Discord** via separate adapters sharing a co
        ▼                   ▼
 ┌─────────────┐     ┌─────────────┐
 │src/commands/│     │src/discord/ │
-│  + FSM      │     │  + UI       │
-│  + Middleware     │  (buttons)  │
+│  + FSM      │     │  + Modals   │
 └──────┬──────┘     └──────┬──────┘
        │                   │
        └─────────┬─────────┘
                  ▼
-┌───────────────────────────────────────┐
-│           SHARED CORE                 │
-│  capture | transform | formatter     │
-│  storage | geo | config | logger     │
-└───────────────────────────────────────┘
+       ┌───────────────────┐
+       │    SHARED CORE    │
+       │ capture|transform │
+       │ storage|geo|format│
+       └───────────────────┘
 ```
 
-### Platform-Specific Components
+**Principle:** Platform adapters are thin. All business logic lives in shared core.
 
-| Component | Telegram | Discord |
-|-----------|----------|---------|
-| **User Interaction** | Text replies + ForceReply (FSM) | Buttons + Modals (UI Views) |
-| **State Management** | `MemoryStorage` (aiogram FSM) | Stateless (modals handle it) |
-| **Middleware** | `PassiveCollectionMiddleware` | N/A (uses events) |
-| **Stale User Handling** | Manual `/tb_remove` command | Auto-cleanup on time mention |
-| **Member Tracking** | Bot doesn't know when user leaves | `on_member_remove` event |
+### Platform Differences
 
----
-
-##  Key Components
-
-### Shared (Core)
-
-- **Capture Logic (`src/capture.py`)**: Regex-based time extraction via `configuration.yaml`.
-- **Geocoding (`src/geo.py`)**: Uses Nominatim (OSM) and TimezoneFinder.
-- **Storage (`src/storage/`)**: SQLite via `aiosqlite`. Tables: `users`, `chat_members`. Supports `platform` column for multi-platform.
-- **Formatter (`src/formatter.py`)**: Generates conversion reply text.
-
-### Telegram-Specific
-
-- **Middleware (`src/commands/middleware.py`)**: `PassiveCollectionMiddleware` monitors messages and auto-adds known participants to chat list.
-- **FSM States (`src/states.py`)**: `SetTimezone`, `RemoveMember` states for multi-step flows.
-- **MemoryStorage**: Simple in-memory FSM storage. States lost on reboot.
-
-### Discord-Specific
-
-- **UI Components (`src/discord/commands.py`)**: `SetTimezoneView`, `FallbackView`, modals for interactive input.
-- **Events (`src/discord/events.py`)**: `on_message` (with auto-cleanup), `on_member_remove`.
-- **Button Security**: Buttons are restricted to target user only.
+| Aspect | Telegram | Discord |
+|--------|----------|---------|
+| **Timezone Setup** | Text + ForceReply (FSM) | Button → Modal |
+| **State** | `MemoryStorage` (FSM) | Stateless (modals) |
+| **Stale Users** | Manual `/tb_remove` | Auto-cleanup on mention |
+| **Leave Detection** | Bot doesn't know | `on_member_remove` event |
 
 ---
 
-##  Design Decisions
+## 3. Key Design Decisions
 
-| Choice | Reasoning | Trade-off |
-| :--- | :--- | :--- |
-| **SQLite** | Zero config (Python std lib), fast for MVP | Not for large clusters |
-| **MemoryStorage (Telegram)** | Simple FSM for dialog flows | States lost on reboot |
-| **Stateless Modals (Discord)** | No FSM needed, modals handle input | Cannot do multi-step dialogs |
-| **Separate Adapters** | Platform-specific UX, shared core | Some code duplication in handlers |
+### 3.1 Why Regex Over LLM/Fuzzy?
 
-##  Design Patterns
+| Approach | Verdict | Reasoning |
+|----------|---------|-----------|
+| **Regex** | ✅ Chosen | Work chats use conventional formats (`10am`, `14:00`). Predictable, zero cost. |
+| **rapidfuzz** | ❌ Rejected | Experimented with it. Natural phrases ("в полдень") are rare and cause false positives. |
+| **LLM** | ❌ Overkill | Expensive per-message. Makes sense only if high accuracy for natural language is critical. |
 
-- **Singleton**: Used for `config`, `logger`, and `storage`. Ensures single point of truth.
-- **Adapter Pattern**: Telegram (`src/commands/`) and Discord (`src/discord/`) are thin adapters over shared core.
+### 3.2 Why Nominatim (OSM) Over Google Geocoding?
+
+- **Free & unlimited** — no API key management
+- **Built-in fuzzy matching** — handles typos
+- **Understands disambiguations** — "Paris, Texas" → US timezone (not France)
+
+
+### 3.3 Why Passive Collection Over Chat Member List?
+
+Telegram bots can't list all chat members without admin rights. Instead:
+- Bot records users as they send messages
+- "Lurkers" won't appear in conversions — **expected behavior**
+
+**Discord:** Uses same approach for consistency + `on_member_remove` event for cleanup.
+
+### 3.4 Why MemoryStorage Over Redis?
+
+| Factor | Decision |
+|--------|----------|
+| **Complexity** | `MemoryStorage` — zero config, built into aiogram |
+| **Scale** | Single-instance bot, doesn't need distributed state |
+| **Trade-off** | FSM state lost on restart. User just re-enters city — acceptable for MVP. |
+
+### 3.5 Why SQLite Over PostgreSQL?
+
+- **Zero setup** — comes with Python
+- **Async via aiosqlite** — fast enough for single-instance
+- **Multi-platform ready** — `platform` column separates Telegram/Discord users
 
 ---
 
-## Known Limitations
+## 4. Component Overview
 
-### Cooldown Tracking
-The bot tracks reply cooldown in-memory (`_last_reply` dict in `src/commands/common.py`):
-- Prevents spam in a single session
-- **Does NOT persist** between bot restarts
-- Not suitable for multi-instance deployments
-
-**Future:** Move to Redis or database.
-
-### Database Caching
-Currently, direct SQLite reads for every message. Simple but disk I/O heavy on high load. Architecture is ready for caching (see `05_storage.md`).
-
----
-
-##  Future Roadmap
-
-1.  **Error Handling**: Global middleware to catch exceptions (e.g. Sentry).
-2.  **In-Memory Caching**: Write-Through cache to minimize DB I/O.
-3.  **WhatsApp Support**: New adapter following same pattern.
+| Module | Purpose |
+|--------|---------|
+| `src/capture.py` | Regex time extraction (patterns in `configuration.yaml`) |
+| `src/transform.py` | UTC-Pivot conversions, IANA timezone database |
+| `src/geo.py` | City → Coordinates → Timezone (Nominatim + TimezoneFinder) |
+| `src/storage/` | SQLite: `users` + `chat_members` tables |
+| `src/formatter.py` | Response text generation, UTC offset sorting |
+| `src/commands/` | Telegram handlers + FSM + Middleware |
+| `src/discord/` | Discord handlers + UI (Views, Modals) |
 
 ---
 
-##  Testing
+## 5. Known Limitations
 
-- **Zero Config**: Tests use temporary sqlite databases. No setup required.
+| Issue | Impact | Mitigation |
+|-------|--------|------------|
+| **Cooldown in-memory** | Resets on restart | Acceptable for MVP. Move to DB/Redis if needed. |
+| **FSM state lost on restart** | User re-enters city | Minor UX inconvenience. Redis can fix. |
+| **No natural language times** | "at noon" not detected | Regex covers 95% of work chat patterns. |
+| **Direct SQLite I/O** | Disk read per message | Architecture ready for in-memory cache (see `05_storage.md`). |
+
+---
+
+## 6. Future Roadmap
+
+| Priority | Enhancement |
+|----------|-------------|
+| **High** | Dockerization for easy deployment |
+| **Medium** | In-memory DB cache (Write-Through) |
+| **Medium** | Persistent FSM state (Redis) |
+| **Low** | Lightweight LLM layer for natural language fallback |
+
+---
+
+## 7. Testing
+
+- **Zero config:** Tests use temporary SQLite DBs
+- **Run:** `uv run pytest` or `./run.sh test`
+- **Coverage:** Core modules (capture, transform, storage, geo)
+
+---
+
+## 8. Configuration
+
+| File | Contents |
+|------|----------|
+| `.env` | Tokens: `TELEGRAM_TOKEN`, `DISCORD_TOKEN` (set one or both) |
+| `configuration.yaml` | Regex patterns, cooldown, display limits |
+
+**Startup logic:** Token present → bot starts. Token missing → skip with warning.
+
+---
+
+## 9. Specs Reference
+
+Detailed specifications in `journal/`:
+- [01_scope_and_MVP.md](../journal/01_scope_and_MVP.md) — Project scope, tech stack
+- [02_capture_logic.md](../journal/02_capture_logic.md) — Time detection patterns
+- [04_bot_logic.md](../journal/04_bot_logic.md) — Workflow diagrams, FSM flows
+- [05_storage.md](../journal/05_storage.md) — DB schema, caching architecture
+- [12_discord_integration.md](../journal/12_discord_integration.md) — Discord-specific UX decisions
