@@ -1,3 +1,8 @@
+## 2026-02-07 (session 6)
+- **Fix**: Hardcoded test path → relative `Path(__file__).parent`
+- **Docs**: Added `[!WARNING]` to caching section in `05_storage.md`
+- **Docs**: Updated `HANDOVER.md` with link to caching spec
+
 ## 2026-02-07 (session 5)
 - **Cleanup**: Removed confusing comment in `formatter.py`
 - **Cleanup**: Fixed 6 unused import warnings (ruff --fix)

@@ -225,6 +225,10 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ## 9. In-Memory Caching Layer (Future Enhancement)
 
+> [!WARNING]
+> **NOT IMPLEMENTED** — This section describes a future design proposal only.
+> Current implementation queries SQLite directly on every request.
+
 ### 9.1 Motivation
 
 Current implementation queries SQLite on every request. For high-load scenarios this may become a bottleneck:

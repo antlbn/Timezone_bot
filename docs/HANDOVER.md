@@ -114,7 +114,7 @@ Telegram bots can't list all chat members without admin rights. Instead:
 | **Cooldown in-memory** | Resets on restart | Acceptable for MVP. Move to DB/Redis if needed. |
 | **FSM state lost on restart** | User re-enters city | Minor UX inconvenience. Redis can fix. |
 | **No natural language times** | "at noon" not detected | Regex covers 95% of work chat patterns. |
-| **Direct SQLite I/O** | Disk read per message | Architecture ready for in-memory cache (see `05_storage.md`). |
+| **Direct SQLite I/O** | Disk read per message | Design ready for cache layer ([05_storage.md §9](../journal/05_storage.md) — **not implemented**). |
 
 ---
 

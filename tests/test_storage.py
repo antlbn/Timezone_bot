@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 from src.storage.sqlite import SQLiteStorage
 
-# Temporary database path for testing
-TEST_DB = Path("/Users/johnwunderbellen/Timezone_bot/tests/test_bot.db")
+# Temporary database path for testing (relative to tests directory)
+TEST_DB = Path(__file__).parent / "test_bot.db"
 storage = SQLiteStorage(TEST_DB)
 
 @pytest.fixture(autouse=True)
