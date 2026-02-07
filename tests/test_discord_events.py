@@ -1,6 +1,6 @@
 """Tests for Discord event handlers, specifically auto-cleanup logic."""
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 import discord
 
 

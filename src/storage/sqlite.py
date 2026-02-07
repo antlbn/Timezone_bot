@@ -1,6 +1,5 @@
 
 import aiosqlite
-from sqlite3 import OperationalError
 from pathlib import Path
 from src.logger import get_logger
 from src.storage.base import Storage

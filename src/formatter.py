@@ -108,14 +108,7 @@ def format_conversion_reply(
     if not other_members:
         return f"{sender_part}\n/tb_help"
     
-    # Sorter and grouping logic
-    # Note: We sort filtered members first if needed, but _group_and_sort handles grouping
-    # But spec says "Sort by UTC offset" for the list. 
-    # Actually _group_and_sort does sorting of keys.
-    # We should probably filter -> sort logic
-    # The original code did: other_members.sort(key=get_utc_offset) then group.
-    
-    # Let's perform grouping
+    # Group members by timezone and sort by UTC offset
     sorted_groups = _group_and_sort_members(other_members, display_limit)
     
     parts = []
