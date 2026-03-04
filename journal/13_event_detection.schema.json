@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Timezone Bot - Event Detection Output (MVP v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trigger", "polarity", "confidence", "reason"],
+  "properties": {
+    "trigger": {
+      "type": "boolean",
+      "description": "Whether the bot should react (run conversion/script) to this message window"
+    },
+    "polarity": {
+      "type": "string",
+      "enum": ["positive", "negative"],
+      "description": "Positive = useful for coordination/availability; Negative = past/refusal/personal/irrelevant"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Model's confidence in this trigger decision"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Short free-text explanation (for logs/debugging)"
+    }
+  }
+}

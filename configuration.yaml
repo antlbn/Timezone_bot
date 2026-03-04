@@ -20,6 +20,62 @@ bot:
   # Cooldown between bot replies in same chat (0 = disabled)
   cooldown_seconds: 0
 
+# Event Detection (LLM Layer)
+# See: journal/13_event_detection.md
+event_detection:
+  # Master switch for the LLM-based scheduling detector
+  enabled: true
+
+  # How many last messages to pass as context
+  context_window_messages: 8
+
+  # Prefilter to avoid calling LLM on every message
+  prefilter:
+    # If true: call LLM only when strict time-regex matched OR (numeric candidate + keyword) is present
+    require_time_regex_or_keywords: true
+    keywords_ru:
+      - "созвон"
+      - "встреч"
+      - "бронь"
+      - "мит"
+      - "митинг"
+      - "созван"
+      - "давайте"
+      - "завтра"
+      - "сегодня"
+      - "послезавтра"
+      - "утром"
+      - "вечером"
+      - "перенес"
+      - "перенос"
+      - "по лондону"
+      - "по москве"
+    keywords_en:
+      - "call"
+      - "meeting"
+      - "meet"
+      - "sync"
+      - "standup"
+      - "stand-up"
+      - "stand up"
+      - "tomorrow"
+      - "today"
+      - "tonight"
+      - "morning"
+      - "evening"
+      - "resched"
+      - "reschedule"
+      - "utc"
+      - "mst"
+      - "est"
+      - "pst"
+
+  # Regex for numeric candidate hours (used only for LLM prefilter)
+  numeric_candidate_pattern: '\b([0-1]?[0-9]|2[0-3])\b'
+
+  # Treat as trigger only if confidence >= threshold
+  min_confidence_trigger: 0.75
+
 # Time Capture Patterns (Strict Regex)
 capture:
   patterns:

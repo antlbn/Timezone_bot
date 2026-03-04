@@ -18,6 +18,7 @@
 | `07_response_format.md` | `src/formatter.py` | Build reply string |
 | `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram adapter |
 | `09_logging.md` | `src/logger.py` | Logging setup |
+| `13_event_detection.md` | `src/event_detection/` (planned) | LLM-based scheduling detector + strict JSON |
 | `12_discord_integration.md` | `src/discord/` | Discord adapter |
 | — | `src/config.py` | Load yaml + .env |
 | — | `src/main.py` | Telegram entry point |
@@ -27,7 +28,7 @@
 
 ## Build Order (Dependencies First)
 ```
-config.py → logger.py → src/storage/ → capture.py → transform.py → geo.py → formatter.py → src/commands/states.py → src/commands/*.py → main.py
+config.py → logger.py → src/storage/ → capture.py → event_detection (planned) → transform.py → geo.py → formatter.py → src/commands/states.py → src/commands/*.py → main.py
 ```
 
 ---

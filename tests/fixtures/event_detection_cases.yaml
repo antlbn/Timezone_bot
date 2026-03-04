@@ -1,0 +1,249 @@
+cases:
+  - id: simple_future_meeting_single_message
+    description: "Simple future meeting phrase should trigger immediately on first message"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1001"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "давайте завтра в 7 вечера созвон"
+    expected:
+      trigger: true
+      polarity: positive
+
+  - id: question_with_concrete_proposal
+    description: "Question about time followed by a concrete useful proposal (should trigger)"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: discord
+        chat_id: "g1"
+        message_id: "d1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "как думаете во сколько нужно созвониться?"
+      - platform: discord
+        chat_id: "g1"
+        message_id: "d2"
+        author_id: "u2"
+        author_name: "Bob"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "в 8:00 по лондону?"
+    expected:
+      trigger: true
+      polarity: positive
+
+  - id: tentative_negotiation
+    description: "Negotiation / counterproposal with bare numeric times, decision useful for group"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1002"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "в 8 норм?"
+      - platform: telegram
+        chat_id: "-1002"
+        message_id: "t2"
+        author_id: "u2"
+        author_name: "Bob"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "да нет давайте в 10"
+    expected:
+      trigger: true
+      polarity: positive
+
+  - id: numeric_candidate_with_time_context
+    description: "Bare numeric candidate clarified as time by previous context"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1008"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:57:00Z"
+        text: "во сколько с утра созвон?"
+      - platform: telegram
+        chat_id: "-1008"
+        message_id: "t2"
+        author_id: "u2"
+        author_name: "Bob"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "пусть Сергей решает"
+      - platform: telegram
+        chat_id: "-1008"
+        message_id: "t3"
+        author_id: "u3"
+        author_name: "Sergey"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "в 8 норм?"
+    expected:
+      trigger: true
+      polarity: positive
+
+  - id: numeric_candidate_not_time
+    description: "Bare numeric candidate that refers to address, not time"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1009"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:57:00Z"
+        text: "в 9 ом доме"
+      - platform: telegram
+        chat_id: "-1009"
+        message_id: "t2"
+        author_id: "u2"
+        author_name: "Bob"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "не, давай поближе к проходной"
+      - platform: telegram
+        chat_id: "-1009"
+        message_id: "t3"
+        author_id: "u3"
+        author_name: "Sergey"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "в 8 норм?"
+    expected:
+      trigger: false
+      polarity: negative
+
+  - id: past_reference
+    description: "Past reference should not trigger scheduling"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1003"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "я вчера в 8 уже спал"
+    expected:
+      trigger: false
+      polarity: negative
+
+  - id: confirmed_with_explicit_timezone
+    description: "Explicit timezone override (London)"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: discord
+        chat_id: "g2"
+        message_id: "d1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "давайте завтра в 10:00 по лондону"
+      - platform: discord
+        chat_id: "g2"
+        message_id: "d2"
+        author_id: "u2"
+        author_name: "Bob"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "ок"
+    expected:
+      trigger: true
+      polarity: positive
+
+  - id: cancelled
+    description: "Explicit cancellation should yield cancelled status"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1004"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:58:00Z"
+        text: "созвон завтра в 12:00"
+      - platform: telegram
+        chat_id: "-1004"
+        message_id: "t2"
+        author_id: "u2"
+        author_name: "Bob"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "отменяем"
+    expected:
+      trigger: false
+      polarity: negative
+
+  - id: confirmed_noon
+    description: "Noon implies 12:00 with hour precision"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1005"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "созвон будет в полдень"
+    expected:
+      trigger: true
+      polarity: positive
+
+  - id: tentative_multiple_options
+    description: "Multiple times offered with a question mark should be tentative"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: discord
+        chat_id: "g3"
+        message_id: "d1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "давайте завтра в 18:00 или 19:30?"
+    expected:
+      trigger: false
+      polarity: negative
+
+  - id: personal_dog_walk_future
+    description: "Personal future plan that is not relevant for coordination"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1006"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "я завтра в 8 утром пойду гулять с собакой"
+    expected:
+      trigger: false
+      polarity: negative
+
+  - id: useful_customer_meeting
+    description: "Future time with customer, explicitly useful for the group"
+    sender_timezone_iana: "Europe/Berlin"
+    anchor_timestamp_utc: "2026-03-04T10:00:00Z"
+    messages:
+      - platform: telegram
+        chat_id: "-1007"
+        message_id: "t1"
+        author_id: "u1"
+        author_name: "Alice"
+        timestamp_utc: "2026-03-04T09:59:00Z"
+        text: "если я завтра в 8:00 буду с заказчиком, смогу у него это спросить"
+    expected:
+      trigger: true
+      polarity: positive
+
