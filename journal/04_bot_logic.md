@@ -11,10 +11,16 @@
 ┌────────────────────────────────────────────────────────┐
 │                     BOT CORE                           │
 │                                                        │
-│  ┌─────────┐   ┌─────────────┐   ┌────────────────┐   │
-│  │ Capture │──▶│ Transform   │──▶│ Response       │   │
-│  │ (Regex) │   │ (UTC-Pivot) │   │ (Format)       │   │
-│  └─────────┘   └─────────────┘   └────────────────┘   │
+│  ┌─────────┐    ┌───────────────────┐   ┌────────────┐ │
+│  │ Capture │───▶│ Event Detector    │──▶│ Transform  │ │
+│  │ (Regex) │    │ (LLM trigger)     │   │ (UTC-Pivot)│ │
+│  └─────────┘    └───────────────────┘   └────────────┘ │
+│                            │                          │
+│                            ▼                          │
+│                     ┌────────────────┐                │
+│                     │ Response       │                │
+│                     │ (Format)       │                │
+│                     └────────────────┘                │
 │       │                                               │
 │       ▼                                               │
 │  ┌──────────────────────────────────────────────┐    │
@@ -48,17 +54,23 @@ This ensures reliability and follows standard practices for handling:
 ## 2. Core Workflow
 
 ### Trigger
-Bot listens to all messages in chats and checks for capture module triggers (time detection).
+Bot listens to all messages in chats and:
+1. Uses the **capture module** (regex + simple keywords, see `02_capture_logic.md`) to find time-like tokens.
+2. Sends the recent message window to the **Event Detection LLM** (`13_event_detection.md`).
+3. Continues only if LLM returns `trigger=true` (otherwise the message is ignored, even if it contains a valid time).
 
 ### Flow: Happy Path (user exists in DB)
 
 ```
-1. [TRIGGER]     → Capture module finds time in message
-2. [LOOKUP]      → Check sender_id in SQLite
-3. [FOUND]       → Get sender's timezone
-4. [SCAN]        → Get list of other chat users from DB
-5. [TRANSFORM]   → Call TTM to convert to all zones
-6. [REPLY]       → Bot replies:
+1. [CAPTURE]     → Regex finds time-like strings in message
+2. [LLM GATE]    → Event Detection LLM decides trigger:
+                   - if trigger=false → stop (no reply)
+                   - if trigger=true  → continue
+3. [LOOKUP]      → Check sender_id in SQLite
+4. [FOUND]       → Get sender's timezone
+5. [SCAN]        → Get list of other chat users from DB
+6. [TRANSFORM]   → Call TTM to convert to all zones
+7. [REPLY]       → Bot replies:
                    "14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵"
 ```
 
@@ -66,12 +78,13 @@ Bot listens to all messages in chats and checks for capture module triggers (tim
 ### Flow: New User (user not in DB)
 
 ```
-1. [TRIGGER]     → Capture module finds time
-2. [LOOKUP]      → Check sender_id in SQLite
-3. [NOT FOUND]   → User not in DB
-4. [SAVE TIME]   → Save pending_time in FSM state
-5. [ASK CITY]    → Bot asks: "Reply with your city name:"
-6. [PARSE]       → Attempt to determine timezone by city
+1. [CAPTURE]     → Capture module finds time-like tokens
+2. [LLM GATE]    → Event Detection LLM returns trigger=true
+3. [LOOKUP]      → Check sender_id in SQLite
+4. [NOT FOUND]   → User not in DB
+5. [SAVE TIME]   → Save pending_time in FSM state
+6. [ASK CITY]    → Bot asks: "Reply with your city name:"
+7. [PARSE]       → Attempt to determine timezone by city
    │
    ├─ [SUCCESS]  → Save to SQLite
    │              → "Set: Berlin 🇩🇪"

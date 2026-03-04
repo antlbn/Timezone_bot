@@ -59,7 +59,7 @@ Create a stable Telegram / Discord bot that:
 
 ### Qualities
 - **Simplicity**: Does not require complex actions from the user.
-- **Detection**: Time recognition is based on Regex.
+- **Detection**: Time detection is based on Regex with an **optional LLM layer** that decides whether the bot should react or stay silent.
 - **Time Accuracy**: Transformation is resistant to seasonal shifts (IANA database).
 - **Easy Administration**: Configuration via `.yaml` and `.env`.
 
@@ -102,13 +102,13 @@ Create a stable Telegram / Discord bot that:
 - **Grouping**: Matching timezones — time once, cities comma-separated.
 
 ### Algorithm
-1. Regex time detection.
-2. Any conversion goes through UTC (direct Local→Local is prohibited).
+1. Time-like detection via Regex (and simple keywords for context).
+2. Optional LLM-based event detector decides whether the mention is practically useful (trigger / no trigger).
+3. Any conversion goes through UTC (direct Local→Local is prohibited).
 
 ---
 
 ## Out of Scope (Beyond Current MVP)
-- LLM fallbacks for recognition
 - WhatsApp support
 - Fuzzy matching for time detection (e.g. `rapidfuzz`)
 - Combining multiple times into one message
@@ -117,5 +117,5 @@ Create a stable Telegram / Discord bot that:
 
 ## Constraints (What Not To Do)
 - **No Hardcode**: No hardcoding of cities and timezones.
-- **No LLM Fallbacks**: No LLM usage at runtime (expensive).
+- **Limited LLM Usage**: LLM is used only as a lightweight trigger layer (binary decision: react / ignore). It does not replace regex, geocoding, or time conversion logic.
 - **No Private Chats**: Bot works only in group chats/servers.
