@@ -29,10 +29,15 @@ event_detection:
   # How many last messages to pass as context
   context_window_messages: 8
 
-  # Prefilter to avoid calling LLM on every message
+  # How many last messages to pass as context
+  context_window_messages: 8
+
+  # Optional prefilter to reduce LLM costs. By default, it's OFF (LLM receives all messages).
   prefilter:
-    # If true: call LLM only when strict time-regex matched OR (numeric candidate + keyword) is present
+    enabled: false
+    # If enabled and true: call LLM only when strict time-regex matched OR (numeric candidate + keyword) is present
     require_time_regex_or_keywords: true
+    numeric_candidate_pattern: '\b([0-1]?[0-9]|2[0-3])\b'
     keywords_ru:
       - "созвон"
       - "встреч"
@@ -65,13 +70,6 @@ event_detection:
       - "evening"
       - "resched"
       - "reschedule"
-      - "utc"
-      - "mst"
-      - "est"
-      - "pst"
-
-  # Regex for numeric candidate hours (used only for LLM prefilter)
-  numeric_candidate_pattern: '\b([0-1]?[0-9]|2[0-3])\b'
 
   # Treat as trigger only if confidence >= threshold
   min_confidence_trigger: 0.75
