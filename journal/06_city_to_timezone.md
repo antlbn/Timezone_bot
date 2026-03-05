@@ -108,5 +108,3 @@ Use `RateLimiter` from geopy.
 
 ## 9. Future Improvements
 
-- [ ] Direct IANA timezone recognition (`Europe/Berlin`) — for advanced users
-- [ ] Inline buttons for selecting from multiple cities (though writing "Paris, TEXAS" already works correctly)

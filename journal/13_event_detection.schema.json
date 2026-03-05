@@ -3,15 +3,25 @@
   "title": "Timezone Bot - Event Detection Output (MVP v1)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["trigger", "polarity", "confidence", "reason"],
+  "required": [
+    "trigger",
+    "polarity",
+    "confidence",
+    "reason",
+    "times",
+    "event_location"
+  ],
   "properties": {
     "trigger": {
       "type": "boolean",
-      "description": "Whether the bot should react (run conversion/script) to this message window"
+      "description": "Whether the bot should react (run conversion) to this message window"
     },
     "polarity": {
       "type": "string",
-      "enum": ["positive", "negative"],
+      "enum": [
+        "positive",
+        "negative"
+      ],
       "description": "Positive = useful for coordination/availability; Negative = past/refusal/personal/irrelevant"
     },
     "confidence": {
@@ -22,7 +32,35 @@
     },
     "reason": {
       "type": "string",
-      "description": "Short free-text explanation (for logs/debugging)"
+      "description": "Short free-text explanation (RU/EN) for logs/debugging"
+    },
+    "times": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Time strings extracted from the message window. Empty array when trigger=false.",
+      "examples": [
+        [
+          "14:00"
+        ],
+        [
+          "завтра в 9",
+          "15:30"
+        ]
+      ]
+    },
+    "event_location": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "City/location explicitly mentioned as timezone context for the event. Null if not mentioned. Used as source pivot for conversion (one-time, does not update DB).",
+      "examples": [
+        "New York",
+        "London",
+        null
+      ]
     }
   }
 }

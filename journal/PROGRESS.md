@@ -1,3 +1,20 @@
+## 2026-03-05 (session)
+- **Spec Update**: Major architectural shift to **Mandatory LLM Layer**.
+  - **Removed**: Regex and keyword prefilters entirely.
+  - **Updated**: LLM now extracts `times[]` and `event_location` (pivot override).
+  - **Updated**: Every message is processed by LLM (with latency/cost accepted).
+  - **Updated**: Refactored `13_event_detection`, `04_bot_logic`, `01_scope`, `11_mapping`.
+  - **Cleanup**: `02_capture_logic` marked as LEGACY.
+  - **Cleanup**: `configuration.yaml` removed obsolete prefilter sections.
+
+## 2026-03-05 (session 2)
+- **Spec Update**: Addressed edge cases and finalized LLM architecture.
+  - **Bot Logic (`04_bot_logic.md`)**: Simplified onboarding flow to be instant upon first message from unknown user. Removed complex deferred LLM call logic.
+  - **Event Detection (`13_event_detection.md`)**: Reverted localized anchor time back to UTC (Transform module handles date shifts). Added max message length limit (500 chars) for LLM context to prevent token exhaustion. Defined `extended_context_messages` (buffer limit) and snapshot extraction for low-confidence 2nd passes.
+  - **Storage (`05_storage.md`)**: Kept passive collection + `ChatMemberUpdated` as the core member tracking strategy. Moved JIT (Just-in-Time) user purge to Future Considerations.
+  - **Analysis (`edge_cases.md`)**: Created document analyzing edge cases, which drove these final robust spec updates.
+
+
 ## 2026-02-07 (session 6)
 - **Fix**: Hardcoded test path → relative `Path(__file__).parent`
 - **Docs**: Added `[!WARNING]` to caching section in `05_storage.md`

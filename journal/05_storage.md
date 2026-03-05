@@ -110,11 +110,11 @@ clear_chat_members(chat_id: int, platform: str) -> None
 
 ---
 
-## 5. Member Tracking Strategy
+### 5. Member Tracking Strategy
 
 ### Principle: Passive Collection + Exit Listening
 
-Bot **does NOT require admin rights** and cannot get the full list of chat participants.
+Bot **does NOT require admin rights** and cannot passively get the full list of chat participants.
 Instead — it accumulates the database gradually.
 
 ### Events to Track:
@@ -123,7 +123,7 @@ Instead — it accumulates the database gradually.
 |-------|--------|
 | Any message in chat | `add_chat_member(chat_id, user_id)` if user not present |
 | `ChatMemberUpdated` (user left/kicked) | `remove_chat_member(chat_id, user_id)` |
-| `ChatMemberUpdated` (bot kicked) | `clear_chat_members(chat_id)` — forget the chat |
+| `ChatMemberUpdated` (bot kicked/left) | `clear_chat_members(chat_id)` — forget the chat |
 
 ### Bot Kicked Flow:
 
@@ -147,7 +147,8 @@ sequenceDiagram
 
 **What is deleted:**
 - Only `chat_members` records for the given `chat_id`
-### aiogram Handler:
+
+### aiogram Handler
 
 ```python
 from aiogram import Router
@@ -335,3 +336,4 @@ Pattern: **Decorator** over existing `Storage` interface.
 > Standard SQLite version is implemented. Section 9 — ready architecture for future optimization.
 
 - **In-Memory Caching**: Enabled via `storage.use_cache: true`
+- **JIT User Purge (Telegram)**: Telegram's `ChatMemberUpdated` isn't always reliable. Future versions should implement a Just-In-Time check before responding, pinging `get_chat_member()` and auto-deleting anyone who has left the chat.

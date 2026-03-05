@@ -12,7 +12,7 @@ We follow a **Pragmatic approach**:
 
 | Layer | Type | Scope | Automation | Tool |
 |-------|------|-------|------------|------|
-| **L1** | **Unit** | `src/capture.py` (Regex)<br>`src/transform.py` (Time math)<br>`src/geo.py` (Geocoding) | ✅ Automated | `pytest` |
+| **L1** | **Unit** | `src/event_detection/` (LLM output parsing, golden fixtures)<br>`src/transform.py` (Time math)<br>`src/geo.py` (Geocoding) | ✅ Automated | `pytest` |
 | **L1.5** | **Handlers** | `src/commands/*.py` (Telegram)<br>`src/discord/commands.py` (Discord) | ✅ Automated | `pytest` + `mock` |
 | **L2** | **Integration** | `src/storage/`, `middleware`, events | ✅ Automated | `pytest` |
 | **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App, Discord |
@@ -25,25 +25,27 @@ We follow a **Pragmatic approach**:
 These tests should run before every commit.
 
 ### Scope:
-1.  **Capture Patterns**:
-    -   Check all examples from `configuration.yaml`
-    -   Edge cases (no time, garbage, "price 500")
-2.  **Transformation Logic**:
-    -   UTC → Target TZ conversion
-    -   Day change handling (Day +1 / -1)
-    -   Response string formatting
-3.  **Resilience (L2)**:
-    -   API error handling (Geo timeout)
-    -   Database stability (Middleware catch)
-    -   Garbage data parsing
-4.  **Handlers (L1.5)**:
-    -   Unit tests for commands (`cmd_me`, `cmd_settz`)
-    -   Mocking `aiogram.types.Message` and `storage`
-    -   Verify `message.answer` is called with expected text
+1. **Event Detection (LLM)**:
+    - Golden test cases from `tests/fixtures/event_detection_cases.yaml`
+    - Verify `trigger`, `polarity`, `times[]`, `event_location` for each fixture
+    - Test JSON schema validation
+2. **Transformation Logic**:
+    - UTC → Target TZ conversion
+    - `source_tz` override (event_location path)
+    - Day change handling (Day +1 / -1)
+    - Response string formatting
+3. **Resilience (L2)**:
+    - API error handling (Geo timeout, LLM error)
+    - Database stability (Middleware catch)
+    - Garbage data parsing
+4. **Handlers (L1.5)**:
+    - Unit tests for commands (`cmd_me`, `cmd_settz`)
+    - Mocking `aiogram.types.Message` and `storage`
+    - Verify `message.answer` is called with expected text
 
 ### Location:
-- `tests/test_capture.py` — Regex patterns
-- `tests/test_transform.py` — UTC-pivot logic
+- `tests/test_event_detection.py` — LLM output parsing + golden fixtures
+- `tests/test_transform.py` — UTC-pivot logic + source_tz override
 - `tests/test_formatter.py` — Reply formatting
 - `tests/test_geo.py` — Geocoding and timezone resolution
 - `tests/test_storage.py` — Database operations (platform separation)

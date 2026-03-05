@@ -22,11 +22,11 @@ Bot extension to support Discord servers. Uses **discord.py** — async library 
          │                       │
          └───────────┬───────────┘
                      ▼
-         ┌───────────────────────┐
-         │      SHARED CORE      │
-         │  capture, transform,  │
-         │  storage, geo, format │
-         └───────────────────────┘
+         ┌───────────────────────────────────┐
+         │            SHARED CORE            │
+         │  event_detection, transform,      │
+         │  storage, geo, formatter          │
+         └───────────────────────────────────┘
 ```
 
 **Principle:** Platform adapters (Telegram/Discord) — thin layers. All logic in shared core.
@@ -126,7 +126,7 @@ This approach allows running only needed bots — just set or remove the token.
 
 | Module | Discord Compatibility |
 |--------|----------------------|
-| `capture.py` | ✅ Works as-is |
+| `event_detection/` | ✅ Works as-is (platform-agnostic LLM call) |
 | `transform.py` | ✅ Works as-is |
 | `storage/` | ✅ `platform='discord'` supported |
 | `geo.py` | ✅ Works as-is |

@@ -3,6 +3,8 @@
 ## 1. Overview
 Module designed for converting time between arbitrary timezones with protection from "political" time shifts (legislative changes) and DST transitions (daylight saving time).
 
+> **v1.2 Update**: The transformation module now accepts an optional `source_tz` parameter. When the LLM Event Detector returns a non-null `event_location`, the application geocodes it and passes the resulting IANA timezone as `source_tz`, overriding the sender's DB timezone for this conversion only.
+
 ## 2. Technology Stack
 * **Core Libraries:** 
     * `zoneinfo`: Native IANA database support (PEP 615 standard).
@@ -12,25 +14,30 @@ Module designed for converting time between arbitrary timezones with protection 
 Any time transformation must go through a "zero point" (UTC). Direct conversion between local zones ("Zone A -> Zone B") is prohibited to minimize errors.
 
 ```
-    Local Time          UTC              Target Zones
-    (sender)                            
+    Source Time         UTC              Target Zones
+    (sender DB TZ                            
+     OR event_location)                 
         │                │                    
-   "14:00"               │                    
-   Berlin 🇩🇪             │                    
-        │                │                    
-        └───────▶ 13:00 UTC ───────┬─▶ 08:00 New York 🇺🇸
+   "12:00"               │                    
+   New York 🇺🇸           │                    
+   (event_location)      │                    
+        └───────▶ 17:00 UTC ───────┬─▶ 19:00 Berlin 🇩🇪
                          │         │
-                         │         ├─▶ 22:00 Tokyo 🇯🇵
+                         │         ├─▶ 12:00 New York 🇺🇸
                          │         │
-                         │         └─▶ 13:00 London 🇬🇧
+                         │         └─▶ 02:00⁺¹ Tokyo 🇯🇵
 ```
 
+**Source TZ resolution:**
+- If `event_location` != null → `source_tz = geocode(event_location).iana_tz`
+- If `event_location` == null → `source_tz = sender's DB timezone`
+
 ### Workflow:
-1. **Extraction**: Received from capture_module
+1. **Extraction**: `times[]` received from LLM Event Detector (`13_event_detection.md`). Optional `source_tz` override also provided if `event_location` was geocoded.
 2. **Anchoring**: Binding to current date (`datetime.now()`) to determine the current DST mode.
-3. **Localization**: Creating an `Aware datetime` object in the sender's zone.
+3. **Localization**: Creating an `Aware datetime` object in the **source timezone** (`source_tz` if provided, else sender's DB TZ).
 4. **Normalization**: Shifting the object to **UTC** (reference point).
-5. **Projection**: Shifting from UTC to the list of target zones (`target_timezone_names`).
+5. **Projection**: Shifting from UTC to the list of target zones (`target_timezone_names`). **Includes the sender's own zone** so they see their local equivalent too.
 
 
 ## 4. Maintenance & Data Integrity

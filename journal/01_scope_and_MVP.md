@@ -43,10 +43,11 @@ Create a stable Telegram / Discord bot that:
                  ▼
 ┌───────────────────────────────────────────────────┐
 │                  SHARED CORE                       │
-│  ┌─────────┐  ┌─────────────┐  ┌───────────────┐  │
-│  │ Capture │─▶│  Transform  │─▶│   Formatter   │  │
-│  │ (Regex) │  │ (UTC-Pivot) │  │  (Response)   │  │
-│  └─────────┘  └─────────────┘  └───────────────┘  │
+│  ┌──────────────────┐  ┌─────────┐  ┌──────────┐  │
+│  │  Event Detector  │─▶│Transform│─▶│Formatter │  │
+│  │  (LLM)           │  │(UTC-Pivot│  │(Response)│  │
+│  └──────────────────┘  └─────────┘  └──────────┘  │
+│       (trigger + times[] + event_location)         │
 │                      │                             │
 │       ┌──────────────┼──────────────┐              │
 │       ▼              ▼              ▼              │
@@ -59,7 +60,7 @@ Create a stable Telegram / Discord bot that:
 
 ### Qualities
 - **Simplicity**: Does not require complex actions from the user.
-- **Detection**: Time detection is based on Regex with an **optional LLM layer** that decides whether the bot should react or stay silent.
+- **Detection**: Every message is evaluated by an **LLM-based Event Detector** that decides whether the bot should react (trigger / no trigger) and extracts relevant times and event location context.
 - **Time Accuracy**: Transformation is resistant to seasonal shifts (IANA database).
 - **Easy Administration**: Configuration via `.yaml` and `.env`.
 
@@ -70,7 +71,7 @@ Create a stable Telegram / Discord bot that:
 ### Core (Shared)
 
 | Component | Library | Purpose |
-|-----------|---------|---------|
+|-----------|---------|---------| 
 | Runtime | `python` 3.12+ | Includes `sqlite3` |
 | Storage | `aiosqlite` | Async SQLite wrapper |
 | Timezone | `zoneinfo`, `tzdata` | IANA timezone database |
@@ -82,13 +83,13 @@ Create a stable Telegram / Discord bot that:
 ### Telegram
 
 | Component | Library | Purpose |
-|-----------|---------|---------|
+|-----------|---------|---------| 
 | Bot API | `aiogram` | Async Telegram Bot wrapper |
 
 ### Discord
 
 | Component | Library | Purpose |
-|-----------|---------|---------|
+|-----------|---------|---------| 
 | Bot API | `discord.py` 2.x | Async Discord Bot wrapper |
 
 ---
@@ -102,9 +103,10 @@ Create a stable Telegram / Discord bot that:
 - **Grouping**: Matching timezones — time once, cities comma-separated.
 
 ### Algorithm
-1. Time-like detection via Regex (and simple keywords for context).
-2. Optional LLM-based event detector decides whether the mention is practically useful (trigger / no trigger).
-3. Any conversion goes through UTC (direct Local→Local is prohibited).
+1. Every message is forwarded to the **LLM-based Event Detector** (`13_event_detection.md`).
+2. If `trigger=true`: use `times[]` and optional `event_location` from LLM output.
+3. If `event_location` is set: geocode it → use as source timezone pivot.
+4. Any conversion goes through UTC (direct Local→Local is prohibited).
 
 ---
 
@@ -117,5 +119,6 @@ Create a stable Telegram / Discord bot that:
 
 ## Constraints (What Not To Do)
 - **No Hardcode**: No hardcoding of cities and timezones.
-- **Limited LLM Usage**: LLM is used only as a lightweight trigger layer (binary decision: react / ignore). It does not replace regex, geocoding, or time conversion logic.
+- **Limited LLM Usage**: LLM is used only as a trigger + extraction layer (binary decision + times + event_location). It does not replace geocoding or time conversion logic.
 - **No Private Chats**: Bot works only in group chats/servers.
+- **No DB Updates from event_location**: `event_location` is a one-time pivot; it never overwrites the sender's stored timezone.
