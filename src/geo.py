@@ -123,6 +123,21 @@ def get_timezone_by_offset(offset_hours: float) -> dict:
     }
 
 
+def _extract_times_for_resolver(text: str) -> list[str]:
+    """Internal helper to extract time for manual offset resolution."""
+    import re
+    patterns = [
+        r'\b([0-1]?[0-9]|2[0-3]):([0-5][0-9])\b',
+        r'\b((1[0-2]|0?[1-9]):([0-5][0-9])\s?([AaPp][Mm]))\b',
+        r'\b((1[0-2]|0?[1-9])\s?([AaPp][Mm]))\b'
+    ]
+    matches = []
+    for p in patterns:
+        for m in re.finditer(p, text, re.IGNORECASE):
+            matches.append(m.group(0))
+    return matches
+
+
 def resolve_timezone_from_input(user_input: str) -> dict | None:
     """
     Universal timezone resolver: checks TIME pattern first (via regex),
@@ -137,13 +152,12 @@ def resolve_timezone_from_input(user_input: str) -> dict | None:
         Location dict with city/timezone/flag, or None if unresolved
     """
     from datetime import datetime, timezone as tz
-    from src import capture
     from src.transform import parse_time_string
     
     user_input = user_input.strip()
     
     # 1. Check if input matches time pattern (regex) — FIRST
-    times = capture.extract_times(user_input)
+    times = _extract_times_for_resolver(user_input)
     if times:
         try:
             user_time = parse_time_string(times[0])

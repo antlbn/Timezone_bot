@@ -26,60 +26,37 @@ event_detection:
   # Master switch for the LLM-based scheduling detector
   enabled: true
 
-  # How many last messages to pass as context
-  context_window_messages: 8
-
-  # How many last messages to pass as context
-  context_window_messages: 8
-
-  # Optional prefilter to reduce LLM costs. By default, it's OFF (LLM receives all messages).
-  prefilter:
-    enabled: false
-    # If enabled and true: call LLM only when strict time-regex matched OR (numeric candidate + keyword) is present
-    require_time_regex_or_keywords: true
-    numeric_candidate_pattern: '\b([0-1]?[0-9]|2[0-3])\b'
-    keywords_ru:
-      - "созвон"
-      - "встреч"
-      - "бронь"
-      - "мит"
-      - "митинг"
-      - "созван"
-      - "давайте"
-      - "завтра"
-      - "сегодня"
-      - "послезавтра"
-      - "утром"
-      - "вечером"
-      - "перенес"
-      - "перенос"
-      - "по лондону"
-      - "по москве"
-    keywords_en:
-      - "call"
-      - "meeting"
-      - "meet"
-      - "sync"
-      - "standup"
-      - "stand-up"
-      - "stand up"
-      - "tomorrow"
-      - "today"
-      - "tonight"
-      - "morning"
-      - "evening"
-      - "resched"
-      - "reschedule"
-
   # Treat as trigger only if confidence >= threshold
   min_confidence_trigger: 0.75
 
-# Time Capture Patterns (Strict Regex)
-capture:
-  patterns:
-    # 24h format (e.g. 19:00, 9:30)
-    - '\b([0-1]?[0-9]|2[0-3]):([0-5][0-9])\b'
-    # 12h format with minutes (e.g. 5:00 pm, 10:30 AM)
-    - '\b((1[0-2]|0?[1-9]):([0-5][0-9])\s?([AaPp][Mm]))\b'
-    # 12h format without minutes (e.g. 5 pm, 10AM)
-    - '\b((1[0-2]|0?[1-9])\s?([AaPp][Mm]))\b'
+  # Pass 1: LLM sees only the current message (no history).
+  # Pass 2 (retry on low confidence): adds this many previous messages.
+  extended_context_messages: 3
+
+  # Protection against token limit exhaustion.
+  # Messages longer than this are truncated before adding to deque/LLM.
+  max_message_length_chars: 500
+
+  # Prefilter: Optional regex/keyword gate to save LLM costs.
+  # If enabled: LLM is only called if message matches patterns.
+  prefilter:
+    enabled: false
+    # Common keywords related to coordination
+    keywords:
+      - "созвон"
+      - "встреча"
+      - "митинг"
+      - "call"
+      - "meeting"
+      - "zoom"
+      - "meet"
+      - "завтра"
+      - "tomorrow"
+      - "сегодня"
+      - "today"
+    # Strict time regex (HH:MM or HH:MM AM/PM)
+    strict_patterns:
+      - "\\b([0-1]?[0-9]|2[0-3]):([0-5][0-9])\\b"
+      - "\\b((1[0-2]|0?[1-9]):([0-5][0-9])\\s?([AaPp][Mm]))\\b"
+    # Plain numeric candidate (e.g. "8", "19") - requires keywords to trigger
+    numeric_candidate_pattern: "\\b([0-1]?[0-9]|2[0-3])\\b"

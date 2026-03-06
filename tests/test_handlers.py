@@ -131,10 +131,7 @@ async def test_process_city_success(mock_storage, mock_message, mock_state, monk
 
 @pytest.mark.asyncio
 async def test_handle_time_mention_success(mock_storage, mock_message, mock_state, monkeypatch):
-    """Test full flow: time mention -> conversion reply."""
-    # Mock capture (already imported in common, but let's assume input text works with real capture if simple)
-    # Actually 'src.commands.common.capture' is a module. Real capture is pure logic, safe to use.
-    
+    """Test full flow: message -> LLM trigger -> conversion reply."""
     # Mock storage for user
     mock_storage.get_user.return_value = {
         "city": "Berlin",
@@ -148,24 +145,37 @@ async def test_handle_time_mention_success(mock_storage, mock_message, mock_stat
         {"user_id": 999, "city": "New York", "timezone": "America/New_York", "flag": "🇺🇸", "username": "other"}
     ]
     
-    # Mock formatter (to avoid real complex logic if desired, or verify integration)
-    # Let's mock it to verify it's CALLED.
+    # Mock event_detection.process_message
+    mock_process = AsyncMock()
+    mock_process.return_value = {
+        "trigger": True,
+        "polarity": "positive",
+        "confidence": 0.95,
+        "reason": "Explicit time mention",
+        "times": ["15:00"],
+        "event_location": None
+    }
+    monkeypatch.setattr("src.commands.common.process_message", mock_process)
+    
+    # Mock formatter
     mock_formatter = MagicMock()
     mock_formatter.format_conversion_reply.return_value = "Time in NY: 10:00"
     monkeypatch.setattr("src.commands.common.formatter", mock_formatter)
     
-    # Apply storage mock to common.py too (it's a different module import)
+    # Apply storage mock to common.py too
     monkeypatch.setattr("src.commands.common.storage", mock_storage)
 
     # Input message
     mock_message.text = "Let's meet at 15:00"
+    mock_message.date = MagicMock()
+    mock_message.date.isoformat.return_value = "2026-03-05T10:00:00"
     
     # Run handler
     await handle_time_mention(mock_message, mock_state)
     
     # Verify processing
-    # 1. User fetched?
-    mock_storage.get_user.assert_called()
+    # 1. process_message called?
+    mock_process.assert_called_once()
     
     # 2. Members fetched?
     mock_storage.get_chat_members.assert_called_with(mock_message.chat.id, platform="telegram")

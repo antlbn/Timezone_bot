@@ -18,14 +18,13 @@ class TimezoneModal(ui.Modal, title="Set Your Timezone"):
         required=True
     )
 
-    def __init__(self, pending_time: str | None = None):
+    def __init__(self):
         super().__init__()
-        self.pending_time = pending_time
 
     async def on_submit(self, interaction: discord.Interaction):
         # Local import to avoid circular dependency
         from src.discord.commands import handle_settz
-        await handle_settz(interaction, self.city.value, pending_time=self.pending_time)
+        await handle_settz(interaction, self.city.value)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
         await interaction.response.send_message('Oops! Something went wrong.', ephemeral=True)
@@ -56,14 +55,13 @@ class TimeInputModal(ui.Modal, title="Enter Time Manually"):
 class SetTimezoneView(ui.View):
     """View with a button to open the timezone modal."""
     
-    def __init__(self, target_user_id: int, pending_time: str | None = None):
+    def __init__(self, target_user_id: int):
         super().__init__(timeout=None)
         self.target_user_id = target_user_id
-        self.pending_time = pending_time
 
     @ui.button(label="Set Timezone", style=discord.ButtonStyle.primary, custom_id="settz_button")
     async def set_tz(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(TimezoneModal(pending_time=self.pending_time))
+        await interaction.response.send_modal(TimezoneModal())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user_id:

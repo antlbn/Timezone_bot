@@ -13,7 +13,26 @@ LLM produces a **strict JSON** payload that acts as a **binary trigger + extract
 - **LLM is the primary layer**: Every message goes to the LLM by default.
 - **Optional Prefilter**: Before reaching the LLM, an optional regex/keyword prefilter can be enabled to save costs. By default, it is **off** and every message is sent directly to the LLM.
 - **LLM is Agnostic**: The LLM simply receives the message window, evaluates it, and fills the JSON.
-- **Time Extraction**: The **actual time extraction** (`times[]`) is performed entirely by the LLM. The optional prefilter only gates whether to call the LLM at all — it never extracts times.
+- **Actual Time Extraction**: The actual time extraction (`times[]`) is performed entirely by the LLM. The optional prefilter only gates whether to call the LLM at all.
+
+### 1.1 Technology Stack & Architecture
+
+| Component | Technology | Purpose |
+| --- | --- | --- |
+| **API Client** | `openai` (Python SDK) | Agnostic connection via `base_url` to any compatible API (Ollama, HuggingFace, OpenAI). |
+| **Evaluation** | `promptfoo` | CLI tool for continuous evaluation of non-deterministic prompts against golden datasets. |
+| **Concurrency** | `asyncio.Lock` | Ensures only one LLM request is processed per chat simultaneously. |
+| **Memory** | `collections.deque` | Fast, in-memory ring buffer for short-term chat history. |
+
+The internals of the module are structured as follows:
+```
+src/event_detection/
+├── __init__.py     # Public API (process_message)
+├── client.py       # OpenAI SDK instantiation & agnostic configuration
+├── prompts.py      # System prompts and JSON schema definition
+├── history.py      # In-memory deque management & snapshotting
+└── detector.py     # Two-pass orchestration logic
+```
 
 ---
 
@@ -354,11 +373,17 @@ Incoming message
 
 ---
 
-## 10. Golden Test Cases (Fixtures)
+## 10. Evaluation Strategy (Promptfoo)
 
-Golden dialogue fixtures are stored at: `tests/fixtures/event_detection_cases.yaml`.
+Testing an LLM cannot be done strictly via traditional deterministic unit tests because responses vary. We use **Promptfoo** for assertions.
 
-Each case must include expected `trigger`, `polarity`, `times[]`, and optionally `event_location`.
+### 10.1 Setup
+We maintain a `tests/promptfoo/` directory containing:
+- `promptfooconfig.yaml`: Configuration pointing to our local Ollama model and test cases.
+- `cases.yaml`: The golden dialogue fixtures.
+
+### 10.2 Assertions
+Each golden case in `cases.yaml` must include the expected `trigger`, `polarity`, `times[]`, and optionally `event_location`. `promptfoo` asserts that the LLM's output conforms to our exact JSON schema, and that the arrays match the expected semantic values.
 
 ---
 

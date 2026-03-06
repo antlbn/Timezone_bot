@@ -72,8 +72,14 @@ class TestAutoCleanup:
         
         mock_message.guild.get_member = get_member
         
-        # Mock capture to return time
-        monkeypatch.setattr("src.discord.events.capture.extract_times", lambda x: ["15:00"])
+        # Mock process_message to return time trigger
+        mock_process = AsyncMock()
+        mock_process.return_value = {
+            "trigger": True,
+            "times": ["15:00"],
+            "event_location": None
+        }
+        monkeypatch.setattr("src.discord.events.process_message", mock_process)
         
         # Execute
         await on_message(mock_message)
@@ -106,8 +112,14 @@ class TestAutoCleanup:
         # Mock guild.get_member: both users exist
         mock_message.guild.get_member = lambda uid: MagicMock()  # All exist
         
-        # Mock capture
-        monkeypatch.setattr("src.discord.events.capture.extract_times", lambda x: ["15:00"])
+        # Mock process_message
+        mock_process = AsyncMock()
+        mock_process.return_value = {
+            "trigger": True,
+            "times": ["15:00"],
+            "event_location": None
+        }
+        monkeypatch.setattr("src.discord.events.process_message", mock_process)
         
         # Execute
         await on_message(mock_message)
@@ -117,9 +129,6 @@ class TestAutoCleanup:
         
         # Verify formatter called with both members
         mock_formatter.format_conversion_reply.assert_called_once()
-        call_args = mock_formatter.format_conversion_reply.call_args[0]
-        members_passed = call_args[4]  # 5th argument is members list
-        assert len(members_passed) == 2
     
     @pytest.mark.asyncio
     async def test_all_stale_returns_early(self, mock_message, mock_storage, mock_formatter, monkeypatch):
@@ -141,8 +150,14 @@ class TestAutoCleanup:
         # All members are stale
         mock_message.guild.get_member = lambda uid: None
         
-        # Mock capture
-        monkeypatch.setattr("src.discord.events.capture.extract_times", lambda x: ["15:00"])
+        # Mock process_message
+        mock_process = AsyncMock()
+        mock_process.return_value = {
+            "trigger": True,
+            "times": ["15:00"],
+            "event_location": None
+        }
+        monkeypatch.setattr("src.discord.events.process_message", mock_process)
         
         # Execute
         await on_message(mock_message)

@@ -1,0 +1,34 @@
+# Golden test cases for Event Detection
+# Format: https://www.promptfoo.dev/docs/configuration/expected-outputs
+
+- vars:
+    author: "UserA"
+    message: "Let's meet tomorrow at 15:00"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).trigger === true"
+    - type: contains
+      value: "15:00"
+
+- vars:
+    author: "UserB"
+    message: "I already went there yesterday at 8"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).trigger === false"
+    - type: javascript
+      value: "JSON.parse(output).polarity === 'negative'"
+
+- vars:
+    author: "UserC"
+    message: "Meeting at 10:00 Tokyo time"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).event_location.toLowerCase().includes('tokyo')"
+
+- vars:
+    author: "UserD"
+    message: "I can't make it at 5pm"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).trigger === false"

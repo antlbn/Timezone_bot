@@ -42,6 +42,6 @@ def get_bot_settings() -> dict:
     """Get bot settings from config."""
     return get_config().get("bot", {})
 
-def get_capture_patterns() -> list:
-    """Get regex patterns for time capture."""
-    return get_config().get("capture", {}).get("patterns", [])
+def get_prefilter_settings() -> dict:
+    """Get prefilter settings for event detection."""
+    return get_config().get("event_detection", {}).get("prefilter", {"enabled": False})

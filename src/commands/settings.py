@@ -60,7 +60,7 @@ async def process_city(message: Message, state: FSMContext):
         )
         return
     
-    await _save_and_finish(message, state, location, data.get("pending_time"))
+    await _save_and_finish(message, state, location)
 
 
 @router.message(SetTimezone.waiting_for_time)
@@ -77,13 +77,12 @@ async def process_fallback_input(message: Message, state: FSMContext):
         return
     
     user_input = (message.text or "").strip()
-    pending_time = data.get("pending_time")
     
     # Use unified resolver
     location = geo.resolve_timezone_from_input(user_input)
     
     if location:
-        await _save_and_finish(message, state, location, pending_time, is_retry=True)
+        await _save_and_finish(message, state, location, is_retry=True)
         return
     
     # Neither city nor time - ask again
@@ -99,7 +98,6 @@ async def _save_and_finish(
     message: Message, 
     state: FSMContext, 
     location: dict, 
-    pending_time: str | None,
     is_retry: bool = False
 ):
     """Helper to save user data, update state, and send confirmation."""
@@ -124,16 +122,3 @@ async def _save_and_finish(
     
     log_suffix = " (retry)" if is_retry else ""
     logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']}{log_suffix}")
-    
-    if pending_time:
-        members = await storage.get_chat_members(message.chat.id, platform="telegram")
-        if members:
-            reply = formatter.format_conversion_reply(
-                pending_time,
-                location["city"],
-                location["timezone"],
-                location["flag"],
-                members,
-                user_name
-            )
-            await message.answer(reply)

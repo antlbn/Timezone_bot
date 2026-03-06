@@ -1,0 +1,14 @@
+# Promptfoo configuration for LLM Event Detection
+# Run with: npx promptfoo eval
+
+prompts:
+  - file://../../src/event_detection/prompts.py # This is a placeholder, promptfoo usually needs a text file or a function
+
+providers:
+  - id: openai:chat:llama3
+    config:
+      apiBaseUrl: ${LLM_BASE_URL:-http://localhost:11434/v1}
+      apiKey: ${LLM_API_KEY:-ollama}
+
+tests:
+  - file://cases.yaml

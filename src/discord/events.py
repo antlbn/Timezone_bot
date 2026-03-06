@@ -5,8 +5,9 @@ import discord
 
 from src.discord import bot
 from src.storage import storage
-from src import capture, formatter
+from src import formatter
 from src.logger import get_logger
+from src.event_detection import process_message
 
 logger = get_logger()
 PLATFORM = "discord"
@@ -22,25 +23,49 @@ async def on_message(message: discord.Message):
     # Only in guilds
     if not message.guild:
         return
-    
-    # Check for time patterns
-    times = capture.extract_times(message.content)
-    if not times:
-        return
-    
+        
     sender = await storage.get_user(message.author.id, platform=PLATFORM)
+    timestamp_utc = message.created_at.isoformat() + "Z" if message.created_at else ""
+    user_name = message.author.display_name or "User"
     
     if not sender or not sender.get("timezone"):
-        # User not registered - prompt with button, save pending time
+        # User not registered - prompt with button immediately
+        # We do not extract time here, onboarding takes priority over any potential time mention.
         from src.discord.ui import SetTimezoneView
         await message.reply(
             f"{message.author.display_name}, set your timezone to convert times!",
-            view=SetTimezoneView(message.author.id, pending_time=times[0]),
+            view=SetTimezoneView(message.author.id),
             mention_author=True
         )
+        
+        # Append message to deque for future context (without calling LLM evaluation)
+        from src.event_detection.history import append_to_history
+        append_to_history(
+            platform=PLATFORM,
+            chat_id=str(message.guild.id),
+            message_data={
+                "platform": PLATFORM,
+                "chat_id": str(message.guild.id),
+                "author_id": str(message.author.id),
+                "author_name": user_name,
+                "text": message.content,
+                "timestamp_utc": timestamp_utc
+            }
+        )
         return
+        
+    # User is registered, pass message to the LLM Event Detection pipeline
+    result = await process_message(
+        message_text=message.content,
+        chat_id=str(message.guild.id),
+        user_id=str(message.author.id),
+        platform=PLATFORM,
+        author_name=user_name,
+        timestamp_utc=timestamp_utc
+    )
     
-    # Get guild members and auto-cleanup stale ones
+    if not result.get("trigger", False) or not result.get("times"):
+        return
     db_members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
     if not db_members:
         return
@@ -59,21 +84,38 @@ async def on_message(message: discord.Message):
     if not active_members:
         return
     
-    sender_flag = sender.get("flag", "")
-    user_name = message.author.display_name or "User"
-    
+    # Determine the Source TZ (event_location override or sender DB fallback)
+    event_location = result.get("event_location")
+    if event_location:
+        from src.geo import get_timezone_by_city
+        geo_result = get_timezone_by_city(event_location)
+        if geo_result and not geo_result.get("error"):
+            source_city = geo_result["city"]
+            source_tz = geo_result["timezone"]
+            source_flag = geo_result["flag"]
+        else:
+            logger.warning(f"Failed to geocode event_location '{event_location}'. Falling back to sender TZ.")
+            source_city = sender["city"]
+            source_tz = sender["timezone"]
+            source_flag = sender.get("flag", "")
+    else:
+        source_city = sender["city"]
+        source_tz = sender["timezone"]
+        source_flag = sender.get("flag", "")
+        
+    times = result.get("times", [])
     for time_str in times:
         reply = formatter.format_conversion_reply(
             time_str,
-            sender["city"],
-            sender["timezone"],
-            sender_flag,
+            source_city,
+            source_tz,
+            source_flag,
             active_members,
             user_name
         )
         await message.reply(reply)
     
-    logger.info(f"[guild:{message.guild.id}] Times: {times}")
+    logger.info(f"[guild:{message.guild.id}] LLM Trigger: {times} | location_override={event_location}")
 
 
 @bot.event

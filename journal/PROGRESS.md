@@ -1,3 +1,11 @@
+## 2026-03-06 (session) - LLM Integration Implementation & Verification
+- **Module Implementation**: Completed `src/event_detection/` with agnostic client, JSON schema prompts, and per-chat history/locks.
+- **Integration**: Refactored Telegram (`src/commands/common.py`) and Discord (`src/discord/events.py`) to use the new LLM detector.
+- **UX**: Implemented Instant Onboarding (city prompt on first message).
+- **Cleanup**: Removed `src/capture.py`. Optimized `src/geo.py` to handle local time extraction for manual resolution.
+- **Verification**: Refactored entire test suite (74 tests) to mock the new LLM logic. Fixed dependency issues (`openai`, `pytest-asyncio`).
+- **DevOps**: Prepared `tests/promptfoo/` for LLM performance evaluation.
+
 ## 2026-03-05 (session)
 - **Spec Update**: Major architectural shift to **Mandatory LLM Layer**.
   - **Removed**: Regex and keyword prefilters entirely.
