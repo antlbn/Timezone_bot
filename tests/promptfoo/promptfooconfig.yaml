@@ -1,14 +1,37 @@
-# Promptfoo configuration for LLM Event Detection
-# Run with: npx promptfoo eval
-
+# promptfooconfig.yaml
 prompts:
-  - file://../../src/event_detection/prompts.py # This is a placeholder, promptfoo usually needs a text file or a function
+  - file://prompt.txt
 
 providers:
-  - id: openai:chat:llama3
+  - id: openai:chat:gemma3:1b
     config:
-      apiBaseUrl: ${LLM_BASE_URL:-http://localhost:11434/v1}
-      apiKey: ${LLM_API_KEY:-ollama}
+      apiBaseUrl: http://localhost:11434/v1
+      apiKey: ollama
+      temperature: 0
+  - id: groq:llama-3.1-8b-instant
+    config:
+      temperature: 0
+  - id: openai/gpt-oss-20b
+    config:
+      temperature: 0
+
 
 tests:
   - file://cases.yaml
+
+
+# providers:
+#   - id: openai:chat:gemma3:4b
+#     config:
+#       apiBaseUrl: https://api.groq.com/openai/v1
+#       apiKey: GROQ_API_KEY
+#       temperature: 0
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1065 @@
+{
+  "evalId": "eval-Fxc-2026-03-09T14:33:22",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-09T14:33:22.069Z",
+    "prompts": [
+      {
+        "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}",
+        "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}",
+        "id": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "provider": "openai:chat:gemma3:4b",
+        "metrics": {
+          "score": 11,
+          "testPassCount": 11,
+          "testFailCount": 1,
+          "testErrorCount": 0,
+          "assertPassCount": 11,
+          "assertFailCount": 1,
+          "totalLatencyMs": 96706,
+          "tokenUsage": {
+            "prompt": 1608,
+            "completion": 132,
+            "cached": 8640,
+            "total": 10380,
+            "numRequests": 12,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence >= 0.75\n  && data.polarity === 'positive'\n  && data.times.some(t => t.includes('20:00'));\n"
+              }
+            }
+          ]
+        },
+        "id": "852f9024-a03b-4fd5-8859-79e91f5934ce",
+        "latencyMs": 35,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Anton]: Давайте завтра в 8 вечера созвонимся",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.95,\n  \"reason\": \"User explicitly suggests a meeting time and date.\",\n  \"times\": [\"20:00\"],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 852,
+            "total": 852
+          },
+          "cached": true,
+          "latencyMs": 32867,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "RU evening time with group call",
+          "vars": {
+            "author": "Anton",
+            "text": "Давайте завтра в 8 вечера созвонимся"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence >= 0.75\n  && data.polarity === 'positive'\n  && data.times.some(t => t.includes('20:00'));\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "author": "Anton",
+          "text": "Давайте завтра в 8 вечера созвонимся"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence < 0.5 && data.polarity === 'negative';\n"
+              }
+            }
+          ]
+        },
+        "id": "4c48f695-a56d-4f39-9e62-c591ab0dc41e",
+        "latencyMs": 29,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Anton]: вчера в 8 вечера ходил в магаз",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"negative\",\n  \"confidence\": 0.1,\n  \"reason\": \"Past event with no coordination implications.\",\n  \"times\": [\"20:00\"],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 850,
+            "total": 850
+          },
+          "cached": true,
+          "latencyMs": 24895,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "Personal past event — should not trigger",
+          "vars": {
+            "author": "Anton",
+            "text": "вчера в 8 вечера ходил в магаз"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence < 0.5 && data.polarity === 'negative';\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "author": "Anton",
+          "text": "вчера в 8 вечера ходил в магаз"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nconst hasTime = data.times.includes('15:30');\nconst noNaturalLang = !data.times.some(t => t.toLowerCase().includes('tomorrow'));\nreturn data.confidence >= 0.75 && data.polarity === 'positive' && hasTime && noNaturalLang;\n"
+              }
+            }
+          ]
+        },
+        "id": "87e495f3-88db-4668-b6d8-f19d7c4681aa",
+        "latencyMs": 18,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[UserA]: Let's meet at 15:30 tomorrow NYC time",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.95,\n  \"reason\": \"User explicitly suggests a meeting time and location.\",\n  \"times\": [\"15:30\"],\n  \"event_location\": \"NYC\"\n}\n```",
+          "tokenUsage": {
+            "cached": 858,
+            "total": 858
+          },
+          "cached": true,
+          "latencyMs": 16757,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "EN meeting with explicit location",
+          "vars": {
+            "author": "UserA",
+            "text": "Let's meet at 15:30 tomorrow NYC time"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nconst hasTime = data.times.includes('15:30');\nconst noNaturalLang = !data.times.some(t => t.toLowerCase().includes('tomorrow'));\nreturn data.confidence >= 0.75 && data.polarity === 'positive' && hasTime && noNaturalLang;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "author": "UserA",
+          "text": "Let's meet at 15:30 tomorrow NYC time"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence < 0.5 && data.polarity === 'negative';\n"
+              }
+            }
+          ]
+        },
+        "id": "6ac0f727-73bd-48e4-ae66-c957aa579375",
+        "latencyMs": 40,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[UserB]: I can't make it at 5pm",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"negative\",\n  \"confidence\": 0.0,\n  \"reason\": \"User explicitly states unavailability at 5pm.\",\n  \"times\": [],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 845,
+            "total": 845
+          },
+          "cached": true,
+          "latencyMs": 8330,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "Refusal with time mentioned — negative, low confidence",
+          "vars": {
+            "author": "UserB",
+            "text": "I can't make it at 5pm"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence < 0.5 && data.polarity === 'negative';\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "author": "UserB",
+          "text": "I can't make it at 5pm"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence >= 0.75\n  && data.polarity === 'positive'\n  && data.times.some(t => t.includes('12:00'));\n"
+              }
+            }
+          ]
+        },
+        "id": "5c0a111a-7906-402f-b957-43857589a402",
+        "latencyMs": 19,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Boss]: завтра важно событие в 12:00 - прошу всех подключиться",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.95,\n  \"reason\": \"The boss explicitly suggests a meeting time.\",\n  \"times\": [\"12:00\"],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 856,
+            "total": 856
+          },
+          "cached": true,
+          "latencyMs": 32474,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "RU group event announcement",
+          "vars": {
+            "author": "Boss",
+            "text": "завтра важно событие в 12:00 - прошу всех подключиться"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nreturn data.confidence >= 0.75\n  && data.polarity === 'positive'\n  && data.times.some(t => t.includes('12:00'));\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "author": "Boss",
+          "text": "завтра важно событие в 12:00 - прошу всех подключиться"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// \"в 6\" without context is ambiguous — accept either 06:00 or 18:00,\n// but the model must pick one HH:MM and be confident it is a coordination event.\nconst hasTime = data.times.some(t => t === '06:00' || t === '18:00');\nreturn data.confidence >= 0.5 && data.polarity === 'positive' && hasTime;\n"
+              }
+            }
+          ]
+        },
+        "id": "9b3706ae-677b-46d8-adb5-c4ee935461b1",
+        "latencyMs": 24,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Masha]: Встречаемся в 6 у метро Курская",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.9,\n  \"reason\": \"User proposes a meeting time and location.\",\n  \"times\": [\"18:00\"],\n  \"event_location\": \"Москва\"\n}\n```",
+          "tokenUsage": {
+            "cached": 853,
+            "total": 853
+          },
+          "cached": true,
+          "latencyMs": 32592,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "[EDGE] Bare number without AM/PM in RU — should resolve to morning or evening",
+          "vars": {
+            "author": "Masha",
+            "text": "Встречаемся в 6 у метро Курская"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// \"в 6\" without context is ambiguous — accept either 06:00 or 18:00,\n// but the model must pick one HH:MM and be confident it is a coordination event.\nconst hasTime = data.times.some(t => t === '06:00' || t === '18:00');\nreturn data.confidence >= 0.5 && data.polarity === 'positive' && hasTime;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 5,
+        "vars": {
+          "author": "Masha",
+          "text": "Встречаемся в 6 у метро Курская"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Figurative use of time (idiom) — must NOT be treated as scheduling.\nreturn data.confidence < 0.5 && data.polarity === 'negative';\n"
+              }
+            }
+          ]
+        },
+        "id": "de0bbfb2-2760-4a1b-bd09-29d528e324d5",
+        "latencyMs": 24,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Dmitri]: Мы играем как команда за пять минут до полуночи — надо что-то менять",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"negative\",\n  \"confidence\": 0.1,\n  \"reason\": \"Vague statement about needing to change something related to a game time, without specifying a concrete time or event.\",\n  \"times\": [],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 867,
+            "total": 867
+          },
+          "cached": true,
+          "latencyMs": 34024,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "[EDGE] Idiomatic metaphorical time — NOT a real event",
+          "vars": {
+            "author": "Dmitri",
+            "text": "Мы играем как команда за пять минут до полуночи — надо что-то менять"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Figurative use of time (idiom) — must NOT be treated as scheduling.\nreturn data.confidence < 0.5 && data.polarity === 'negative';\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 6,
+        "vars": {
+          "author": "Dmitri",
+          "text": "Мы играем как команда за пять минут до полуночи — надо что-то менять"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nconst has1400 = data.times.some(t => t.includes('14:00'));\nconst has1730 = data.times.some(t => t.includes('17:30'));\nreturn data.confidence >= 0.75 && data.polarity === 'positive' && has1400 && has1730;\n"
+              }
+            }
+          ]
+        },
+        "id": "32476178-531b-409b-a13b-3348be423573",
+        "latencyMs": 7,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Elena]: I'm free between 14:00 and 17:30 if anyone wants to hop on a call",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.9,\n  \"reason\": \"Elena explicitly states her availability for a call between 14:00 and 17:30.\",\n  \"times\": [\"14:00\", \"15:00\", \"16:00\", \"17:00\", \"17:30\"],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 908,
+            "total": 908
+          },
+          "cached": true,
+          "latencyMs": 40193,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "[EDGE] Availability window — both boundary times must be extracted",
+          "vars": {
+            "author": "Elena",
+            "text": "I'm free between 14:00 and 17:30 if anyone wants to hop on a call"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\nconst has1400 = data.times.some(t => t.includes('14:00'));\nconst has1730 = data.times.some(t => t.includes('17:30'));\nreturn data.confidence >= 0.75 && data.polarity === 'positive' && has1400 && has1730;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 7,
+        "vars": {
+          "author": "Elena",
+          "text": "I'm free between 14:00 and 17:30 if anyone wants to hop on a call"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Past GROUP event: polarity must be negative, but 11:00 should be extracted.\nconst has1100 = data.times.some(t => t.includes('11:00'));\nreturn data.polarity === 'negative' && has1100;\n"
+              }
+            }
+          ]
+        },
+        "id": "34165196-0810-424e-b9a1-424bac8c01ba",
+        "latencyMs": 23,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Vlad]: вчерашний созвон в 11 утра затянулся до обеда, надо учитывать это при планировании",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"negative\",\n  \"confidence\": 0.6,\n  \"reason\": \"The user is referencing a past meeting that ran late, indicating a need to account for longer durations when scheduling future meetings.\",\n  \"times\": [\n    \"11:00\"\n  ],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "cached": 885,
+            "total": 885
+          },
+          "cached": true,
+          "latencyMs": 27639,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "[EDGE] Past shared GROUP event — polarity negative, but time extracted",
+          "vars": {
+            "author": "Vlad",
+            "text": "вчерашний созвон в 11 утра затянулся до обеда, надо учитывать это при планировании"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Past GROUP event: polarity must be negative, but 11:00 should be extracted.\nconst has1100 = data.times.some(t => t.includes('11:00'));\nreturn data.polarity === 'negative' && has1100;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 8,
+        "vars": {
+          "author": "Vlad",
+          "text": "вчерашний созвон в 11 утра затянулся до обеда, надо учитывать это при планировании"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// At minimum the EST time 09:00 must be present. Location must not be null.\nconst has0900 = data.times.some(t => t.includes('09:00'));\nconst hasLocation = data.event_location !== null;\nreturn data.confidence >= 0.75 && data.polarity === 'positive' && has0900 && hasLocation;\n"
+              }
+            }
+          ]
+        },
+        "id": "37835638-4fcb-4b77-806b-5e70ac80825d",
+        "latencyMs": 22,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Carlos]: sync tomorrow at 9am EST, that's 2pm London",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.95,\n  \"reason\": \"User explicitly proposes a meeting time with a location.\",\n  \"times\": [\"09:00\", \"14:00\"],\n  \"event_location\": \"EST\"\n}\n```",
+          "tokenUsage": {
+            "cached": 866,
+            "total": 866
+          },
+          "cached": true,
+          "latencyMs": 36662,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "[EDGE] Dual timezone phrasing — location required, time extracted",
+          "vars": {
+            "author": "Carlos",
+            "text": "sync tomorrow at 9am EST, that's 2pm London"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// At minimum the EST time 09:00 must be present. Location must not be null.\nconst has0900 = data.times.some(t => t.includes('09:00'));\nconst hasLocation = data.event_location !== null;\nreturn data.confidence >= 0.75 && data.polarity === 'positive' && has0900 && hasLocation;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 9,
+        "vars": {
+          "author": "Carlos",
+          "text": "sync tomorrow at 9am EST, that's 2pm London"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "Custom function returned false\nconst clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Without context \"завтра в 8\" might be an event or a room number.\n// It strictly shouldn't be high confidence. We want the LLM to doubt (< 0.75) so Pass 2 is triggered.\nreturn data.confidence < 0.75;",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Custom function returned false\nconst clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Without context \"завтра в 8\" might be an event or a room number.\n// It strictly shouldn't be high confidence. We want the LLM to doubt (< 0.75) so Pass 2 is triggered.\nreturn data.confidence < 0.75;",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function returned false\nconst clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Without context \"завтра в 8\" might be an event or a room number.\n// It strictly shouldn't be high confidence. We want the LLM to doubt (< 0.75) so Pass 2 is triggered.\nreturn data.confidence < 0.75;",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Without context \"завтра в 8\" might be an event or a room number.\n// It strictly shouldn't be high confidence. We want the LLM to doubt (< 0.75) so Pass 2 is triggered.\nreturn data.confidence < 0.75;\n"
+              }
+            }
+          ]
+        },
+        "id": "f35d2917-0b91-4715-a85e-d1483813fb70",
+        "latencyMs": 42339,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Anton]: завтра в 8",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"positive\",\n  \"confidence\": 0.8,\n  \"reason\": \"User explicitly states a future time for a meeting.\",\n  \"times\": [\"08:00\"],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "total": 845,
+            "prompt": 782,
+            "completion": 63
+          },
+          "cached": false,
+          "latencyMs": 42306,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "[CONTEXT SIM 1] No context, ambiguous message — should have LOW confidence",
+          "vars": {
+            "author": "Anton",
+            "text": "завтра в 8"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// Without context \"завтра в 8\" might be an event or a room number.\n// It strictly shouldn't be high confidence. We want the LLM to doubt (< 0.75) so Pass 2 is triggered.\nreturn data.confidence < 0.75;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 10,
+        "vars": {
+          "author": "Anton",
+          "text": "завтра в 8"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// The LLM has conversational history. It should see \"в 8\" is the room/office number + \"tomorrow\".\n// It should realize this is NOT a coordination event but an answer about a room.\nreturn data.polarity === 'negative' && data.confidence < 0.5;\n"
+              }
+            }
+          ]
+        },
+        "id": "952a560b-3228-46ac-8c80-5f644a7798ba",
+        "latencyMs": 54126,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[Anton]: PREVIOUS CHAT CONTEXT:\n[UserA]: как обстоят дела?\n[UserB]: в каком номере здания будет проходить сканирование?\n\n---\n\nCURRENT MESSAGE:\n[Anton]: завтра в 8",
+          "label": "prompt.txt: You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.\n\nYour primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.\n\nCRITICAL RULES:\n1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.\n2. Set polarity to \"negative\" and confidence close to 0 for: past events, personal plans that don't affect others, vague uncommitted questions, or outright refusals (\"I can't make it at 5\").\n3. Set polarity to \"positive\" and confidence close to 1 for actual coordination (\"Let's meet tomorrow at 10\", \"I'm free at 14:00 and 18:00\").\n4. Maintain a bias towards silence. If you are not confident a message is a coordination event, set confidence below 0.5 and polarity to \"negative\".\n5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the times array (e.g. if user says \"8 вечера\" or \"8 PM\", output [\"20:00\"]). Do not output natural language in the times array.\n   Pay attention to time-of-day qualifiers:\n   - \"вечером\" / \"evening\" / \"PM\" means add 12 hours if time < 12.\n   - \"утром\" / \"morning\" / \"AM\" means keep as-is, e.g. \"8 утра\" becomes \"08:00\".\n   - If a single number like \"в 6\" appears without qualifier but context implies evening, prefer \"18:00\".\n   - If multiple times are mentioned, list ALL of them.\n6. Look for explicit event_location (e.g., \"let's do 5pm NYC time\" -> \"NYC\", \"в 15:30 по Москве\" -> \"Москва\"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.\n\nExpected JSON Schema Reference:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"polarity\": {\n      \"type\": \"string\",\n      \"enum\": [\"positive\", \"negative\"],\n      \"description\": \"Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events.\"\n    },\n    \"confidence\": {\n      \"type\": \"number\",\n      \"description\": \"A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event.\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short explanation of your reasoning (max 1 sentence).\"\n    },\n    \"times\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"},\n      \"description\": \"List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found.\"\n    },\n    \"event_location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated.\"\n    }\n  },\n  \"required\": [\"polarity\", \"confidence\", \"reason\", \"times\", \"event_location\"]\n}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "ebced78dc9be56c921a984c611f1d82e9f186abf93dcc42b2f26abc76347d95a",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openai:chat:gemma3:4b",
+          "label": ""
+        },
+        "response": {
+          "output": "```json\n{\n  \"polarity\": \"negative\",\n  \"confidence\": 0.2,\n  \"reason\": \"Vague statement about availability without specific coordination. Doesn't confirm a meeting.\",\n  \"times\": [\"08:00\"],\n  \"event_location\": null\n}\n```",
+          "tokenUsage": {
+            "total": 895,
+            "prompt": 826,
+            "completion": 69
+          },
+          "cached": false,
+          "latencyMs": 54114,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "[CONTEXT SIM 2] With context injected (Room number discussion) — must be negative",
+          "vars": {
+            "author": "Anton",
+            "text": "PREVIOUS CHAT CONTEXT:\n[UserA]: как обстоят дела?\n[UserB]: в каком номере здания будет проходить сканирование?\n\n---\n\nCURRENT MESSAGE:\n[Anton]: завтра в 8"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const clean = output.replace(/```json\\n?|```/g, '').trim();\nconst data = JSON.parse(clean);\n// The LLM has conversational history. It should see \"в 8\" is the room/office number + \"tomorrow\".\n// It should realize this is NOT a coordination event but an answer about a room.\nreturn data.polarity === 'negative' && data.confidence < 0.5;\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 11,
+        "vars": {
+          "author": "Anton",
+          "text": "PREVIOUS CHAT CONTEXT:\n[UserA]: как обстоят дела?\n[UserB]: в каком номере здания будет проходить сканирование?\n\n---\n\nCURRENT MESSAGE:\n[Anton]: завтра в 8"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 11,
+      "failures": 1,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 1608,
+        "completion": 132,
+        "cached": 8640,
+        "total": 10380,
+        "numRequests": 12,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      }
+    }
+  },
+  "config": {
+    "prompts": [
+      "file://prompt.txt"
+    ],
+    "providers": [
+      {
+        "id": "openai:chat:gemma3:4b",
+        "config": {
+          "apiBaseUrl": "http://localhost:11434/v1",
+          "apiKey": "ollama",
+          "temperature": 0
+        }
+      }
+    ],
+    "tests": [
+      "file://cases.yaml"
+    ],
+    "sharing": false,
+    "outputPath": [
+      "results4.json"
+    ],
+    "extensions": []
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.119.0",
+    "nodeVersion": "v20.18.0",
+    "platform": "darwin",
+    "arch": "x64",
+    "exportedAt": "2026-03-09T14:34:16.891Z",
+    "evaluationCreatedAt": "2026-03-09T14:33:22.069Z"
+  }
+}

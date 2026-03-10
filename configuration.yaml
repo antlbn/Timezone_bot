@@ -5,7 +5,7 @@ version: 0.1.0
 # Logging Configuration
 logging:
   # Levels: DEBUG, INFO, WARNING, ERROR
-  level: INFO
+  level: DEBUG
   # Format: json or text (default: text)
   format: text
 
@@ -28,6 +28,9 @@ event_detection:
 
   # Treat as trigger only if confidence >= threshold
   min_confidence_trigger: 0.75
+
+  # LLM Temperature (0.0 = deterministic, 1.0 = creative)
+  temperature: 0.0
 
   # Pass 1: LLM sees only the current message (no history).
   # Pass 2 (retry on low confidence): adds this many previous messages.

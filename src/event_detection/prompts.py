@@ -4,18 +4,14 @@ import json
 EVENT_DETECTION_SCHEMA = {
     "type": "object",
     "properties": {
-        "trigger": {
-            "type": "boolean",
-            "description": "True if the message contains a useful time mention relative to a future joint event, meeting, or availability."
-        },
         "polarity": {
             "type": "string",
             "enum": ["positive", "negative"],
-            "description": "Positive for coordination/availability. Negative for refusals or past events."
+            "description": "Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events."
         },
         "confidence": {
             "type": "number",
-            "description": "A float between 0.0 and 1.0 indicating your confidence in this decision."
+            "description": "A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event."
         },
         "reason": {
             "type": "string",
@@ -24,14 +20,14 @@ EVENT_DETECTION_SCHEMA = {
         "times": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "List of the exact time-related substrings you found (e.g. ['в 14:00', 'tomorrow at 8 PM']). Empty if trigger is false."
+            "description": "List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found."
         },
         "event_location": {
             "type": ["string", "null"],
             "description": "Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated."
         }
     },
-    "required": ["trigger", "polarity", "confidence", "reason", "times", "event_location"]
+    "required": ["polarity", "confidence", "reason", "times", "event_location"]
 }
 
 # The single system prompt that defines the LLM's persona and rules
@@ -41,11 +37,23 @@ Your primary purpose is to determine IF a user's message contains useful time co
 
 CRITICAL RULES:
 1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.
-2. `trigger` must be false for past events, personal plans that don't affect others, vague uncommitted questions, or straightforward refusals ("I can't make it at 5").
-3. `trigger` must be true for actual coordination ("Let's meet tomorrow at 10", "I'm free at 14:00 and 18:00").
-4. Maintain a bias towards silence. If you are unsure if a message is an event trigger, set `trigger: false`.
-5. Extract the literal time phrases into the `times` array (e.g., ["завтра в 8", "15:30"]). Do not normalize them to 24-hour format; the downstream engine will handle that.
-6. Look for explicit `event_location` (e.g., "let's do 5pm NYC time" -> "NYC"). If no location is explicitly mentioned for the timezone, return null. DO NOT guess the location from the user's language.
+2. Set `polarity` to "negative" if the user is refusing, cancelling, or talking about the past.
+3. `confidence` score (0.0 to 1.0) represents your certainty that THIS message is an actionable coordination trigger.
+   - Set `confidence` < 0.3 for: personal plans ("I'm going to sleep"), refusals ("I can't make it"), or past events ("We met at 5"). These are NOT coordination triggers.
+   - Set `confidence` exactly 0.6 if the message is a potential trigger but too short/ambiguous (e.g., "завтра в 8") AND no `PREVIOUS CHAT CONTEXT` is provided. This signal triggers a context-fetcher.
+   - Set `confidence` > 0.8 only for clear, actionable coordination/availability that affects others.
+4. If `PREVIOUS CHAT CONTEXT` is provided, YOU MUST use it to disambiguate. If the context reveals the user is answering a question about a room number, floor, or quantity (NOT a time), you MUST set `polarity` to "negative" and `confidence` < 0.2.
+5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the `times` array.
+   - Russian "вечера" / "вечером" or English "PM" / "evening" -> Add 12 hours if hour < 12 (e.g. "8 вечера" -> "20:00").
+   - Russian "утра" / "утром" or English "AM" / "morning" -> Keep as-is (e.g. "8 утра" -> "08:00").
+   - For a time range ("between 14:00 and 17:30"), extract ONLY the start and end boundaries (["14:00", "17:30"]). Do not enumerate every hour!
+6. `event_location` is only for explicit timezone/location context (e.g. "MSK", "London"). Return null if not explicitly stated.
+
+EXAMPLES:
+- User: "I can't make it at 5pm" -> {{"polarity": "negative", "confidence": 0.1, "times": ["17:00"], "reason": "Explicit refusal."}}
+- User: "I am going to sleep at 23:00" -> {{"polarity": "negative", "confidence": 0.2, "times": ["23:00"], "reason": "Personal plan, not coordination."}}
+- User: "Meet at 10am" (No context) -> {{"polarity": "positive", "confidence": 0.6, "times": ["10:00"], "reason": "Short trigger without context."}}
+- User: "Meet at 10am" (With context "Let's sync up") -> {{"polarity": "positive", "confidence": 0.9, "times": ["10:00"], "reason": "Clear coordination."}}
 
 Expected JSON Schema Reference:
 {json.dumps(EVENT_DETECTION_SCHEMA, indent=2)}

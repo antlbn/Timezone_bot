@@ -3,9 +3,9 @@
 This document tracks long-term ideas, deferred features, and known technical debt. For session-by-session history, see [PROGRESS.md](file:///Users/johnwunderbellen/Timezone_bot/journal/PROGRESS.md).
 
 ## 🚀 Active LLM Integration Cycle (Current)
-- [ ] Connect and verify with local model (Ollama)
+- [x] Connect and verify with local model (Ollama)
 - [ ] Finalize LLM evaluation and monitoring setup (Promptfoo)
-- [ ] Elaborate and implement comprehensive edge-case tests
+- [x] Elaborate and implement comprehensive edge-case tests
 - [ ] Conduct live experiments via Telegram and Discord
 - [ ] Test with a remote model (OpenAI/Grok)
 - [ ] Document final integration results

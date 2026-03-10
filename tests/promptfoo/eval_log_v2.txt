@@ -1,0 +1,10 @@
+
+========================================================================================================================
+⚠️ The current version of promptfoo 0.119.0 is lower than the latest available version 0.121.1.
+
+Please run npx promptfoo@latest or npm install -g promptfoo@latest to update.
+========================================================================================================================
+
+Cache is disabled.
+Starting evaluation eval-cR9-2026-03-10T09:55:25
+Running 12 test cases (up to 4 at a time)...

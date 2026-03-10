@@ -10,12 +10,15 @@ async def call_llm(messages: list[dict], expect_json: bool = True) -> str:
     """Wrapper to call the configured agnostic LLM API."""
     client = get_llm_client()
     model = get_llm_model()
+    settings = get_bot_settings()
+    temp = settings.get("event_detection", {}).get("temperature", 0.0)
     
     response_format = {"type": "json_object"} if expect_json else None
     
     response = await client.chat.completions.create(
         model=model,
         messages=messages,
+        temperature=temp,
         response_format=response_format
     )
     

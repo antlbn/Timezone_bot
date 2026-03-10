@@ -55,7 +55,11 @@ def _format_tz_group(
     show_usernames: bool
 ) -> str:
     """Format a single timezone group result."""
-    converted, offset = convert_time(original_time, sender_tz, target_tz)
+    try:
+        converted, offset = convert_time(original_time, sender_tz, target_tz)
+    except Exception as e:
+        logger.error(f"Format group conversion failed for '{original_time}': {e}")
+        converted, offset = original_time, 0
     
     # Handle day offset indicator
     if offset == 1:

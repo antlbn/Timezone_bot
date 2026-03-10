@@ -1,34 +1,151 @@
-# Golden test cases for Event Detection
-# Format: https://www.promptfoo.dev/docs/configuration/expected-outputs
-
-- vars:
-    author: "UserA"
-    message: "Let's meet tomorrow at 15:00"
+- description: "Clear meeting proposal - positive"
+  vars:
+    author: "Anton"
+    text: "Давай завтра в 10 утра созвонимся"
+    history: "No previous context."
   assert:
     - type: javascript
-      value: "JSON.parse(output).trigger === true"
-    - type: contains
-      value: "15:00"
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        return data.polarity === 'positive' && data.confidence > 0.8 && data.times.includes('10:00');
 
-- vars:
-    author: "UserB"
-    message: "I already went there yesterday at 8"
+- description: "Unrelated message - negative"
+  vars:
+    author: "User"
+    text: "Привет, как дела?"
+    history: "No previous context."
   assert:
     - type: javascript
-      value: "JSON.parse(output).trigger === false"
-    - type: javascript
-      value: "JSON.parse(output).polarity === 'negative'"
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        return data.polarity === 'negative' && data.confidence < 0.5;
 
-- vars:
-    author: "UserC"
-    message: "Meeting at 10:00 Tokyo time"
+- description: "Explicit refusal - negative"
+  vars:
+    author: "Dmitry"
+    text: "Я не смогу в 17:00"
+    history: "Talk about a meeting at 5pm."
   assert:
     - type: javascript
-      value: "JSON.parse(output).event_location.toLowerCase().includes('tokyo')"
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        // NEW RULE: Refusals must have low confidence < 0.5
+        return data.polarity === 'negative' && data.confidence < 0.5;
 
-- vars:
-    author: "UserD"
-    message: "I can't make it at 5pm"
+- description: "Personal plan (not coordination) - negative"
+  vars:
+    author: "User"
+    text: "Я пойду спать в 11 вечера"
+    history: "General chat."
   assert:
     - type: javascript
-      value: "JSON.parse(output).trigger === false"
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        return data.polarity === 'negative' && data.confidence < 0.5;
+
+- description: "Russian evening time (PM) extraction"
+  vars:
+    author: "Anton"
+    text: "Давайте завтра в 8 вечера созвонимся"
+    history: "Planning a call."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        // 8 вечера MUST be 20:00
+        return data.polarity === 'positive' && data.confidence > 0.8 && data.times.includes('20:00');
+
+- description: "[EDGE] Bare number without AM/PM — high confidence but ambiguous"
+  vars:
+    author: "User"
+    text: "Встречаемся в 6"
+    history: "No previous context."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        return data.confidence > 0.6 && data.times.length > 0;
+
+- description: "[EDGE] Idiomatic/Metaphorical Time — low confidence"
+  vars:
+    author: "Bosco"
+    text: "Мы закончили проект за пять минут до полуночи"
+    history: "Telling a story."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        // This describes a past event/idiom. Polarity negative, Confidence low.
+        return data.polarity === 'negative' && data.confidence < 0.5;
+
+- description: "[EDGE] Availability window — bounding times only"
+  vars:
+    author: "Elena"
+    text: "I am free between 14:00 and 17:30 tomorrow"
+    history: "Question about availability."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        // Assert that ONLY 14:00 and 17:30 are extracted, not intervals.
+        return data.times.length === 2 && data.times.includes('14:00') && data.times.includes('17:30');
+
+- description: "[EDGE] Past Shared Group Event — negative polarity"
+  vars:
+    author: "Vlad"
+    text: "вчерашний созвон в 11 утра затянулся до обеда, надо учитывать это при планировании"
+    history: "Feedback on timing."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        return data.polarity === 'negative' && data.confidence < 0.7;
+
+- description: "[EDGE] Dual timezone phrasing — location required"
+  vars:
+    author: "Carlos"
+    text: "sync tomorrow at 9am EST, that's 2pm London"
+    history: "Scheduling international sync."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        return data.confidence > 0.8 && data.event_location !== null;
+
+- description: "[CONTEXT SIM 1] No context, ambiguous message — should have EXACTLY 0.6 confidence"
+  vars:
+    author: "Anton"
+    text: "завтра в 8"
+    history: "No previous chat context."
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        // NEW RULE: Confidence should be exactly 0.6 for ambiguous short phrases without history.
+        return Math.abs(data.confidence - 0.6) < 0.01;
+
+- description: "[CONTEXT SIM 2] With context injected (Room number discussion) — must be negative"
+  vars:
+    author: "Anton"
+    text: "завтра в 8"
+    history: |
+      [UserA]: как обстоят дела?
+      [UserB]: в каком номере здания будет проходить сканирование?
+  assert:
+    - type: javascript
+      value: |
+        const clean = output.replace(/```json\n?|```/g, '').trim();
+        const data = JSON.parse(clean);
+        // The LLM has conversational history. It should see "в 8" is the room number.
+        return data.polarity === 'negative' && data.confidence < 0.2;
