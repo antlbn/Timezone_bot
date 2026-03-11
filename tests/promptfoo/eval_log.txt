@@ -1,12 +1,242 @@
 
 ========================================================================================================================
-⚠️ The current version of promptfoo 0.119.0 is lower than the latest available version 0.120.27.
+⚠️ The current version of promptfoo 0.119.0 is lower than the latest available version 0.121.1.
 
 Please run npx promptfoo@latest or npm install -g promptfoo@latest to update.
 ========================================================================================================================
 
-Starting evaluation eval-wLX-2026-03-09T14:52:14
-Running 12 test cases (up to 4 at a time)...
-API call error: Error: Request failed after 4 retries: Error: Request timed out after 300000 ms
-API call error: Error: Request failed after 4 retries: Error: Request timed out after 300000 ms
-API call error: Error: Request failed after 4 retries: Error: Request timed out after 300000 ms
+Starting evaluation eval-lvz-2026-03-10T12:38:10
+Running 24 test cases (up to 4 at a time)...
+
+[90m┌────────────────────────[39m[90m┬────────────────────────[39m[90m┬────────────────────────[39m[90m┬────────────────────────[39m[90m┬────────────────────────┐[39m
+[90m│[39m[1m[34m author                 [39m[22m[90m│[39m[1m[34m history                [39m[22m[90m│[39m[1m[34m text                   [39m[22m[90m│[39m[1m[34m [openai:chat:gemma3:1… [39m[22m[90m│[39m[1m[34m [groq:llama-3.1-8b-in… [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m prompt.txt: You are an [39m[22m[90m│[39m[1m[34m prompt.txt: You are an [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m advanced Event         [39m[22m[90m│[39m[1m[34m advanced Event         [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m Detection and Time     [39m[22m[90m│[39m[1m[34m Detection and Time     [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m Extraction engine for  [39m[22m[90m│[39m[1m[34m Extraction engine for  [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m a collaborative chat   [39m[22m[90m│[39m[1m[34m a collaborative chat   [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m bot.                   [39m[22m[90m│[39m[1m[34m bot.                   [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m Your primary purpose   [39m[22m[90m│[39m[1m[34m Your primary purpose   [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m is to determine IF a   [39m[22m[90m│[39m[1m[34m is to determine IF a   [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m user's message         [39m[22m[90m│[39m[1m[34m user's message         [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m contains useful time   [39m[22m[90m│[39m[1m[34m contains useful time   [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m context for            [39m[22m[90m│[39m[1m[34m context for            [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m coordination           [39m[22m[90m│[39m[1m[34m coordination           [39m[22m[90m│[39m
+[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m                        [39m[22m[90m│[39m[1m[34m (meetings, cal...      [39m[22m[90m│[39m[1m[34m (meetings,...          [39m[22m[90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Anton                  [90m│[39m No previous context.   [90m│[39m Давай завтра в 10 утра [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m созвонимся             [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "positive",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.9,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Clear     [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m coordination with a    [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m specific time.",       [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["10:00"],  [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m User                   [90m│[39m No previous context.   [90m│[39m Привет, как дела?      [90m│[39m [FAIL] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.6,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "The user… [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m expressing a greeting  [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m and not initiating a   [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m coordination.",        [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["-"],      [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Dmitry                 [90m│[39m Talk about a meeting   [90m│[39m Я не смогу в 17:00     [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m at 5pm.                [90m│[39m                        [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.1,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["17:00"],  [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Explicit  [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m refusal.",             [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m User                   [90m│[39m General chat.          [90m│[39m Я пойду спать в 11     [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m вечера                 [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.1,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["11:00"],  [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Explicit  [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m refusal.",             [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Anton                  [90m│[39m Planning a call.       [90m│[39m Давайте завтра в 8     [90m│[39m [FAIL] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m вечера созвонимся      [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "positive",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.9,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Clear     [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m coordination request   [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m for a call.",          [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["8:00",    [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "08:00"],              [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m User                   [90m│[39m No previous context.   [90m│[39m Встречаемся в 6        [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.7,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "User is   [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m expressing a refusal   [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m to meet, indicating a  [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m potential negative     [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m coordination.",        [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["6:00"],   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Bosco                  [90m│[39m Telling a story.       [90m│[39m Мы закончили проект за [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m пять минут до полуночи [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.2,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Expressi… [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m refusal.",             [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["23:00"],  [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Elena                  [90m│[39m Question about         [90m│[39m I am free between      [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m availability.          [90m│[39m 14:00 and 17:30        [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m tomorrow               [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.7,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Explicit  [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m refusal – ‘I am free’  [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m indicates a change in  [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m plans.",               [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["14:00",   [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "17:30"],              [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Vlad                   [90m│[39m Feedback on timing.    [90m│[39m вчерашний созвон в 11  [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m утра затянулся до      [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m обеда, надо учитывать  [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m это при планировании   [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.6,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "The mess… [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m explicitly states that [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m the previous call was  [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m delayed and requires   [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m consideration,         [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m indicating a need for  [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m coordination.",        [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["11:00"],  [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location":    [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m null...                [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Carlos                 [90m│[39m Scheduling             [90m│[39m sync tomorrow at 9am   [90m│[39m [FAIL] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m international sync.    [90m│[39m EST, that's 2pm London [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "positive",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.9,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "Clear     [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m coordination regarding [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m a scheduled meeting.   [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m The specific time and  [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m location are           [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m explicitly stated.",   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["09:00",   [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "14:00"],              [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m ...                    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m                        [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Anton                  [90m│[39m No previous chat       [90m│[39m завтра в 8             [90m│[39m [PASS] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m context.               [90m│[39m                        [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "confidence": 0.6,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "reason": "User      [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m expresses a refusal to [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m attend a scheduled     [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m meeting.",             [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["8:00"],   [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m├────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────[39m[90m┼────────────────────────┤[39m
+[90m│[39m Anton                  [90m│[39m [UserA]: как обстоят   [90m│[39m завтра в 8             [90m│[39m [FAIL] ```json         [90m│[39m [ERROR] Error: API key [90m│[39m
+[90m│[39m                        [90m│[39m дела?                  [90m│[39m                        [90m│[39m {                      [90m│[39m is not set. Set the    [90m│[39m
+[90m│[39m                        [90m│[39m [UserB]: в каком       [90m│[39m                        [90m│[39m   "polarity":          [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m номере здания будет    [90m│[39m                        [90m│[39m "negative",            [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m проходить              [90m│[39m                        [90m│[39m   "confidence": 0.5,   [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m сканирование?          [90m│[39m                        [90m│[39m   "reason": "Explicit  [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m refusal: \"Завтра в    [90m│[39m Error: API key is not  [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m 8\"",                  [90m│[39m set. Set the           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "times": ["8:00"],   [90m│[39m GROQ_API_KEY           [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m   "event_location": n… [90m│[39m environment variable   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m }                      [90m│[39m or add `apiKey` to the [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ```                    [90m│[39m provider config.       [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m     at                 [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m GroqProvider.callApi   [90m│[39m
+[90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m                        [90m│[39m ...                    [90m│[39m
+[90m└────────────────────────[39m[90m┴────────────────────────[39m[90m┴────────────────────────[39m[90m┴────────────────────────[39m[90m┴────────────────────────┘[39m
+Writing output to results7.json
+========================================================================================================================
+✔ Evaluation complete. ID: eval-lvz-2026-03-10T12:38:10
+
+» Run promptfoo view to use the local web viewer
+» Do you want to share this with your team? Sign up for free at https://promptfoo.app
+» This project needs your feedback. What's one thing we can improve? https://promptfoo.dev/feedback
+========================================================================================================================
+Token Usage Summary:
+
+  Evaluation:
+    Total: 13,955
+    Prompt: 13,185
+    Completion: 770
+
+  Grand Total: 13,955 tokens
+========================================================================================================================
+Duration: 5m 22s (concurrency: 4)
+Successes: 8
+Failures: 4
+Errors: 12
+Pass Rate: 33.33%
+========================================================================================================================

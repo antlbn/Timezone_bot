@@ -1,20 +1,34 @@
 # promptfooconfig.yaml
 prompts:
   - file://prompt.txt
+  - file://prompts_claude.txt
 
 providers:
-  - id: openai:chat:gemma3:1b
-    config:
-      apiBaseUrl: http://localhost:11434/v1
-      apiKey: ollama
-      temperature: 0
+  # - id: openai:chat:gemma3:1b
+  #   config:
+  #     apiBaseUrl: http://localhost:11434/v1
+  #     apiKey: ollama
+  #     temperature: 0.1
+  # - id: openai:chat:gemma3:4b
+  #   config:
+  #     apiBaseUrl: http://localhost:11434/v1
+  #     apiKey: ollama
+  #     temperature: 0.1
   - id: groq:llama-3.1-8b-instant
     config:
-      temperature: 0
-  - id: openai/gpt-oss-20b
-    config:
-      temperature: 0
+      temperature: 0.1
+  # - id: groq:openai/gpt-oss-20b
+  #   config:
+  #     temperature: 0.1
+  #     reasoning_effort: "low"
+  #     reasoning_format: "hidden"
+  #     response_format:
+  #       type: json_object
+  #     stream: false
 
+evaluateOptions:
+  maxConcurrency: 2
+  delay: 12000
 
 tests:
   - file://cases.yaml
