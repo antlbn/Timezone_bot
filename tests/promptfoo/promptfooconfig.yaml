@@ -1,23 +1,27 @@
 # promptfooconfig.yaml
 prompts:
-  # - file://prompt.txt
-  # - file://prompts_claude.txt
+  - file://prompt.txt
+  - file://prompts_claude.txt
   - file://prompt_v3.txt
+  - file://prompt_smart.txt
 
 providers:
-  # - id: openai:chat:gemma3:1b
-  #   config:
-  #     apiBaseUrl: http://localhost:11434/v1
-  #     apiKey: ollama
-  #     temperature: 0.1
-  # - id: openai:chat:gemma3:4b
-  #   config:
-  #     apiBaseUrl: http://localhost:11434/v1
-  #     apiKey: ollama
-  #     temperature: 0.1
+  - id: openai:chat:gemma3:1b
+    config:
+      apiBaseUrl: http://localhost:11434/v1
+      apiKey: ollama
+      temperature: 0.1
+  - id: openai:chat:gemma3:4b
+    config:
+      apiBaseUrl: http://localhost:11434/v1
+      apiKey: ollama
+      temperature: 0.1
   - id: groq:llama-3.1-8b-instant
     config:
       temperature: 0.1
+  # - id: openrouter:google/gemma-3-12b-it:free
+  #   config:
+  #     temperature: 0.1
   # - id: groq:openai/gpt-oss-20b
   #   config:
   #     temperature: 0.1
@@ -26,19 +30,14 @@ providers:
   #     response_format:
   #       type: json_object
   #     stream: false
-  - id: groq:openai/gpt-oss-20b
-    config:
-      temperature: 0.1
-      # Для модели GPT-OSS на Groq нужен именно этот флаг:
-      include_reasoning: false
-      reasoning_effort: "low"
-      response_format:
-        type: json_object
-    # Эта строка найдёт первую { и последнюю }, вырезав весь "We need to output JSON..." текст до и после
-    transformResponse: "output.substring(output.indexOf('{'), output.lastIndexOf('}') + 1)"
+  # - id: file://groq_instructor.py
+  #   config:
+  #     python: "../../.venv/bin/python"
+  #     model: "openai/gpt-oss-20b"
+  #     temperature: 0.1
 evaluateOptions:
-  maxConcurrency: 1
-  delay: 8000
+  maxConcurrency: 3
+  # delay: 12000
 
 tests:
   - file://cases.yaml
