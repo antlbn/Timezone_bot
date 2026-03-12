@@ -28,18 +28,34 @@ async def _parse_llm_response(raw_json: str) -> dict:
     """Safely parse LLM JSON and enforce defaults if schema breaks."""
     try:
         data = json.loads(raw_json)
-        # Ensure minimum schema shape
+        # Ensure minimum schema shape matching the new instruction
+        reflections = data.get("reflections", {})
         return {
-            "trigger": bool(data.get("trigger", False)),
-            "polarity": str(data.get("polarity", "negative")),
-            "confidence": float(data.get("confidence", 0.0)),
-            "reason": str(data.get("reason", "")),
-            "times": list(data.get("times", [])),
-            "event_location": data.get("event_location") # string or None
+            "event": bool(data.get("event", False)),
+            "time": list(data.get("time", [])),
+            "city": list(data.get("city", [])),
+            "reflections": {
+                "event_logic": str(reflections.get("event_logic", "")),
+                "time_logic": str(reflections.get("time_logic", "")),
+                "geo_logic": str(reflections.get("geo_logic", ""))
+            },
+            # Compatibility fields for legacy orchestration
+            "trigger": bool(data.get("event", False)),
+            "times": list(data.get("time", [])),
+            "event_location": data.get("city")[0] if data.get("city") and len(data.get("city")) > 0 else None,
+            "confidence": 1.0 if data.get("event") else 0.5 # Force pass 2 if no event
         }
-    except json.JSONDecodeError:
-        logger.error(f"LLM returned invalid JSON: {raw_json}")
-        return {"trigger": False, "confidence": 0.0, "times": [], "event_location": None}
+    except Exception as e:
+        logger.error(f"Error parsing LLM response or invalid format: {e}. Raw: {raw_json}")
+        return {
+            "event": False, 
+            "time": [], 
+            "city": [], 
+            "reflections": {}, 
+            "trigger": False, 
+            "times": [], 
+            "event_location": None
+        }
 
 async def analyze_message_pass(
     current_msg: dict, 
@@ -102,8 +118,5 @@ async def detect_event(current_msg: dict, snapshot: list[dict]) -> dict:
         is_pass2=True
     )
     
-    # If Pass 2 is still uncertain, bias towards silence.
-    if result_p2["confidence"] < min_confidence:
-        result_p2["trigger"] = False
-        
+    # If Pass 2 is still uncertain, we trust it.
     return result_p2

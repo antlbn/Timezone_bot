@@ -1,4 +1,9 @@
-- description: "Clear meeting proposal - positive"
+# ============================================================
+# [BASIC_POSITIVE] Чёткое событие — явное время, координация
+# Ожидаем: event: true, время распознано
+# ============================================================
+
+- description: "[BASIC_POSITIVE] Clear meeting proposal"
   vars:
     author: "Anton"
     text: "Давай завтра в 10 утра созвонимся"
@@ -12,7 +17,40 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.time.includes('10:00');
 
-- description: "Unrelated message - negative"
+- description: "[BASIC_POSITIVE][REGRESSION] 'в 10 утра' must be 10:00, NOT 09:30"
+  vars:
+    author: "Anton"
+    text: "Давай завтра в 10 утра созвонимся"
+    history: "No previous context."
+    timestamp: "09:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'в 10 утра' is a plain AM modifier, NOT the «пол» idiom.
+        // 10:00 is correct. 09:30 would be a bug (confusion with «пол десятого»).
+        return data.event === true && data.time.includes('10:00') && !data.time.includes('09:30');
+
+- description: "[BASIC_POSITIVE] Deadline with time inference"
+  vars:
+    author: "Anton"
+    text: "подтвердилось, сегодня до 8 нужно отправить коммюнике"
+    history: |
+      - 15:20 Jane: Есть новости по отправке?
+    timestamp: "15:30"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('20:00');
+
+
+# ============================================================
+# [BASIC_NEGATIVE] Нет события или нет координации
+# Ожидаем: event: false
+# ============================================================
+
+- description: "[BASIC_NEGATIVE] Unrelated message — no time, no event"
   vars:
     author: "User"
     text: "Привет, как дела?"
@@ -24,21 +62,7 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === false;
 
-- description: "Explicit refusal - negative"
-  vars:
-    author: "Dmitry"
-    text: "Я не смогу в 17:00"
-    history: |
-      - 15:45 Anton: Ребят, созвон в 17:00 всем подходит?
-      - 15:50 Jane: Мне да.
-    timestamp: "16:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.includes('17:00');
-
-- description: "Personal plan (not coordination) - negative"
+- description: "[BASIC_NEGATIVE] Personal plan (not coordination)"
   vars:
     author: "User"
     text: "Я пойду спать в 11 вечера"
@@ -52,7 +76,13 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.time.includes('23:00');
 
-- description: "Russian evening time (PM) extraction"
+
+# ============================================================
+# [TIME_PARSING] Нестандартный формат времени
+# Разговорный стиль, PM/AM, идиомы, временные окна, относительное время
+# ============================================================
+
+- description: "[TIME_PARSING] Russian evening time (PM) extraction"
   vars:
     author: "Anton"
     text: "Давайте завтра в 8 вечера созвонимся"
@@ -66,115 +96,7 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.time.includes('20:00');
 
-- description: "[EDGE] Bare number without context — negative (Ambiguous)"
-  vars:
-    author: "User"
-    text: "Встречаемся в 6"
-    history: "No previous context."
-    timestamp: "12:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true;
-
-- description: "[EDGE] Idiomatic/Metaphorical Time — negative"
-  vars:
-    author: "Bosco"
-    text: "Мы закончили проект за пять минут до полуночи"
-    history: |
-      - 08:30 Manager: Как успехи с релизом?
-      - 08:45 Bosco: Было потно, но мы успели.
-    timestamp: "09:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.includes('23:55');
-
-- description: "[EDGE] Availability window — multiple times"
-  vars:
-    author: "Elena"
-    text: "I am free between 14:00 and 17:30 tomorrow"
-    history: |
-      - 09:30 Recruiter: Hi Elena, when can we talk?
-      - 09:45 Elena: Hi!
-    timestamp: "10:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.length === 2 && data.time.includes('14:00') && data.time.includes('17:30');
-
-- description: "[EDGE] Past Event упоминание — negative"
-  vars:
-    author: "Vlad"
-    text: "вчерашний созвон в 11 утра затянулся до обеда"
-    history: |
-      - 09:30 Team: Планируем ретроспективу.
-      - 09:45 Vlad: Давайте только быстрее чем в прошлый раз.
-    timestamp: "10:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.includes('11:00');
-
-- description: "[EDGE] Dual timezone phrasing — locations"
-  vars:
-    author: "Carlos"
-    text: "sync tomorrow at 9am EST, that's 2pm London"
-    history: |
-      - 17:30 Lead: We need to include the US team.
-      - 17:45 Carlos: Sure.
-    timestamp: "18:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.includes('14:00') && data.city[0] == "London";
-
-- description: "[CONTEXT] Relative time detection (Example 5 logic)"
-  vars:
-    author: "Jane"
-    text: "через час будет созвон"
-    history: |
-      - 12:15 Admin: Всем приготовиться.
-    timestamp: "12:21"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.includes('13:21');
-
-- description: "[CONTEXT] Deadline with time inference (Example 6 logic)"
-  vars:
-    author: "Anton"
-    text: "подтвердилось, сегодня до 8 нужно отправить коммюнике"
-    history: |
-      - 15:20 Jane: Есть новости по отправке?
-    timestamp: "15:30"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.time.includes('20:00');
-
-- description: "[HISTORY] Ambiguous number resolved by history as negative (Example 1/2 fusion)"
-  vars:
-    author: "Anton"
-    text: "завтра в 8"
-    history: |
-      - 11:45 UserA: как обстоят дела?
-      - 11:50 UserB: в каком номере здания будет проходить сканирование?
-    timestamp: "12:00"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true; 
-
-- description: "Russian relative time idiom 'без пятнадцати восемь' - evening inference"
+- description: "[TIME_PARSING] Russian idiom 'без пятнадцати восемь' — evening inference"
   vars:
     author: "Dima"
     text: "Ок, тогда встречаемся без пятнадцати восемь у входа"
@@ -189,7 +111,132 @@
         // 'без пятнадцати восемь' is 19:45
         return data.event === true && data.time.includes('19:45');
 
-- description: "Massive history (EN) and tired message with typos - multiple events, ignoring history times"
+- description: "[TIME_PARSING] Relative time — 'через час'"
+  vars:
+    author: "Jane"
+    text: "через час будет созвон"
+    history: |
+      - 12:15 Admin: Всем приготовиться.
+    timestamp: "12:21"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('13:21');
+
+- description: "[TIME_PARSING] Availability window — multiple times in one message"
+  vars:
+    author: "Elena"
+    text: "I am free between 14:00 and 17:30 tomorrow"
+    history: |
+      - 09:30 Recruiter: Hi Elena, when can we talk?
+      - 09:45 Elena: Hi!
+    timestamp: "10:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.length === 2 && data.time.includes('14:00') && data.time.includes('17:30');
+
+
+# ============================================================
+# [CONTEXT] Контекст из истории — смысл зависит от предыдущих сообщений
+# ============================================================
+
+- description: "[CONTEXT] Explicit refusal — event still exists in history"
+  vars:
+    author: "Dmitry"
+    text: "Я не смогу в 17:00"
+    history: |
+      - 15:45 Anton: Ребят, созвон в 17:00 всем подходит?
+      - 15:50 Jane: Мне да.
+    timestamp: "16:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('17:00');
+
+- description: "[CONTEXT] Ambiguous number — resolved by history (or not)"
+  vars:
+    author: "Anton"
+    text: "завтра в 8"
+    history: |
+      - 11:45 UserA: как обстоят дела?
+      - 11:50 UserB: в каком номере здания будет проходить сканирование?
+    timestamp: "12:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true;
+
+
+# ============================================================
+# [EDGE] Сложные пограничные случаи
+# Метафоры, прошедшее время, голые числа, мультичасовые пояса
+# ============================================================
+
+- description: "[EDGE] Bare number without context — ambiguous"
+  vars:
+    author: "User"
+    text: "Встречаемся в 6"
+    history: "No previous context."
+    timestamp: "12:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true;
+
+- description: "[EDGE] Idiomatic / Metaphorical time — not a real scheduled event"
+  vars:
+    author: "Bosco"
+    text: "Мы закончили проект за пять минут до полуночи"
+    history: |
+      - 08:30 Manager: Как успехи с релизом?
+      - 08:45 Bosco: Было потно, но мы успели.
+    timestamp: "09:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('23:55');
+
+- description: "[EDGE] Past event mention — should not trigger future event"
+  vars:
+    author: "Vlad"
+    text: "вчерашний созвон в 11 утра затянулся до обеда"
+    history: |
+      - 09:30 Team: Планируем ретроспективу.
+      - 09:45 Vlad: Давайте только быстрее чем в прошлый раз.
+    timestamp: "10:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('11:00');
+
+- description: "[EDGE] Dual timezone phrasing — explicit city locations"
+  vars:
+    author: "Carlos"
+    text: "sync tomorrow at 9am EST, that's 2pm London"
+    history: |
+      - 17:30 Lead: We need to include the US team.
+      - 17:45 Carlos: Sure.
+    timestamp: "18:00"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('14:00') && data.city[0] == "London";
+
+
+# ============================================================
+# [STRESS] Стресс-тест — большой контекст, опечатки, несколько событий
+# ============================================================
+
+- description: "[STRESS] Massive history (EN) + tired message with typos — 3 events, ignoring history times"
   vars:
     author: "Anton"
     text: "Man sry for writing so late im just buried in work and my brain is fried anyway about the loogistics call lets do thursdsy at 10:30 instead of half past nine as suggested coz i wont make it from the airport and also we really need to talk about the investor deck on Friday at 1 PM thats super critical and also remind me pls what about the code deadline on Monday by 5 PM are we on track? i am literally falling asleep here..."
@@ -206,3 +253,165 @@
         const has1700 = data.time.includes('17:00');
         const ignoreHistory = !data.time.includes('09:00') && !data.time.includes('16:00') && !data.time.includes('14:00') && !data.time.includes('11:00') && !data.time.includes('14:30') && !data.time.includes('09:30');
         return data.event === true && has1030 && has1300 && has1700 && ignoreHistory;
+
+
+# ============================================================
+# [TYPOS_SLANG] Опечатки, сленг, нестандартная запись времени
+# Модель должна распознать событие несмотря на шум в тексте
+# ============================================================
+
+- description: "[TYPOS_SLANG] Slang + typos — 'митос в 1500'"
+  vars:
+    author: "Пашок"
+    text: "гы народ митос завтр в 1500 не проспите лан?"
+    history: |
+      - 13:10 Серый: пашок ты живой?
+      - 12:55 Дэн: задеплоили наконец-то ффух
+    timestamp: "13:14"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'митос' = митинг, '1500' = 15:00
+        return data.event === true && data.time.includes('15:00');
+
+- description: "[TYPOS_SLANG] Slang relative time — 'чз 20 мин хопа в зуме'"
+  vars:
+    author: "Никитос"
+    text: "чз 20 мин хопа в зуме ладн"
+    history: |
+      - 11:45 Денис: ты там живой?
+      - 11:30 Вова: стенд-ап был?
+    timestamp: "11:47"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'чз 20 мин' = через 20 минут, 11:47 + 20min = 12:07
+        return data.event === true && data.time.includes('12:07');
+
+- description: "[TYPOS_SLANG] English typos + AM/PM self-correction"
+  vars:
+    author: "Raj"
+    text: "meeting is at 7 in evening i mean 7pm not morning lol"
+    history: |
+      - 09:10 Dev: 7am or 7pm?
+      - 08:55 Raj: don't forget meeting today
+    timestamp: "09:15"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // Explicit self-correction: 'not morning' → must be 19:00
+        return data.event === true && data.time.includes('19:00');
+
+- description: "[TYPOS_SLANG] Ambiguous 'в час' at midnight — should infer 13:00 not 01:00"
+  vars:
+    author: "Дима"
+    text: "завтра в час ждём всех"
+    history: |
+      - 23:45 Макс: завтра во сколько?
+      - 23:30 Дима: деплой прошёл успешно
+    timestamp: "23:50"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'в час' at 23:50 for tomorrow context — should infer 13:00 (working hours), not 01:00
+        return data.event === true && data.time.includes('13:00');
+
+
+# ============================================================
+# [MULTILANG] Многоязычные кейсы — сленг, идиомы, смешение языков
+# Языки: немецкий, французский, испанский, рус+eng микс
+# ============================================================
+
+- description: "[MULTILANG] Russian + English mix — 'say в 4' = 16:00"
+  vars:
+    author: "Arman"
+    text: "ребят let's catch up завтра после обеда, say в 4?"
+    history: |
+      - 15:20 Vlad: когда следующий touchpoint?
+      - 15:05 Arman: финишируем спринт
+    timestamp: "15:22"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'say в 4' + 'после обеда' → 16:00
+        return data.event === true && data.time.includes('16:00');
+
+- description: "[MULTILANG][EDGE] Number trap — '9й подъезд' vs '18' as time"
+  vars:
+    author: "Степан"
+    text: "встречаемся у 9го подъезда в 18"
+    history: |
+      - 16:35 Гоша: где встречаемся?
+      - 16:20 Степан: едем на объект сегодня вечером
+    timestamp: "16:40"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // '9й подъезд' is entrance number, NOT time. '18' = 18:00
+        return data.event === true && data.time.includes('18:00') && !data.time.includes('09:00');
+
+- description: "[MULTILANG] German idiom — 'halb zehn' = 09:30 (not 10:30)"
+  vars:
+    author: "Klaus"
+    text: "morgen um halb zehn kurzes meeting ja?"
+    history: |
+      - 10:00 Anna: wann treffen wir uns?
+      - 09:45 Klaus: hab gerade mit dem Kunden gesprochen
+    timestamp: "10:05"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'halb zehn' in German = half past nine = 09:30, NOT 10:30
+        return data.event === true && data.time.includes('09:30') && !data.time.includes('10:30');
+
+- description: "[MULTILANG][CONTEXT] 'после пяти' — past complaint anchors agreed time"
+  vars:
+    author: "Лёня"
+    text: "ну мы же договорились на после пяти, где все были в 17:30??"
+    history: |
+      - 19:05 Лёня: алло?
+      - 16:55 Серёга: окей после пяти ок
+    timestamp: "19:10"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // 'после пяти' agreed in history, '17:30' explicitly named — detect the event
+        return data.event === true && (data.time.includes('17:00') || data.time.includes('17:30'));
+
+- description: "[MULTILANG] French — correction: '9h demain matin', cancels 'ce soir'"
+  vars:
+    author: "Pierre"
+    text: "réunion demain matin à 9h, pas ce soir comme prévu"
+    history: |
+      - 14:30 Marie: c'est toujours ce soir la réunion?
+      - 14:15 Pierre: j'ai eu le client au téléphone
+    timestamp: "14:33"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // '9h demain matin' = 09:00 tomorrow. Correction overrides original plan.
+        return data.event === true && data.time.includes('09:00');
+
+- description: "[MULTILANG] Spanish — '9 y media' correction, not '10:00'"
+  vars:
+    author: "Carlos"
+    text: "mañana a las 9 y media, no a las 10 como dije antes"
+    history: |
+      - 17:00 Sofia: ¿a qué hora mañana?
+      - 16:45 Carlos: hablé con el cliente, hay cambios
+    timestamp: "17:02"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // '9 y media' = 09:30. Previous '10:00' is explicitly corrected.
+        return data.event === true && data.time.includes('09:30') && !data.time.includes('10:00');

@@ -64,47 +64,53 @@ async def on_message(message: discord.Message):
         timestamp_utc=timestamp_utc
     )
     
-    if not result.get("trigger", False) or not result.get("times"):
+    # NEW SCHEMA: result has 'event' (bool), 'time' (list), 'city' (list)
+    if not result.get("event", False) or not result.get("time"):
         return
+
     db_members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
     if not db_members:
         return
     
-    # Filter: keep only members still in the guild, remove stale ones
+    # Filter: keep only members still in the guild
     active_members = []
     for m in db_members:
         discord_member = message.guild.get_member(m["user_id"])
         if discord_member:
             active_members.append(m)
         else:
-            # User left while bot was offline - cleanup
             await storage.remove_chat_member(message.guild.id, m["user_id"], platform=PLATFORM)
             logger.info(f"[guild:{message.guild.id}] Auto-removed stale user {m['user_id']}")
     
     if not active_members:
         return
     
-    # Determine the Source TZ (event_location override or sender DB fallback)
-    event_location = result.get("event_location")
-    if event_location:
-        from src.geo import get_timezone_by_city
-        geo_result = get_timezone_by_city(event_location)
-        if geo_result and not geo_result.get("error"):
-            source_city = geo_result["city"]
-            source_tz = geo_result["timezone"]
-            source_flag = geo_result["flag"]
+    # Extract times and cities
+    times = result.get("time", [])
+    cities = result.get("city", [])
+    
+    # Process each mention
+    for i, time_str in enumerate(times):
+        # Use city at the same index if available
+        city_override = cities[i] if i < len(cities) else None
+        
+        if city_override:
+            from src.geo import get_timezone_by_city
+            geo_result = get_timezone_by_city(city_override)
+            if geo_result and not geo_result.get("error"):
+                source_city = geo_result["city"]
+                source_tz = geo_result["timezone"]
+                source_flag = geo_result["flag"]
+            else:
+                logger.warning(f"Failed to geocode '{city_override}'. Fallback to sender.")
+                source_city = sender["city"]
+                source_tz = sender["timezone"]
+                source_flag = sender.get("flag", "")
         else:
-            logger.warning(f"Failed to geocode event_location '{event_location}'. Falling back to sender TZ.")
             source_city = sender["city"]
             source_tz = sender["timezone"]
             source_flag = sender.get("flag", "")
-    else:
-        source_city = sender["city"]
-        source_tz = sender["timezone"]
-        source_flag = sender.get("flag", "")
-        
-    times = result.get("times", [])
-    for time_str in times:
+            
         reply = formatter.format_conversion_reply(
             time_str,
             source_city,
@@ -115,7 +121,7 @@ async def on_message(message: discord.Message):
         )
         await message.reply(reply)
     
-    logger.info(f"[guild:{message.guild.id}] LLM Trigger: {times} | location_override={event_location}")
+    logger.info(f"[guild:{message.guild.id}] LLM Trigger: {times} | cities={cities}")
 
 
 @bot.event

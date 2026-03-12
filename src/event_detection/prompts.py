@@ -4,59 +4,114 @@ import json
 EVENT_DETECTION_SCHEMA = {
     "type": "object",
     "properties": {
-        "polarity": {
-            "type": "string",
-            "enum": ["positive", "negative"],
-            "description": "Positive for coordination/availability. Negative for refusals, personal plans, vague questions, or past events."
+        "reflections": {
+            "type": "object",
+            "properties": {
+                "event_logic": {"type": "string"},
+                "time_logic": {"type": "string"},
+                "geo_logic": {"type": "string"}
+            },
+            "required": ["event_logic", "time_logic", "geo_logic"]
         },
-        "confidence": {
-            "type": "number",
-            "description": "A float between 0.0 and 1.0 indicating your confidence that this message is a meaningful time-coordination event."
-        },
-        "reason": {
-            "type": "string",
-            "description": "Short explanation of your reasoning (max 1 sentence)."
-        },
-        "times": {
+        "event": {"type": "boolean"},
+        "time": {
             "type": "array",
-            "items": {"type": "string"},
-            "description": "List of extracted times normalized to 24-hour HH:MM format. Empty if no actionable time was found."
+            "items": {"type": "string"}
         },
-        "event_location": {
-            "type": ["string", "null"],
-            "description": "Explicit location context mentioned for the time (e.g. 'New York', 'по Москве'). Null if not explicitly stated."
+        "city": {
+            "type": "array",
+            "items": {"type": ["string", "null"]}
         }
     },
-    "required": ["polarity", "confidence", "reason", "times", "event_location"]
+    "required": ["reflections", "event", "time", "city"]
 }
 
 # The single system prompt that defines the LLM's persona and rules
-SYSTEM_PROMPT = f"""You are an advanced Event Detection and Time Extraction engine for a collaborative chat bot.
+SYSTEM_PROMPT = f"""Твоя задача — анализировать фрагменты чата и фиксировать события, концентрируясь на самых свежих сообщениях.
 
-Your primary purpose is to determine IF a user's message contains useful time context for coordination (meetings, calls, general availability) AND to extract those times.
+АЛГОРИТМ ОТВЕТА:
 
-CRITICAL RULES:
-1. ONLY return a valid JSON object matching the provided schema. No prose, no markdown fences outside the JSON.
-2. Set `polarity` to "negative" if the user is refusing, cancelling, or talking about the past.
-3. `confidence` score (0.0 to 1.0) represents your certainty that THIS message is an actionable coordination trigger.
-   - Set `confidence` < 0.3 for: personal plans ("I'm going to sleep"), refusals ("I can't make it"), or past events ("We met at 5"). These are NOT coordination triggers.
-   - Set `confidence` exactly 0.6 if the message is a potential trigger but too short/ambiguous (e.g., "завтра в 8") AND no `PREVIOUS CHAT CONTEXT` is provided. This signal triggers a context-fetcher.
-   - Set `confidence` > 0.8 only for clear, actionable coordination/availability that affects others.
-4. If `PREVIOUS CHAT CONTEXT` is provided, YOU MUST use it to disambiguate. If the context reveals the user is answering a question about a room number, floor, or quantity (NOT a time), you MUST set `polarity` to "negative" and `confidence` < 0.2.
-5. Extract the time mentioned and normalize it strictly to 24-hour HH:MM format in the `times` array.
-   - Russian "вечера" / "вечером" or English "PM" / "evening" -> Add 12 hours if hour < 12 (e.g. "8 вечера" -> "20:00").
-   - Russian "утра" / "утром" or English "AM" / "morning" -> Keep as-is (e.g. "8 утра" -> "08:00").
-   - For a time range ("between 14:00 and 17:30"), extract ONLY the start and end boundaries (["14:00", "17:30"]). Do not enumerate every hour!
-6. `event_location` is only for explicit timezone/location context (e.g. "MSK", "London"). Return null if not explicitly stated.
+А) Сообщения: Прочти текст диалога.
+Б) event_logic: Подумай, идет ли речь о встрече или событии.
+В) time_logic: Подумай, определено ли время суток точно? Переведи всё в 24-часовой формат.
+Г) geo_logic: Подумай, определен ли город или часовой пояс для каждого упомянутого времени.
+Д) Заполни .json: Сформируй ответ строго по схеме ниже.
 
-EXAMPLES:
-- User: "I can't make it at 5pm" -> {{"polarity": "negative", "confidence": 0.1, "times": ["17:00"], "reason": "Explicit refusal."}}
-- User: "I am going to sleep at 23:00" -> {{"polarity": "negative", "confidence": 0.2, "times": ["23:00"], "reason": "Personal plan, not coordination."}}
-- User: "Meet at 10am" (No context) -> {{"polarity": "positive", "confidence": 0.6, "times": ["10:00"], "reason": "Short trigger without context."}}
-- User: "Meet at 10am" (With context "Let's sync up") -> {{"polarity": "positive", "confidence": 0.9, "times": ["10:00"], "reason": "Clear coordination."}}
+JSON SCHEMA:
 
-Expected JSON Schema Reference:
+JSON
 {json.dumps(EVENT_DETECTION_SCHEMA, indent=2)}
+
+ПРИМЕРЫ:
+
+Пример 1
+Сообщение: John: "Завтра в 8"
+Ответ:
+
+JSON
+{{
+  "reflections": {{
+    "event_logic": "завтра в 8 может иметься ввиду как время так и например номер дома, нехватает контекста",
+    "time_logic": "в 8 — даже если это время, то не понятно",
+    "geo_logic": "о месте или городе в контексте времени речи нет"
+  }},
+  "event": false,
+  "time": [],
+  "city": []
+}}
+
+Пример 1
+Сообщение: John: "Завтра в 8"
+Ответ:
+
+JSON
+{{
+  "reflections": {{
+    "event_logic": "завтра в 8 может иметься ввиду как время так и например номер дома, нехватает контекста",
+    "time_logic": "в 8 — даже если это время, то не понятно",
+    "geo_logic": "о месте или городе в контексте времени речи нет"
+  }},
+  "event": false,
+  "time": [],
+  "city": []
+}}
+Пример 2
+Сообщение: - Вася: “всё таки меняем фреймворк, я поговорил с ребятами из техотдела”
+
+Антон: “вчера встречались с заказчиком по инфраструктурному”
+
+Jane: “во сколько?”
+
+Антон: “они реально поздно мне позвонили в 7, я уже думал с собакой идти гулять - в общем в 9 встретились и два часа общались”
+
+Ответ:
+
+JSON
+{{
+  "reflections": {{
+    "event_logic": "Речь идет о встрече с заказчиком вчера. Встреча в 9 вечера — важное событие. Созвон в 7 опускаем.",
+    "time_logic": "Поздно в 9 — время указано ясно, это 21:00.",
+    "geo_logic": "о месте или городе в контексте времени речи нет"
+  }},
+  "event": true,
+  "time": ["21:00"],
+  "city": [null]
+}}
+Пример 3
+Сообщение: "Завтра вечером будет созвон с аналитиками в 16:00, а также всем напоминаю что сегодня в полдень все желающие заходите в meet будем слушать что придумали инженеры."
+Ответ:
+
+JSON
+{{
+  "reflections": {{
+    "event_logic": "Речь идёт о двух событиях: созвон с аналитиками в 16:00 и встрече в meet в полдень, оба события подходят.",
+    "time_logic": "время 16:00 — ясное; время полдень — это 12:00, тоже ясное и понятное.",
+    "geo_logic": "для события в 16:00 город не уточняется — null, для события в 12:00 город тоже не уточняется — null"
+  }},
+  "event": true,
+  "time": ["16:00", "12:00"],
+  "city": [null, null]
+}}
 """
 
 def get_system_prompt() -> str:
