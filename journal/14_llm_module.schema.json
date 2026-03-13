@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Timezone Bot — LLM Module Output (v2.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reflections", "event", "sender_id", "sender_name", "time", "city"],
+  "properties": {
+    "reflections": {
+      "type": "object",
+      "description": "Chain-of-thought reasoning block (not shown to users).",
+      "required": ["event_logic", "time_logic", "geo_logic"],
+      "properties": {
+        "event_logic": { "type": "string" },
+        "time_logic":  { "type": "string" },
+        "geo_logic":   { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "boolean",
+      "description": "true = actionable time-coordination event; LLM should call convert_time tool"
+    },
+    "sender_id": {
+      "type": "string",
+      "description": "Platform user ID echoed from SENDER block; passed through to convert_time tool"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Display name echoed from SENDER block; used in formatted reply"
+    },
+    "time": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Extracted times in 24h format. Empty array when event=false.",
+      "examples": [["14:00"], ["09:30", "15:00"]]
+    },
+    "city": {
+      "type": "array",
+      "items": { "type": ["string", "null"] },
+      "description": "Parallel to 'time'. City/region as explicit TZ context for time[i], or null → use sender DB TZ.",
+      "examples": [[null], ["New York", null]]
+    }
+  }
+}

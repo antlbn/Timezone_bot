@@ -1,3 +1,9 @@
+## 2026-03-13 (session) - Spec Cleanup & Prefilter Removal
+- **Cleanup**: Completely removed the legacy regex/keyword prefilter layer (`src/capture.py`, `configuration.yaml` prefilter blocks, tests).
+- **Architecture**: Enforced true "zero-friction" LLM flow — every message from registered users now goes natively to the LLM orchestration layer.
+- **Spec Audit**: Deleted the obsolete `13_event_detection.md` spec and its JSON schema, as they were fully superseded by the orchestrator pattern in `14_llm_module.md`.
+- **Docs**: Re-linked all references across the documentation (`01`, `02`, `03`, `04`, `11`, internal specs, and `PROGRESS.md` itself) from `13_` to `14_llm_module.md`.
+
 ## 2026-03-06 (session) - LLM Integration Implementation & Verification
 - **Module Implementation**: Completed `src/event_detection/` with agnostic client, JSON schema prompts, and per-chat history/locks.
 - **Integration**: Refactored Telegram (`src/commands/common.py`) and Discord (`src/discord/events.py`) to use the new LLM detector.

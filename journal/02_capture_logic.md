@@ -2,7 +2,7 @@
 
 ## 1. Concept: Optional Prefilter
 
-This module (`src/capture.py`) implements an **optional prefilter** for the LLM Event Detector (`13_event_detection.md`). 
+This module (`src/capture.py`) implements an **optional prefilter** for the LLM Event Detector (`14_llm_module.md`). 
 
 The logic is simple:
 - Some chats have high message volume, and querying the LLM for every message might be costly.
@@ -11,9 +11,6 @@ The logic is simple:
 
 **Important Note**: This module does **not** extract the final times used for the bot's response. It only decides "should we call the LLM?" The LLM itself remains responsible for extracting the actual `times[]` and `event_location`.
 
-### High-level dataflow (when prefilter is ON):
-
-```
 Message
   │
   ├─▶ [Time-like Regex]      ──▶ time_candidates found?

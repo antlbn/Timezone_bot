@@ -33,7 +33,7 @@ Any time transformation must go through a "zero point" (UTC). Direct conversion 
 - If `event_location` == null → `source_tz = sender's DB timezone`
 
 ### Workflow:
-1. **Extraction**: `times[]` received from LLM Event Detector (`13_event_detection.md`). Optional `source_tz` override also provided if `event_location` was geocoded.
+1. **Extraction**: `times[]` received from LLM Event Detector (`14_llm_module.md`). Optional `source_tz` override also provided if `event_location` was geocoded.
 2. **Anchoring**: Binding to current date (`datetime.now()`) to determine the current DST mode.
 3. **Localization**: Creating an `Aware datetime` object in the **source timezone** (`source_tz` if provided, else sender's DB TZ).
 4. **Normalization**: Shifting the object to **UTC** (reference point).

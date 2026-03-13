@@ -36,17 +36,8 @@ class TestAutoCleanup:
         storage_mock = AsyncMock()
         monkeypatch.setattr("src.discord.events.storage", storage_mock)
         return storage_mock
-    
-    @pytest.fixture
-    def mock_formatter(self, monkeypatch):
-        """Mock the formatter."""
-        formatter_mock = MagicMock()
-        formatter_mock.format_conversion_reply.return_value = "Converted times..."
-        monkeypatch.setattr("src.discord.events.formatter", formatter_mock)
-        return formatter_mock
-    
     @pytest.mark.asyncio
-    async def test_stale_member_removed(self, mock_message, mock_storage, mock_formatter, monkeypatch):
+    async def test_stale_member_removed(self, mock_message, mock_storage, monkeypatch):
         """Test that stale members (not in guild) are removed from DB."""
         # Import after mocking
         from src.discord.events import on_message
@@ -92,7 +83,7 @@ class TestAutoCleanup:
         )
     
     @pytest.mark.asyncio
-    async def test_active_members_kept(self, mock_message, mock_storage, mock_formatter, monkeypatch):
+    async def test_active_members_kept(self, mock_message, mock_storage, monkeypatch):
         """Test that active members are NOT removed."""
         from src.discord.events import on_message
         
@@ -115,9 +106,9 @@ class TestAutoCleanup:
         # Mock process_message
         mock_process = AsyncMock()
         mock_process.return_value = {
-            "trigger": True,
-            "times": ["15:00"],
-            "event_location": None
+            "event": True,
+            "time": ["15:00"],
+            "city": [None]
         }
         monkeypatch.setattr("src.discord.events.process_message", mock_process)
         
@@ -126,12 +117,9 @@ class TestAutoCleanup:
         
         # Verify NO removals
         mock_storage.remove_chat_member.assert_not_called()
-        
-        # Verify formatter called with both members
-        mock_formatter.format_conversion_reply.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_all_stale_returns_early(self, mock_message, mock_storage, mock_formatter, monkeypatch):
+    async def test_all_stale_returns_early(self, mock_message, mock_storage, monkeypatch):
         """Test that if ALL members are stale, no reply is sent."""
         from src.discord.events import on_message
         
@@ -153,9 +141,9 @@ class TestAutoCleanup:
         # Mock process_message
         mock_process = AsyncMock()
         mock_process.return_value = {
-            "trigger": True,
-            "times": ["15:00"],
-            "event_location": None
+            "event": True,
+            "time": ["15:00"],
+            "city": [None]
         }
         monkeypatch.setattr("src.discord.events.process_message", mock_process)
         

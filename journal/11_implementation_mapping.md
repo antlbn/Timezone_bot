@@ -18,7 +18,7 @@
 | `07_response_format.md` | `src/formatter.py` | Build reply string |
 | `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram adapter |
 | `09_logging.md` | `src/logger.py` | Logging setup |
-| `13_event_detection.md` | `src/event_detection/` | LLM-based event detector: trigger + times[] + event_location |
+| `14_llm_module.md` | `src/event_detection/` | LLM-based event detector: trigger + times[] + event_location |
 | `12_discord_integration.md` | `src/discord/` | Discord adapter |
 | — | `src/config.py` | Load yaml + .env |
 | — | `src/main.py` | Telegram entry point |

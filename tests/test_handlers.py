@@ -139,28 +139,14 @@ async def test_handle_time_mention_success(mock_storage, mock_message, mock_stat
         "flag": "🇩🇪"
     }
     
-    # Mock storage for chat members
-    mock_storage.get_chat_members.return_value = [
-        {"user_id": 12345, "city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "me"},
-        {"user_id": 999, "city": "New York", "timezone": "America/New_York", "flag": "🇺🇸", "username": "other"}
-    ]
-    
     # Mock event_detection.process_message
     mock_process = AsyncMock()
     mock_process.return_value = {
-        "trigger": True,
-        "polarity": "positive",
-        "confidence": 0.95,
-        "reason": "Explicit time mention",
-        "times": ["15:00"],
-        "event_location": None
+        "event": True,
+        "time": ["15:00"],
+        "city": [None]
     }
     monkeypatch.setattr("src.commands.common.process_message", mock_process)
-    
-    # Mock formatter
-    mock_formatter = MagicMock()
-    mock_formatter.format_conversion_reply.return_value = "Time in NY: 10:00"
-    monkeypatch.setattr("src.commands.common.formatter", mock_formatter)
     
     # Apply storage mock to common.py too
     monkeypatch.setattr("src.commands.common.storage", mock_storage)
@@ -177,11 +163,7 @@ async def test_handle_time_mention_success(mock_storage, mock_message, mock_stat
     # 1. process_message called?
     mock_process.assert_called_once()
     
-    # 2. Members fetched?
-    mock_storage.get_chat_members.assert_called_with(mock_message.chat.id, platform="telegram")
-    
-    # 3. Formatter called?
-    mock_formatter.format_conversion_reply.assert_called_once()
-    
-    # 4. Reply sent?
-    mock_message.answer.assert_called_with("Time in NY: 10:00")
+    # Verify send_fn is passed
+    kwargs = mock_process.call_args.kwargs
+    assert "send_fn" in kwargs
+    assert kwargs["send_fn"] is not None

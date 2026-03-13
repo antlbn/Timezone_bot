@@ -2,8 +2,8 @@
 
 ## 1. Contradictions & Discrepancies
 
-### 1.1 `04_bot_logic.md` vs `13_event_detection.md` (New User Flow)
-- **Gap**: In `04_bot_logic.md` (Sequence diagram and text), the new user flow says: "Bot asks: Reply with your city name:" and waits for a reply. However, `13_event_detection.md` says "LLM call is deferred... After the user's timezone is saved → replay the original message". 
+### 1.1 `04_bot_logic.md` vs `14_llm_module.md` (New User Flow)
+- **Gap**: In `04_bot_logic.md` (Sequence diagram and text), the new user flow says: "Bot asks: Reply with your city name:" and waits for a reply. However, `14_llm_module.md` says "LLM call is deferred... After the user's timezone is saved → replay the original message". 
 - **The specific issue**: When a new user says "Meeting at 15:00", we defer the LLM call because we don't have their timezone. The bot uses ForceReply to ask for their city. What happens if other people send messages *while* the new user is answering? 
 - **Edge case**: The deferred message (`"Meeting at 15:00"`) might lose its context if the chat moves on, or if the user takes 2 days to reply with their city, replying to a 2-day old time context doesn't make sense.
 - **Recommendation**: Add a TTL (Time To Live) for deferred LLM calls. If the user doesn't onboard within X minutes (e.g., 10 mins), silently drop the deferred message.
@@ -23,14 +23,14 @@
 - **Recommendation**: The `anchor_timestamp` passed to the LLM should ideally be localized to the **sender's timezone**, so the LLM knows what "today" means to the sender.
 
 ### 2.2 Geocoding Fallbacks & `event_location`
-- `13_event_detection.md`: "If geocoding of `event_location` fails... fall back to sender's DB timezone and log a warning."
+- `14_llm_module.md`: "If geocoding of `event_location` fails... fall back to sender's DB timezone and log a warning."
 - **UX Edge Case**: If someone types "в 15:00 по марсу" (at 15:00 Mars time), the bot falls back to the sender's timezone (e.g., Berlin). The bot will reply with translated times based on Berlin time, *without telling anyone that it ignored "Mars"*. This leads to fundamentally incorrect time coordination because the sender meant Mars (or completely made it up), but the bot silently assumed Berlin.
 - **Recommendation**: If `event_location` geocoding fails, the bot should either abort the trigger entirely, OR include a disclaimer in the output: `⚠️ Unknown location "Mars", assuming Berlin time.`
 
 ### 2.3 LLM Output Formatting Error (JSON Schema Failure)
 - What happens if the LLM output is not valid JSON, or misses a required field (e.g. `confidence` is missing)?
 - We have tests for this, but the runtime behavior is not explicitly defined in the logic specs.
-- **Recommendation**: explicitly state in `13_event_detection.md` that JSON schema validation failures result in `trigger=false` (fail-safe silence).
+- **Recommendation**: explicitly state in `14_llm_module.md` that JSON schema validation failures result in `trigger=false` (fail-safe silence).
 
 ### 2.4 Multi-Message Context Limits
 - According to the new deque rules, `extended_context_messages: 3`.

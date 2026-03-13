@@ -1,13 +1,13 @@
 """
-Discord Event Handlers - message monitoring and member tracking.
+Discord Event Handlers — message monitoring and member tracking.
 """
 import discord
 
 from src.discord import bot
 from src.storage import storage
-from src import formatter
 from src.logger import get_logger
 from src.event_detection import process_message
+from src.event_detection.history import append_to_history
 
 logger = get_logger()
 PLATFORM = "discord"
@@ -15,113 +15,68 @@ PLATFORM = "discord"
 
 @bot.event
 async def on_message(message: discord.Message):
-    """Handle messages - detect time mentions and convert."""
-    # Ignore bot messages
+    """Handle messages — onboard new users, run LLM detection for registered ones."""
     if message.author.bot:
         return
-    
-    # Only in guilds
     if not message.guild:
         return
-        
+
     sender = await storage.get_user(message.author.id, platform=PLATFORM)
     timestamp_utc = message.created_at.isoformat() + "Z" if message.created_at else ""
     user_name = message.author.display_name or "User"
-    
+    chat_id = str(message.guild.id)
+
+    # 1. Onboarding — sender not registered yet
     if not sender or not sender.get("timezone"):
-        # User not registered - prompt with button immediately
-        # We do not extract time here, onboarding takes priority over any potential time mention.
         from src.discord.ui import SetTimezoneView
         await message.reply(
-            f"{message.author.display_name}, set your timezone to convert times!",
+            f"{user_name}, set your timezone to convert times!",
             view=SetTimezoneView(message.author.id),
-            mention_author=True
+            mention_author=True,
         )
-        
-        # Append message to deque for future context (without calling LLM evaluation)
-        from src.event_detection.history import append_to_history
+
+        # Append to history for future context (no LLM call)
         append_to_history(
             platform=PLATFORM,
-            chat_id=str(message.guild.id),
+            chat_id=chat_id,
             message_data={
-                "platform": PLATFORM,
-                "chat_id": str(message.guild.id),
-                "author_id": str(message.author.id),
-                "author_name": user_name,
-                "text": message.content,
-                "timestamp_utc": timestamp_utc
-            }
+                "platform":      PLATFORM,
+                "chat_id":       chat_id,
+                "author_id":     str(message.author.id),
+                "author_name":   user_name,
+                "text":          message.content,
+                "timestamp_utc": timestamp_utc,
+            },
         )
         return
-        
-    # User is registered, pass message to the LLM Event Detection pipeline
+
+    # 2. Active-member filter — prune stale DB members while we're here
+    db_members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
+    for m in list(db_members):
+        if not message.guild.get_member(m["user_id"]):
+            await storage.remove_chat_member(message.guild.id, m["user_id"], platform=PLATFORM)
+            logger.info(f"[guild:{chat_id}] Auto-removed stale user {m['user_id']}")
+
+    # 3. Build send_fn so tools.py can reply to this channel
+    async def send_fn(text: str) -> None:
+        await message.reply(text)
+
+    # 4. LLM pipeline — detection + tool dispatch happen inside process_message
     result = await process_message(
         message_text=message.content,
-        chat_id=str(message.guild.id),
+        chat_id=chat_id,
         user_id=str(message.author.id),
         platform=PLATFORM,
         author_name=user_name,
-        timestamp_utc=timestamp_utc
+        timestamp_utc=timestamp_utc,
+        sender_db=sender,
+        send_fn=send_fn,
     )
-    
-    # NEW SCHEMA: result has 'event' (bool), 'time' (list), 'city' (list)
-    if not result.get("event", False) or not result.get("time"):
-        return
 
-    db_members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
-    if not db_members:
-        return
-    
-    # Filter: keep only members still in the guild
-    active_members = []
-    for m in db_members:
-        discord_member = message.guild.get_member(m["user_id"])
-        if discord_member:
-            active_members.append(m)
-        else:
-            await storage.remove_chat_member(message.guild.id, m["user_id"], platform=PLATFORM)
-            logger.info(f"[guild:{message.guild.id}] Auto-removed stale user {m['user_id']}")
-    
-    if not active_members:
-        return
-    
-    # Extract times and cities
-    times = result.get("time", [])
-    cities = result.get("city", [])
-    
-    # Process each mention
-    for i, time_str in enumerate(times):
-        # Use city at the same index if available
-        city_override = cities[i] if i < len(cities) else None
-        
-        if city_override:
-            from src.geo import get_timezone_by_city
-            geo_result = get_timezone_by_city(city_override)
-            if geo_result and not geo_result.get("error"):
-                source_city = geo_result["city"]
-                source_tz = geo_result["timezone"]
-                source_flag = geo_result["flag"]
-            else:
-                logger.warning(f"Failed to geocode '{city_override}'. Fallback to sender.")
-                source_city = sender["city"]
-                source_tz = sender["timezone"]
-                source_flag = sender.get("flag", "")
-        else:
-            source_city = sender["city"]
-            source_tz = sender["timezone"]
-            source_flag = sender.get("flag", "")
-            
-        reply = formatter.format_conversion_reply(
-            time_str,
-            source_city,
-            source_tz,
-            source_flag,
-            active_members,
-            user_name
-        )
-        await message.reply(reply)
-    
-    logger.info(f"[guild:{message.guild.id}] LLM Trigger: {times} | cities={cities}")
+    logger.info(
+        f"[guild:{chat_id}] LLM result: event={result.get('event')} "
+        f"times={result.get('time')} cities={result.get('city')}"
+    )
 
 
 @bot.event

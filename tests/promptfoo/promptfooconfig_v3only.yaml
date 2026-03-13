@@ -1,0 +1,14 @@
+prompts:
+  - file://prompt_v3.txt
+
+providers:
+  - id: groq:llama-3.1-8b-instant
+    config:
+      temperature: 0.1
+
+evaluateOptions:
+  maxConcurrency: 2
+  delay: 5000
+
+tests:
+  - file://cases.yaml

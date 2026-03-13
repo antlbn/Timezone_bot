@@ -64,7 +64,7 @@ This ensures reliability and follows standard practices for handling:
 Bot listens to all messages in group chats. For each message:
 1. **DB lookup**: Check if the sender exists in SQLite.
    - If **not found** → run Onboarding Flow first (see below), then re-process the message.
-2. **LLM Gate**: Send the message window to the **Event Detector LLM** (`13_event_detection.md`).
+2. **LLM Gate**: Send the message window to the **Event Detector LLM** (`14_llm_module.md`).
 3. **Continues only if** LLM returns `trigger=true`. Otherwise the message is ignored.
 4. LLM output provides `times[]` (extracted times) and optional `event_location`.
 

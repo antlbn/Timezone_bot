@@ -1,122 +1,197 @@
 import json
 from src.logger import get_logger
 from src.event_detection.client import get_llm_client, get_llm_model
-from src.event_detection.prompts import get_system_prompt
+from src.event_detection.prompts import get_system_prompt, get_tools
 from src.config import get_bot_settings
 
 logger = get_logger()
 
-async def call_llm(messages: list[dict], expect_json: bool = True) -> str:
-    """Wrapper to call the configured agnostic LLM API."""
+
+def _build_user_content(
+    current_msg: dict,
+    snapshot: list[dict],
+    sender_db: dict,
+) -> str:
+    """
+    Compose the plain-text user-turn block that goes to the LLM.
+
+    Format:
+        SENDER: id=<id>  name=<name>  timezone=<tz>
+        ANCHOR: <timestamp_utc>
+
+        HISTORY:
+        [Author]: text
+        ...
+
+        CURRENT MESSAGE:
+        [Author]: text
+    """
+    sender_id = current_msg.get("author_id", "")
+    sender_name = current_msg.get("author_name", "Unknown")
+    anchor = current_msg.get("timestamp_utc", "")
+
+    lines = [
+        f"SENDER: id={sender_id}  name={sender_name}",
+        f"ANCHOR: {anchor}",
+        "",
+        "HISTORY:",
+    ]
+
+    if snapshot:
+        for msg in snapshot:
+            lines.append(f"[{msg.get('author_name', 'Unknown')}]: {msg.get('text', '')}")
+    else:
+        lines.append("(no prior messages)")
+
+    lines += [
+        "",
+        "CURRENT MESSAGE:",
+        f"[{sender_name}]: {current_msg.get('text', '')}",
+    ]
+
+    return "\n".join(lines)
+
+
+async def call_llm(messages: list[dict], tools: list[dict]) -> object:
+    """Call the configured LLM and return the raw response choice."""
     client = get_llm_client()
     model = get_llm_model()
     settings = get_bot_settings()
-    temp = settings.get("event_detection", {}).get("temperature", 0.0)
-    
-    response_format = {"type": "json_object"} if expect_json else None
-    
-    response = await client.chat.completions.create(
+    temp = settings.get("llm", {}).get("temperature", 0.0)
+
+    kwargs: dict = dict(
         model=model,
         messages=messages,
         temperature=temp,
-        response_format=response_format
+        response_format={"type": "json_object"},
     )
-    
-    return response.choices[0].message.content
+    if tools:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = "auto"
+        # json_object mode is incompatible with tool_choice on some providers;
+        # remove it when tools are active so the provider picks the right format.
+        del kwargs["response_format"]
 
-async def _parse_llm_response(raw_json: str) -> dict:
-    """Safely parse LLM JSON and enforce defaults if schema breaks."""
+    response = await client.chat.completions.create(**kwargs)
+    return response.choices[0]
+
+
+def _parse_llm_json(raw_json: str) -> dict:
+    """Parse and validate LLM JSON, filling safe defaults on failure."""
     try:
         data = json.loads(raw_json)
-        # Ensure minimum schema shape matching the new instruction
         reflections = data.get("reflections", {})
         return {
-            "event": bool(data.get("event", False)),
-            "time": list(data.get("time", [])),
-            "city": list(data.get("city", [])),
             "reflections": {
                 "event_logic": str(reflections.get("event_logic", "")),
-                "time_logic": str(reflections.get("time_logic", "")),
-                "geo_logic": str(reflections.get("geo_logic", ""))
+                "time_logic":  str(reflections.get("time_logic", "")),
+                "geo_logic":   str(reflections.get("geo_logic", "")),
             },
-            # Compatibility fields for legacy orchestration
-            "trigger": bool(data.get("event", False)),
-            "times": list(data.get("time", [])),
-            "event_location": data.get("city")[0] if data.get("city") and len(data.get("city")) > 0 else None,
-            "confidence": 1.0 if data.get("event") else 0.5 # Force pass 2 if no event
+            "event":       bool(data.get("event", False)),
+            "sender_id":   str(data.get("sender_id", "")),
+            "sender_name": str(data.get("sender_name", "")),
+            "time":        list(data.get("time", [])),
+            "city":        list(data.get("city", [])),
         }
-    except Exception as e:
-        logger.error(f"Error parsing LLM response or invalid format: {e}. Raw: {raw_json}")
+    except Exception as exc:
+        logger.error(f"LLM JSON parse error: {exc}. Raw: {raw_json}")
         return {
-            "event": False, 
-            "time": [], 
-            "city": [], 
-            "reflections": {}, 
-            "trigger": False, 
-            "times": [], 
-            "event_location": None
+            "reflections": {},
+            "event": False,
+            "sender_id": "",
+            "sender_name": "",
+            "time": [],
+            "city": [],
         }
 
-async def analyze_message_pass(
-    current_msg: dict, 
-    snapshot_context: str | None = None, 
-    is_pass2: bool = False
+
+async def detect_event(
+    current_msg: dict,
+    snapshot: list[dict],
+    sender_db: dict,
+    send_fn=None,
+    platform: str = "",
+    chat_id: str = "",
 ) -> dict:
     """
-    Constructs the prompt and calls the LLM.
-    If snapshot_context is provided, prepends it to the user's message.
-    """
-    sys_prompt = get_system_prompt()
-    
-    # Message metadata helps LLM understand who is speaking (critical for group chats)
-    author = current_msg.get("author_name", "Unknown")
-    text = current_msg.get("text", "")
-    
-    user_content = ""
-    if is_pass2 and snapshot_context:
-        user_content += f"PREVIOUS CHAT CONTEXT:\n{snapshot_context}\n\n---\n\n"
-        
-    user_content += f"CURRENT MESSAGE:\n[{author}]: {text}"
+    Single-pass LLM orchestration.
 
+    1. Build prompt with SENDER block + HISTORY snapshot + CURRENT MESSAGE.
+    2. Call LLM (with convert_time tool registered).
+    3a. If LLM returned a tool_call → dispatch to tools.execute_convert_time().
+    3b. Else → parse JSON response and return it.
+
+    Returns the parsed detection dict (regardless of whether a tool was called).
+    """
+    user_content = _build_user_content(current_msg, snapshot, sender_db)
     messages = [
-        {"role": "system", "content": sys_prompt},
-        {"role": "user", "content": user_content}
+        {"role": "system", "content": get_system_prompt()},
+        {"role": "user",   "content": user_content},
     ]
-    
-    raw_response = await call_llm(messages)
-    return await _parse_llm_response(raw_response)
 
-async def detect_event(current_msg: dict, snapshot: list[dict]) -> dict:
-    """
-    The orchestrator. Runs Pass 1. If low confidence, runs Pass 2 using snapshot.
-    Returns the parsed JSON dictionary.
-    """
-    settings = get_bot_settings()
-    min_confidence = settings.get("event_detection", {}).get("min_confidence_trigger", 0.75)
-    
-    # PASS 1: Current message only
-    logger.debug(f"EventDetection Pass 1 for message: '{current_msg.get('text', '')}'")
-    result = await analyze_message_pass(current_msg)
-    
-    if result["confidence"] >= min_confidence:
-        return result
-        
-    # PASS 2: Add snapshot context if available
-    if not snapshot:
-        logger.debug("Pass 1 confidence low, but no snapshot available for Pass 2.")
-        # Bias towards silence if uncertain
-        result["trigger"] = False 
-        return result
-        
-    from src.event_detection.history import format_snapshot_for_llm
-    snapshot_str = format_snapshot_for_llm(snapshot)
-    
-    logger.info("Pass 1 confidence low. Executing Pass 2 with historical context.")
-    result_p2 = await analyze_message_pass(
-        current_msg, 
-        snapshot_context=snapshot_str, 
-        is_pass2=True
-    )
-    
-    # If Pass 2 is still uncertain, we trust it.
-    return result_p2
+    logger.debug(f"LLM call | chat={chat_id} | msg='{current_msg.get('text', '')[:60]}'")
+
+    choice = await call_llm(messages, tools=get_tools())
+
+    # ── Tool-call path ──────────────────────────────────────────────────────
+    if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+        tool_call = choice.message.tool_calls[0]
+        if tool_call.function.name == "convert_time":
+            try:
+                args = json.loads(tool_call.function.arguments)
+            except Exception as exc:
+                logger.error(f"Failed to parse tool_call args: {exc}")
+                return {"event": False, "time": [], "city": [], "sender_id": "", "sender_name": ""}
+
+            logger.info(
+                f"[chat:{chat_id}] Tool call: convert_time | "
+                f"sender={args.get('sender_id')} times={args.get('time')} cities={args.get('city')}"
+            )
+
+            if send_fn:
+                from src.event_detection.tools import execute_convert_time
+                await execute_convert_time(
+                    sender_id=args.get("sender_id", ""),
+                    sender_name=args.get("sender_name", ""),
+                    times=args.get("time", []),
+                    cities=args.get("city", []),
+                    sender_db=sender_db,
+                    platform=platform,
+                    chat_id=chat_id,
+                    send_fn=send_fn,
+                )
+
+            # Return a synthetic result so callers can log/test it
+            return {
+                "event":       True,
+                "sender_id":   args.get("sender_id", ""),
+                "sender_name": args.get("sender_name", ""),
+                "time":        args.get("time", []),
+                "city":        args.get("city", []),
+                "reflections": {"event_logic": "tool_call dispatched", "time_logic": "", "geo_logic": ""},
+            }
+
+    # ── JSON-response path (no tool call / tool not supported by provider) ──
+    raw = choice.message.content or ""
+    result = _parse_llm_json(raw)
+
+    # If the LLM returned event=true but no tool_call, invoke the tool ourselves
+    # (happens when a provider doesn't support function-calling)
+    if result["event"] and result["time"] and send_fn:
+        logger.info(
+            f"[chat:{chat_id}] JSON-path tool dispatch | "
+            f"sender={result['sender_id']} times={result['time']}"
+        )
+        from src.event_detection.tools import execute_convert_time
+        await execute_convert_time(
+            sender_id=result["sender_id"],
+            sender_name=result["sender_name"],
+            times=result["time"],
+            cities=result["city"],
+            sender_db=sender_db,
+            platform=platform,
+            chat_id=chat_id,
+            send_fn=send_fn,
+        )
+
+    return result

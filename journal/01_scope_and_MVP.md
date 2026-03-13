@@ -103,7 +103,7 @@ Create a stable Telegram / Discord bot that:
 - **Grouping**: Matching timezones — time once, cities comma-separated.
 
 ### Algorithm
-1. Every message is forwarded to the **LLM-based Event Detector** (`13_event_detection.md`).
+1. Every message is forwarded to the **LLM-based Event Detector** (`14_llm_module.md`).
 2. If `trigger=true`: use `times[]` and optional `event_location` from LLM output.
 3. If `event_location` is set: geocode it → use as source timezone pivot.
 4. Any conversion goes through UTC (direct Local→Local is prohibited).
