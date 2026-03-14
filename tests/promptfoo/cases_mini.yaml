@@ -1,0 +1,47 @@
+# cases_mini.yaml
+# Small subset for fast eval
+
+- description: "[BASIC_POSITIVE] Clear meeting proposal"
+  vars:
+    sender_id: "101"
+    sender_name: "Anton"
+    author: "Anton"
+    text: "Давай завтра в 10 утра созвонимся"
+    history: |
+      [Ivan]: Привет! Нужно обсудить правки по дизайну.
+      [Anton]: Привет, давай. Когда удобно?
+    timestamp: "2026-03-13T09:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('10:00') && data.sender_id === '101';
+
+- description: "[BASIC_NEGATIVE] Unrelated message — no time, no event"
+  vars:
+    sender_id: "200"
+    sender_name: "User"
+    author: "User"
+    text: "Привет, как дела?"
+    history: "(no previous context)"
+    timestamp: "2026-03-13T12:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === false;
+
+- description: "[TIME_PARSING] Relative time — 'через час'"
+  vars:
+    sender_id: "303"
+    sender_name: "Jane"
+    author: "Jane"
+    text: "через час будет созвон"
+    history: |
+      [Admin]: Всем приготовиться.
+    timestamp: "2026-03-13T12:21:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        return data.event === true && data.time.includes('13:21');

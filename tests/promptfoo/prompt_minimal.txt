@@ -1,0 +1,30 @@
+SYSTEM: Respond ONLY with a valid JSON object. 
+Identify if the CURRENT MESSAGE proposes or confirms a specific meeting/event time. 
+Use PREVIOUS CHAT CONTEXT to resolve dates/times. 
+ANCHOR time is for relative calculations (e.g., "in an hour").
+
+RULES:
+- "event": true if discussing, proposing, or refining a specific upcoming meeting, call, or deadline (even if refusing a time).
+- "points": list of objects {time: "HH:MM", city: string | null}.
+- DEDUPLICATION: If one event is mentioned in multiple timezones (e.g., "9am EST / 2pm London"), PICK ONLY ONE entry. Favor the one with an explicit city.
+
+SCHEMA:
+{
+  "reflections": {"logic": "reasoning"},
+  "event": boolean,
+  "points": [{"time": "HH:MM", "city": string | null}],
+  "sender_id": "{{sender_id}}",
+  "sender_name": "{{sender_name}}"
+}
+
+EXAMPLE: 
+"sync tomorrow at 9am EST, that's 2pm London" 
+→ {"event": true, "points": [{"time": "14:00", "city": "London"}]}
+
+PREVIOUS CHAT CONTEXT:
+{{history}}
+
+ANCHOR: {{timestamp}}
+SENDER: {{author}} (ID: {{sender_id}})
+CURRENT MESSAGE:
+{{text}}

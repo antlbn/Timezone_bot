@@ -1,0 +1,368 @@
+{
+  "evalId": "eval-LoQ-2026-03-14T14:29:10",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-14T14:29:10.176Z",
+    "prompts": [
+      {
+        "raw": "ЗАДАЧА:\nИзучи CURRENT MESSAGE. Если в нем есть упоминание времени или события — вызови инструмент \"convert_time\".\n\nВАЖНО:\n1. Единственный инструмент — \"convert_time\".\n2. Если события НЕТ (просто приветствие или флуд) — НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом.\n\nИНСТРУКЦИИ ДЛЯ CONVERT_TIME:\n- reflections: Опиши ход мыслей (event_logic, time_logic, geo_logic).\n- event: true\n- time: Список времен в формате [\"HH:MM\"].\n- city: Список городов [\"City\"] или [null], если город не указан.\n\nИНСТРУКЦИИ ДЛЯ ОТВЕТА БЕЗ ИНСТРУМЕНТА:\n- Просто выведи JSON: {\"reflections\": {...}, \"event\": false, \"sender_id\": \"...\", \"sender_name\": \"...\", \"time\": [], \"city\": null}\n3. Относительное время (\"через 20 минут\") вычисляй от ANCHOR.\n4. Если события нет (флуд, приветствие), НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом по той же схеме, но с event=false.\n\nJSON SCHEMA (для ответа без вызова инструмента):\n{\n  \"reflections\": { \"event_logic\": \"...\", \"time_logic\": \"...\", \"geo_logic\": \"...\" },\n  \"event\": false,\n  \"sender_id\": \"...\",\n  \"sender_name\": \"...\",\n  \"time\": [],\n  \"city\": []\n}\n\n=========================================\n\nSENDER: id={{sender_id}}  name={{sender_name}}\nANCHOR: {{timestamp}}\n\nHISTORY:\n{{history}}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}",
+        "label": "tests/promptfoo/prompt_tools_only.txt: ЗАДАЧА:\nИзучи CURRENT MESSAGE. Если в нем есть упоминание времени или события — вызови инструмент \"convert_time\".\n\nВАЖНО:\n1. Единственный инструмент — \"convert_time\".\n2. Если события НЕТ (просто приветствие или флуд) — НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом.\n\nИНСТРУКЦИИ ДЛЯ CONVERT_TIME:\n- reflections: Опиши ход мыслей (event_logic, time_logic, geo_logic).\n- event: true\n- time: Список времен в формате [\"HH:MM\"].\n- city: Список городов [\"City\"] или [null], если город не указан.\n\nИНСТРУКЦИИ ДЛЯ ОТВЕТА БЕЗ ИНСТРУМЕНТА:\n- Просто выведи JSON: {\"reflections\": {...}, \"event\": false, \"sender_id\": \"...\", \"sender_name\": \"...\", \"time\": [], \"city\": null}\n3. Относительное время (\"через 20 минут\") вычисляй от ANCHOR.\n4. Если события нет (флуд, приветствие), НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом по той же схеме, но с event=false.\n\nJSON SCHEMA (для ответа без вызова инструмента):\n{\n  \"reflections\": { \"event_logic\": \"...\", \"time_logic\": \"...\", \"geo_logic\": \"...\" },\n  \"event\": false,\n  \"sender_id\": \"...\",\n  \"sender_name\": \"...\",\n  \"time\": [],\n  \"city\": []\n}\n\n=========================================\n\nSENDER: id={{sender_id}}  name={{sender_name}}\nANCHOR: {{timestamp}}\n\nHISTORY:\n{{history}}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}",
+        "id": "cc27cb6fe89078691bb0d65a3405dfe1adf2904bf109aa9bc1e1a8d61341afea",
+        "provider": "groq:llama-3.1-8b-instant",
+        "metrics": {
+          "score": 0,
+          "testPassCount": 0,
+          "testFailCount": 2,
+          "testErrorCount": 0,
+          "assertPassCount": 0,
+          "assertFailCount": 2,
+          "totalLatencyMs": 531,
+          "tokenUsage": {
+            "prompt": 1735,
+            "completion": 163,
+            "cached": 0,
+            "total": 1898,
+            "numRequests": 2,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "error": "Custom function threw error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":false,\"reason\":\"No tool call. Output type: object. Content: [{\\\"id\\\":\\\"a7khaby38\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"convert_time\\\",\\\"arguments\\\":\\\"{\\\\\\\"city\\\\\\\":[null],\\\\\\\"event\\\\\\\":true,\\\\\\\"reflections\\\\\\\":{\\\\\\\"event_logic\\\\\\\":\\\\\\\"Событие - завтрашний созвон\\\\\\\",\\\\\\\"geo_logic\\\\\\\":\\\\\\\"Город - не указан\\\\\\\",\\\\\\\"time_logic\\\\\\\":\\\\\\\"Время - 10 утра\\\\\\\"},\\\\\\\"sender_id\\\\\\\":\\\\\\\"123\\\\\\\",\\\\\\\"sender_name\\\\\\\":\\\\\\\"John\\\\\\\",\\\\\\\"time\\\\\\\":[\\\\\\\"10:00\\\\\\\"]}\\\"}}]\"}\nStack Trace: Error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":false,\"reason\":\"No tool call. Output type: object. Content: [{\\\"id\\\":\\\"a7khaby38\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"convert_time\\\",\\\"arguments\\\":\\\"{\\\\\\\"city\\\\\\\":[null],\\\\\\\"event\\\\\\\":true,\\\\\\\"reflections\\\\\\\":{\\\\\\\"event_logic\\\\\\\":\\\\\\\"Событие - завтрашний созвон\\\\\\\",\\\\\\\"geo_logic\\\\\\\":\\\\\\\"Город - не указан\\\\\\\",\\\\\\\"time_logic\\\\\\\":\\\\\\\"Время - 10 утра\\\\\\\"},\\\\\\\"sender_id\\\\\\\":\\\\\\\"123\\\\\\\",\\\\\\\"sender_name\\\\\\\":\\\\\\\"John\\\\\\\",\\\\\\\"time\\\\\\\":[\\\\\\\"10:00\\\\\\\"]}\\\"}}]\"}\n    at validateResult (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:15:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async handleJavascript (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:50:22)\n    at async runAssertion (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:353:24)\n    at async /usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:400:24\nconst toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (!toolCalls || toolCalls.length === 0) {\n  return { pass: false, reason: `No tool call. Output type: ${typeof output}. Content: ${JSON.stringify(output)}` };\n}\n\ntry {\n  const args = typeof toolCalls[0].function.arguments === 'string' \n    ? JSON.parse(toolCalls[0].function.arguments) \n    : toolCalls[0].function.arguments;\n    \n  const hasTime = args.time && args.time.includes(\"10:00\");\n  return {\n    pass: hasTime,\n    reason: `Found tool call. Args: ${JSON.stringify(args)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Error parsing args: ${e.message}. Raw: ${toolCalls[0].function.arguments}` };\n}",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Custom function threw error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":false,\"reason\":\"No tool call. Output type: object. Content: [{\\\"id\\\":\\\"a7khaby38\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"convert_time\\\",\\\"arguments\\\":\\\"{\\\\\\\"city\\\\\\\":[null],\\\\\\\"event\\\\\\\":true,\\\\\\\"reflections\\\\\\\":{\\\\\\\"event_logic\\\\\\\":\\\\\\\"Событие - завтрашний созвон\\\\\\\",\\\\\\\"geo_logic\\\\\\\":\\\\\\\"Город - не указан\\\\\\\",\\\\\\\"time_logic\\\\\\\":\\\\\\\"Время - 10 утра\\\\\\\"},\\\\\\\"sender_id\\\\\\\":\\\\\\\"123\\\\\\\",\\\\\\\"sender_name\\\\\\\":\\\\\\\"John\\\\\\\",\\\\\\\"time\\\\\\\":[\\\\\\\"10:00\\\\\\\"]}\\\"}}]\"}\nStack Trace: Error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":false,\"reason\":\"No tool call. Output type: object. Content: [{\\\"id\\\":\\\"a7khaby38\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"convert_time\\\",\\\"arguments\\\":\\\"{\\\\\\\"city\\\\\\\":[null],\\\\\\\"event\\\\\\\":true,\\\\\\\"reflections\\\\\\\":{\\\\\\\"event_logic\\\\\\\":\\\\\\\"Событие - завтрашний созвон\\\\\\\",\\\\\\\"geo_logic\\\\\\\":\\\\\\\"Город - не указан\\\\\\\",\\\\\\\"time_logic\\\\\\\":\\\\\\\"Время - 10 утра\\\\\\\"},\\\\\\\"sender_id\\\\\\\":\\\\\\\"123\\\\\\\",\\\\\\\"sender_name\\\\\\\":\\\\\\\"John\\\\\\\",\\\\\\\"time\\\\\\\":[\\\\\\\"10:00\\\\\\\"]}\\\"}}]\"}\n    at validateResult (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:15:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async handleJavascript (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:50:22)\n    at async runAssertion (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:353:24)\n    at async /usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:400:24\nconst toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (!toolCalls || toolCalls.length === 0) {\n  return { pass: false, reason: `No tool call. Output type: ${typeof output}. Content: ${JSON.stringify(output)}` };\n}\n\ntry {\n  const args = typeof toolCalls[0].function.arguments === 'string' \n    ? JSON.parse(toolCalls[0].function.arguments) \n    : toolCalls[0].function.arguments;\n    \n  const hasTime = args.time && args.time.includes(\"10:00\");\n  return {\n    pass: hasTime,\n    reason: `Found tool call. Args: ${JSON.stringify(args)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Error parsing args: ${e.message}. Raw: ${toolCalls[0].function.arguments}` };\n}",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":false,\"reason\":\"No tool call. Output type: object. Content: [{\\\"id\\\":\\\"a7khaby38\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"convert_time\\\",\\\"arguments\\\":\\\"{\\\\\\\"city\\\\\\\":[null],\\\\\\\"event\\\\\\\":true,\\\\\\\"reflections\\\\\\\":{\\\\\\\"event_logic\\\\\\\":\\\\\\\"Событие - завтрашний созвон\\\\\\\",\\\\\\\"geo_logic\\\\\\\":\\\\\\\"Город - не указан\\\\\\\",\\\\\\\"time_logic\\\\\\\":\\\\\\\"Время - 10 утра\\\\\\\"},\\\\\\\"sender_id\\\\\\\":\\\\\\\"123\\\\\\\",\\\\\\\"sender_name\\\\\\\":\\\\\\\"John\\\\\\\",\\\\\\\"time\\\\\\\":[\\\\\\\"10:00\\\\\\\"]}\\\"}}]\"}\nStack Trace: Error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":false,\"reason\":\"No tool call. Output type: object. Content: [{\\\"id\\\":\\\"a7khaby38\\\",\\\"type\\\":\\\"function\\\",\\\"function\\\":{\\\"name\\\":\\\"convert_time\\\",\\\"arguments\\\":\\\"{\\\\\\\"city\\\\\\\":[null],\\\\\\\"event\\\\\\\":true,\\\\\\\"reflections\\\\\\\":{\\\\\\\"event_logic\\\\\\\":\\\\\\\"Событие - завтрашний созвон\\\\\\\",\\\\\\\"geo_logic\\\\\\\":\\\\\\\"Город - не указан\\\\\\\",\\\\\\\"time_logic\\\\\\\":\\\\\\\"Время - 10 утра\\\\\\\"},\\\\\\\"sender_id\\\\\\\":\\\\\\\"123\\\\\\\",\\\\\\\"sender_name\\\\\\\":\\\\\\\"John\\\\\\\",\\\\\\\"time\\\\\\\":[\\\\\\\"10:00\\\\\\\"]}\\\"}}]\"}\n    at validateResult (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:15:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async handleJavascript (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:50:22)\n    at async runAssertion (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:353:24)\n    at async /usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:400:24\nconst toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (!toolCalls || toolCalls.length === 0) {\n  return { pass: false, reason: `No tool call. Output type: ${typeof output}. Content: ${JSON.stringify(output)}` };\n}\n\ntry {\n  const args = typeof toolCalls[0].function.arguments === 'string' \n    ? JSON.parse(toolCalls[0].function.arguments) \n    : toolCalls[0].function.arguments;\n    \n  const hasTime = args.time && args.time.includes(\"10:00\");\n  return {\n    pass: hasTime,\n    reason: `Found tool call. Args: ${JSON.stringify(args)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Error parsing args: ${e.message}. Raw: ${toolCalls[0].function.arguments}` };\n}",
+              "assertion": {
+                "type": "javascript",
+                "value": "const toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (!toolCalls || toolCalls.length === 0) {\n  return { pass: false, reason: `No tool call. Output type: ${typeof output}. Content: ${JSON.stringify(output)}` };\n}\n\ntry {\n  const args = typeof toolCalls[0].function.arguments === 'string' \n    ? JSON.parse(toolCalls[0].function.arguments) \n    : toolCalls[0].function.arguments;\n    \n  const hasTime = args.time && args.time.includes(\"10:00\");\n  return {\n    pass: hasTime,\n    reason: `Found tool call. Args: ${JSON.stringify(args)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Error parsing args: ${e.message}. Raw: ${toolCalls[0].function.arguments}` };\n}\n"
+              }
+            }
+          ]
+        },
+        "id": "62622300-1d6e-4175-babb-dc2940ff5311",
+        "latencyMs": 283,
+        "namedScores": {},
+        "prompt": {
+          "raw": "ЗАДАЧА:\nИзучи CURRENT MESSAGE. Если в нем есть упоминание времени или события — вызови инструмент \"convert_time\".\n\nВАЖНО:\n1. Единственный инструмент — \"convert_time\".\n2. Если события НЕТ (просто приветствие или флуд) — НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом.\n\nИНСТРУКЦИИ ДЛЯ CONVERT_TIME:\n- reflections: Опиши ход мыслей (event_logic, time_logic, geo_logic).\n- event: true\n- time: Список времен в формате [\"HH:MM\"].\n- city: Список городов [\"City\"] или [null], если город не указан.\n\nИНСТРУКЦИИ ДЛЯ ОТВЕТА БЕЗ ИНСТРУМЕНТА:\n- Просто выведи JSON: {\"reflections\": {...}, \"event\": false, \"sender_id\": \"...\", \"sender_name\": \"...\", \"time\": [], \"city\": null}\n3. Относительное время (\"через 20 минут\") вычисляй от ANCHOR.\n4. Если события нет (флуд, приветствие), НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом по той же схеме, но с event=false.\n\nJSON SCHEMA (для ответа без вызова инструмента):\n{\n  \"reflections\": { \"event_logic\": \"...\", \"time_logic\": \"...\", \"geo_logic\": \"...\" },\n  \"event\": false,\n  \"sender_id\": \"...\",\n  \"sender_name\": \"...\",\n  \"time\": [],\n  \"city\": []\n}\n\n=========================================\n\nSENDER: id=123  name=John\nANCHOR: 2026-03-13T10:00:00Z\n\nHISTORY:\n(no prior context)\n\nCURRENT MESSAGE:\n[John]: Давай завтра в 10 утра созвонимся",
+          "label": "tests/promptfoo/prompt_tools_only.txt: ЗАДАЧА:\nИзучи CURRENT MESSAGE. Если в нем есть упоминание времени или события — вызови инструмент \"convert_time\".\n\nВАЖНО:\n1. Единственный инструмент — \"convert_time\".\n2. Если события НЕТ (просто приветствие или флуд) — НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом.\n\nИНСТРУКЦИИ ДЛЯ CONVERT_TIME:\n- reflections: Опиши ход мыслей (event_logic, time_logic, geo_logic).\n- event: true\n- time: Список времен в формате [\"HH:MM\"].\n- city: Список городов [\"City\"] или [null], если город не указан.\n\nИНСТРУКЦИИ ДЛЯ ОТВЕТА БЕЗ ИНСТРУМЕНТА:\n- Просто выведи JSON: {\"reflections\": {...}, \"event\": false, \"sender_id\": \"...\", \"sender_name\": \"...\", \"time\": [], \"city\": null}\n3. Относительное время (\"через 20 минут\") вычисляй от ANCHOR.\n4. Если события нет (флуд, приветствие), НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом по той же схеме, но с event=false.\n\nJSON SCHEMA (для ответа без вызова инструмента):\n{\n  \"reflections\": { \"event_logic\": \"...\", \"time_logic\": \"...\", \"geo_logic\": \"...\" },\n  \"event\": false,\n  \"sender_id\": \"...\",\n  \"sender_name\": \"...\",\n  \"time\": [],\n  \"city\": []\n}\n\n=========================================\n\nSENDER: id={{sender_id}}  name={{sender_name}}\nANCHOR: {{timestamp}}\n\nHISTORY:\n{{history}}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "cc27cb6fe89078691bb0d65a3405dfe1adf2904bf109aa9bc1e1a8d61341afea",
+        "promptIdx": 0,
+        "provider": {
+          "id": "groq:llama-3.1-8b-instant",
+          "label": ""
+        },
+        "response": {
+          "output": [
+            {
+              "id": "a7khaby38",
+              "type": "function",
+              "function": {
+                "name": "convert_time",
+                "arguments": "{\"city\":[null],\"event\":true,\"reflections\":{\"event_logic\":\"Событие - завтрашний созвон\",\"geo_logic\":\"Город - не указан\",\"time_logic\":\"Время - 10 утра\"},\"sender_id\":\"123\",\"sender_name\":\"John\",\"time\":[\"10:00\"]}"
+              }
+            }
+          ],
+          "tokenUsage": {
+            "total": 954,
+            "prompt": 868,
+            "completion": 86
+          },
+          "cached": false,
+          "latencyMs": 269,
+          "finishReason": "tool_calls",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "author": "John",
+            "sender_id": "123",
+            "sender_name": "John",
+            "timestamp": "2026-03-13T10:00:00Z",
+            "history": "(no prior context)",
+            "text": "Давай завтра в 10 утра созвонимся"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (!toolCalls || toolCalls.length === 0) {\n  return { pass: false, reason: `No tool call. Output type: ${typeof output}. Content: ${JSON.stringify(output)}` };\n}\n\ntry {\n  const args = typeof toolCalls[0].function.arguments === 'string' \n    ? JSON.parse(toolCalls[0].function.arguments) \n    : toolCalls[0].function.arguments;\n    \n  const hasTime = args.time && args.time.includes(\"10:00\");\n  return {\n    pass: hasTime,\n    reason: `Found tool call. Args: ${JSON.stringify(args)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Error parsing args: ${e.message}. Raw: ${toolCalls[0].function.arguments}` };\n}\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "author": "John",
+          "sender_id": "123",
+          "sender_name": "John",
+          "timestamp": "2026-03-13T10:00:00Z",
+          "history": "(no prior context)",
+          "text": "Давай завтра в 10 утра созвонимся"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Custom function threw error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":true,\"reason\":\"Correctly handled chatter. Res: {\\\"reflections\\\":{\\\"event_logic\\\":\\\"Нет упоминаний событий\\\",\\\"time_logic\\\":\\\"Нет упоминаний времени\\\",\\\"geo_logic\\\":\\\"Нет упоминаний географических данных\\\"},\\\"event\\\":false,\\\"sender_id\\\":\\\"123\\\",\\\"sender_name\\\":\\\"John\\\",\\\"time\\\":[],\\\"city\\\":null}\"}\nStack Trace: Error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":true,\"reason\":\"Correctly handled chatter. Res: {\\\"reflections\\\":{\\\"event_logic\\\":\\\"Нет упоминаний событий\\\",\\\"time_logic\\\":\\\"Нет упоминаний времени\\\",\\\"geo_logic\\\":\\\"Нет упоминаний географических данных\\\"},\\\"event\\\":false,\\\"sender_id\\\":\\\"123\\\",\\\"sender_name\\\":\\\"John\\\",\\\"time\\\":[],\\\"city\\\":null}\"}\n    at validateResult (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:15:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async handleJavascript (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:50:22)\n    at async runAssertion (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:353:24)\n    at async /usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:400:24\nconst toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (toolCalls && toolCalls.length > 0) return { pass: false, reason: \"Unexpected tool call triggered\" };\n\ntry {\n  const res = typeof output === 'string' ? JSON.parse(output) : output;\n  const noEvent = res.event === false;\n  return {\n    pass: noEvent,\n    reason: `Correctly handled chatter. Res: ${JSON.stringify(res)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Output is not valid JSON. Type: ${typeof output}. Raw: ${output}` };\n}",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Custom function threw error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":true,\"reason\":\"Correctly handled chatter. Res: {\\\"reflections\\\":{\\\"event_logic\\\":\\\"Нет упоминаний событий\\\",\\\"time_logic\\\":\\\"Нет упоминаний времени\\\",\\\"geo_logic\\\":\\\"Нет упоминаний географических данных\\\"},\\\"event\\\":false,\\\"sender_id\\\":\\\"123\\\",\\\"sender_name\\\":\\\"John\\\",\\\"time\\\":[],\\\"city\\\":null}\"}\nStack Trace: Error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":true,\"reason\":\"Correctly handled chatter. Res: {\\\"reflections\\\":{\\\"event_logic\\\":\\\"Нет упоминаний событий\\\",\\\"time_logic\\\":\\\"Нет упоминаний времени\\\",\\\"geo_logic\\\":\\\"Нет упоминаний географических данных\\\"},\\\"event\\\":false,\\\"sender_id\\\":\\\"123\\\",\\\"sender_name\\\":\\\"John\\\",\\\"time\\\":[],\\\"city\\\":null}\"}\n    at validateResult (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:15:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async handleJavascript (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:50:22)\n    at async runAssertion (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:353:24)\n    at async /usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:400:24\nconst toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (toolCalls && toolCalls.length > 0) return { pass: false, reason: \"Unexpected tool call triggered\" };\n\ntry {\n  const res = typeof output === 'string' ? JSON.parse(output) : output;\n  const noEvent = res.event === false;\n  return {\n    pass: noEvent,\n    reason: `Correctly handled chatter. Res: ${JSON.stringify(res)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Output is not valid JSON. Type: ${typeof output}. Raw: ${output}` };\n}",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":true,\"reason\":\"Correctly handled chatter. Res: {\\\"reflections\\\":{\\\"event_logic\\\":\\\"Нет упоминаний событий\\\",\\\"time_logic\\\":\\\"Нет упоминаний времени\\\",\\\"geo_logic\\\":\\\"Нет упоминаний географических данных\\\"},\\\"event\\\":false,\\\"sender_id\\\":\\\"123\\\",\\\"sender_name\\\":\\\"John\\\",\\\"time\\\":[],\\\"city\\\":null}\"}\nStack Trace: Error: Custom function must return a boolean, number, or GradingResult object. Got type object: {\"pass\":true,\"reason\":\"Correctly handled chatter. Res: {\\\"reflections\\\":{\\\"event_logic\\\":\\\"Нет упоминаний событий\\\",\\\"time_logic\\\":\\\"Нет упоминаний времени\\\",\\\"geo_logic\\\":\\\"Нет упоминаний географических данных\\\"},\\\"event\\\":false,\\\"sender_id\\\":\\\"123\\\",\\\"sender_name\\\":\\\"John\\\",\\\"time\\\":[],\\\"city\\\":null}\"}\n    at validateResult (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:15:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async handleJavascript (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/javascript.js:50:22)\n    at async runAssertion (/usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:353:24)\n    at async /usr/local/lib/node_modules/promptfoo/dist/src/assertions/index.js:400:24\nconst toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (toolCalls && toolCalls.length > 0) return { pass: false, reason: \"Unexpected tool call triggered\" };\n\ntry {\n  const res = typeof output === 'string' ? JSON.parse(output) : output;\n  const noEvent = res.event === false;\n  return {\n    pass: noEvent,\n    reason: `Correctly handled chatter. Res: ${JSON.stringify(res)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Output is not valid JSON. Type: ${typeof output}. Raw: ${output}` };\n}",
+              "assertion": {
+                "type": "javascript",
+                "value": "const toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (toolCalls && toolCalls.length > 0) return { pass: false, reason: \"Unexpected tool call triggered\" };\n\ntry {\n  const res = typeof output === 'string' ? JSON.parse(output) : output;\n  const noEvent = res.event === false;\n  return {\n    pass: noEvent,\n    reason: `Correctly handled chatter. Res: ${JSON.stringify(res)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Output is not valid JSON. Type: ${typeof output}. Raw: ${output}` };\n}\n"
+              }
+            }
+          ]
+        },
+        "id": "42c046ab-3185-4fad-8854-266b74726c68",
+        "latencyMs": 248,
+        "namedScores": {},
+        "prompt": {
+          "raw": "ЗАДАЧА:\nИзучи CURRENT MESSAGE. Если в нем есть упоминание времени или события — вызови инструмент \"convert_time\".\n\nВАЖНО:\n1. Единственный инструмент — \"convert_time\".\n2. Если события НЕТ (просто приветствие или флуд) — НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом.\n\nИНСТРУКЦИИ ДЛЯ CONVERT_TIME:\n- reflections: Опиши ход мыслей (event_logic, time_logic, geo_logic).\n- event: true\n- time: Список времен в формате [\"HH:MM\"].\n- city: Список городов [\"City\"] или [null], если город не указан.\n\nИНСТРУКЦИИ ДЛЯ ОТВЕТА БЕЗ ИНСТРУМЕНТА:\n- Просто выведи JSON: {\"reflections\": {...}, \"event\": false, \"sender_id\": \"...\", \"sender_name\": \"...\", \"time\": [], \"city\": null}\n3. Относительное время (\"через 20 минут\") вычисляй от ANCHOR.\n4. Если события нет (флуд, приветствие), НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом по той же схеме, но с event=false.\n\nJSON SCHEMA (для ответа без вызова инструмента):\n{\n  \"reflections\": { \"event_logic\": \"...\", \"time_logic\": \"...\", \"geo_logic\": \"...\" },\n  \"event\": false,\n  \"sender_id\": \"...\",\n  \"sender_name\": \"...\",\n  \"time\": [],\n  \"city\": []\n}\n\n=========================================\n\nSENDER: id=123  name=John\nANCHOR: 2026-03-13T10:00:00Z\n\nHISTORY:\n(no prior context)\n\nCURRENT MESSAGE:\n[John]: Привет! Как дела? Что нового в проекте?",
+          "label": "tests/promptfoo/prompt_tools_only.txt: ЗАДАЧА:\nИзучи CURRENT MESSAGE. Если в нем есть упоминание времени или события — вызови инструмент \"convert_time\".\n\nВАЖНО:\n1. Единственный инструмент — \"convert_time\".\n2. Если события НЕТ (просто приветствие или флуд) — НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом.\n\nИНСТРУКЦИИ ДЛЯ CONVERT_TIME:\n- reflections: Опиши ход мыслей (event_logic, time_logic, geo_logic).\n- event: true\n- time: Список времен в формате [\"HH:MM\"].\n- city: Список городов [\"City\"] или [null], если город не указан.\n\nИНСТРУКЦИИ ДЛЯ ОТВЕТА БЕЗ ИНСТРУМЕНТА:\n- Просто выведи JSON: {\"reflections\": {...}, \"event\": false, \"sender_id\": \"...\", \"sender_name\": \"...\", \"time\": [], \"city\": null}\n3. Относительное время (\"через 20 минут\") вычисляй от ANCHOR.\n4. Если события нет (флуд, приветствие), НЕ ВЫЗЫВАЙ инструмент. Вместо этого ответь JSON-объектом по той же схеме, но с event=false.\n\nJSON SCHEMA (для ответа без вызова инструмента):\n{\n  \"reflections\": { \"event_logic\": \"...\", \"time_logic\": \"...\", \"geo_logic\": \"...\" },\n  \"event\": false,\n  \"sender_id\": \"...\",\n  \"sender_name\": \"...\",\n  \"time\": [],\n  \"city\": []\n}\n\n=========================================\n\nSENDER: id={{sender_id}}  name={{sender_name}}\nANCHOR: {{timestamp}}\n\nHISTORY:\n{{history}}\n\nCURRENT MESSAGE:\n[{{author}}]: {{text}}"
+        },
+        "promptId": "cc27cb6fe89078691bb0d65a3405dfe1adf2904bf109aa9bc1e1a8d61341afea",
+        "promptIdx": 0,
+        "provider": {
+          "id": "groq:llama-3.1-8b-instant",
+          "label": ""
+        },
+        "response": {
+          "output": "{\"reflections\": {\"event_logic\": \"Нет упоминаний событий\", \"time_logic\": \"Нет упоминаний времени\", \"geo_logic\": \"Нет упоминаний географических данных\"}, \"event\": false, \"sender_id\": \"123\", \"sender_name\": \"John\", \"time\": [], \"city\": null}",
+          "tokenUsage": {
+            "total": 944,
+            "prompt": 867,
+            "completion": 77
+          },
+          "cached": false,
+          "latencyMs": 218,
+          "finishReason": "stop",
+          "guardrails": {
+            "flagged": false
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "author": "John",
+            "sender_id": "123",
+            "sender_name": "John",
+            "timestamp": "2026-03-13T10:00:00Z",
+            "history": "(no prior context)",
+            "text": "Привет! Как дела? Что нового в проекте?"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const toolCalls = output.tool_calls || (context.vars.providerResponse && context.vars.providerResponse.tool_calls);\nif (toolCalls && toolCalls.length > 0) return { pass: false, reason: \"Unexpected tool call triggered\" };\n\ntry {\n  const res = typeof output === 'string' ? JSON.parse(output) : output;\n  const noEvent = res.event === false;\n  return {\n    pass: noEvent,\n    reason: `Correctly handled chatter. Res: ${JSON.stringify(res)}`\n  };\n} catch (e) {\n  return { pass: false, reason: `Output is not valid JSON. Type: ${typeof output}. Raw: ${output}` };\n}\n"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "author": "John",
+          "sender_id": "123",
+          "sender_name": "John",
+          "timestamp": "2026-03-13T10:00:00Z",
+          "history": "(no prior context)",
+          "text": "Привет! Как дела? Что нового в проекте?"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      }
+    ],
+    "stats": {
+      "successes": 0,
+      "failures": 2,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 1735,
+        "completion": 163,
+        "cached": 0,
+        "total": 1898,
+        "numRequests": 2,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      }
+    }
+  },
+  "config": {
+    "tags": {},
+    "prompts": [
+      "file:///Users/johnwunderbellen/Timezone_bot/tests/promptfoo/prompt_tools_only.txt"
+    ],
+    "providers": [
+      {
+        "id": "groq:llama-3.1-8b-instant",
+        "config": {
+          "temperature": 0.1,
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "convert_time",
+                "description": "Convert event time(s) to local time for all chat participants. Call this whenever event=true and time[] is non-empty. Pass exactly the sender_id, sender_name, time[], and city[] from your JSON analysis.",
+                "parameters": {
+                  "type": "object",
+                  "required": [
+                    "reflections",
+                    "event",
+                    "sender_id",
+                    "sender_name",
+                    "time",
+                    "city"
+                  ],
+                  "properties": {
+                    "reflections": {
+                      "type": "object",
+                      "description": "Internal reasoning about event, time, and geo logic."
+                    },
+                    "event": {
+                      "type": "boolean",
+                      "description": "Whether a specific time-based event was detected."
+                    },
+                    "sender_id": {
+                      "type": "string",
+                      "description": "Platform user ID of the message author."
+                    },
+                    "sender_name": {
+                      "type": "string",
+                      "description": "Display name of the message author."
+                    },
+                    "time": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of times extracted (HH:MM)."
+                    },
+                    "city": {
+                      "oneOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "List of cities or null if city is not mentioned."
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "tests": [
+      "file://cases_tools.yaml"
+    ],
+    "scenarios": [],
+    "env": {},
+    "sharing": false,
+    "outputPath": [
+      "tests/promptfoo/results.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {}
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.119.0",
+    "nodeVersion": "v20.18.0",
+    "platform": "darwin",
+    "arch": "x64",
+    "exportedAt": "2026-03-14T14:29:10.608Z",
+    "evaluationCreatedAt": "2026-03-14T14:29:10.176Z"
+  }
+}

@@ -3,24 +3,42 @@ prompts:
   # - file://prompt.txt
   # - file://prompts_claude.txt
   # - file://prompt_v3.txt
-  - file://prompt_smart.txt
+  # - file://prompt_smart.txt
+  - file://prompt_minimal.txt
 
 providers:
-  # - id: openai:chat:gemma3:1b
+  # Direct providers (raw API output)
+  # - id: groq:llama-3.1-8b-instant
   #   config:
-  #     apiBaseUrl: http://localhost:11434/v1
-  #     apiKey: ollama
   #     temperature: 0.1
-  # - id: openai:chat:gemma3:4b
+  # - id: openrouter:arcee-ai/trinity-large-preview:free
   #   config:
-  #     apiBaseUrl: http://localhost:11434/v1
-  #     apiKey: ollama
   #     temperature: 0.1
-  - id: groq:llama-3.1-8b-instant
+  # # - id: openrouter:nvidia/nemotron-3-super-120b-a12b:free
+  #   config:
+  #     temperature: 0.1
+  # - id: openrouter:stepfun/step-3.5-flash:free
+  #   config:
+  #     temperature: 0.1
+  - id: google:gemini-3.1-flash-lite-preview
     config:
       temperature: 0.1
-  # - id: openrouter:google/gemma-3-12b-it:free
+
+  # Instructor-based providers (structured JSON extraction)
+  # - id: file://instructor_provider.py
   #   config:
+  #     python: "/Users/johnwunderbellen/Timezone_bot/.venv/bin/python"
+  #     model: google/gemini-3.1-flash-lite-preview
+  #     temperature: 0.1
+  # - id: file://instructor_provider.py
+  #   config:
+  #     python: "/Users/johnwunderbellen/Timezone_bot/.venv/bin/python"
+  #     model: groq/llama-3.1-8b-instant
+  #     temperature: 0.1
+  # - id: file://instructor_provider.py
+  #   config:
+  #     python: "/Users/johnwunderbellen/Timezone_bot/.venv/bin/python"
+  #     model: openrouter/arcee-ai/trinity-large-preview:free
   #     temperature: 0.1
   # - id: groq:openai/gpt-oss-20b
   #   config:
@@ -36,7 +54,7 @@ providers:
   #     model: "openai/gpt-oss-20b"
   #     temperature: 0.1
 evaluateOptions:
-  maxConcurrency: 2
+  maxConcurrency: 1
   # delay: 10000
 
 tests:

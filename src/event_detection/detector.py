@@ -81,6 +81,10 @@ def _parse_llm_json(raw_json: str) -> dict:
     try:
         data = json.loads(raw_json)
         reflections = data.get("reflections", {})
+        points = data.get("points", [])
+        times = [p["time"] for p in points] if isinstance(points, list) else []
+        cities = [p["city"] for p in points] if isinstance(points, list) else []
+        
         return {
             "reflections": {
                 "event_logic": str(reflections.get("event_logic", "")),
@@ -90,8 +94,8 @@ def _parse_llm_json(raw_json: str) -> dict:
             "event":       bool(data.get("event", False)),
             "sender_id":   str(data.get("sender_id", "")),
             "sender_name": str(data.get("sender_name", "")),
-            "time":        list(data.get("time", [])),
-            "city":        list(data.get("city", [])),
+            "time":        times,
+            "city":        cities,
         }
     except Exception as exc:
         logger.error(f"LLM JSON parse error: {exc}. Raw: {raw_json}")
@@ -143,9 +147,13 @@ async def detect_event(
                 logger.error(f"Failed to parse tool_call args: {exc}")
                 return {"event": False, "time": [], "city": [], "sender_id": "", "sender_name": ""}
 
+            points = args.get("points", [])
+            times = [p["time"] for p in points] if isinstance(points, list) else []
+            cities = [p["city"] for p in points] if isinstance(points, list) else []
+
             logger.info(
                 f"[chat:{chat_id}] Tool call: convert_time | "
-                f"sender={args.get('sender_id')} times={args.get('time')} cities={args.get('city')}"
+                f"sender={args.get('sender_id')} times={times} cities={cities}"
             )
 
             if send_fn:
@@ -153,8 +161,8 @@ async def detect_event(
                 await execute_convert_time(
                     sender_id=args.get("sender_id", ""),
                     sender_name=args.get("sender_name", ""),
-                    times=args.get("time", []),
-                    cities=args.get("city", []),
+                    times=times,
+                    cities=cities,
                     sender_db=sender_db,
                     platform=platform,
                     chat_id=chat_id,
@@ -166,8 +174,8 @@ async def detect_event(
                 "event":       True,
                 "sender_id":   args.get("sender_id", ""),
                 "sender_name": args.get("sender_name", ""),
-                "time":        args.get("time", []),
-                "city":        args.get("city", []),
+                "time":        times,
+                "city":        cities,
                 "reflections": {"event_logic": "tool_call dispatched", "time_logic": "", "geo_logic": ""},
             }
 

@@ -5,7 +5,7 @@ import json
 # ─────────────────────────────────────────────────────────────────────────────
 EVENT_DETECTION_SCHEMA = {
     "type": "object",
-    "required": ["reflections", "event", "sender_id", "sender_name", "time", "city"],
+    "required": ["reflections", "event", "sender_id", "sender_name", "points"],
     "additionalProperties": False,
     "properties": {
         "reflections": {
@@ -20,13 +20,16 @@ EVENT_DETECTION_SCHEMA = {
         "event":       {"type": "boolean"},
         "sender_id":   {"type": "string"},
         "sender_name": {"type": "string"},
-        "time": {
+        "points": {
             "type": "array",
-            "items": {"type": "string"},
-        },
-        "city": {
-            "type": "array",
-            "items": {"type": ["string", "null"]},
+            "items": {
+                "type": "object",
+                "required": ["time", "city"],
+                "properties": {
+                    "time": {"type": "string"},
+                    "city": {"type": ["string", "null"]},
+                },
+            },
         },
     },
 }
@@ -41,13 +44,13 @@ CONVERT_TIME_TOOL = {
         "name": "convert_time",
         "description": (
             "Convert event time(s) to local time for all chat participants. "
-            "Call this whenever event=true and time[] is non-empty. "
-            "Pass exactly the sender_id, sender_name, time[], and city[] "
+            "Call this whenever event=true and points[] is non-empty. "
+            "Pass exactly the sender_id, sender_name, and points[] "
             "from your JSON analysis."
         ),
         "parameters": {
             "type": "object",
-            "required": ["sender_id", "sender_name", "time", "city"],
+            "required": ["sender_id", "sender_name", "points"],
             "additionalProperties": False,
             "properties": {
                 "sender_id": {
@@ -58,18 +61,17 @@ CONVERT_TIME_TOOL = {
                     "type": "string",
                     "description": "Display name of the message author (echo from SENDER block).",
                 },
-                "time": {
+                "points": {
                     "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Non-empty list of times extracted from the message (HH:MM 24h).",
-                },
-                "city": {
-                    "type": "array",
-                    "items": {"type": ["string", "null"]},
-                    "description": (
-                        "Parallel to 'time'. Each entry is the explicit city/timezone context "
-                        "for time[i], or null to use the sender's stored timezone."
-                    ),
+                    "description": "List of extracted time points.",
+                    "items": {
+                        "type": "object",
+                        "required": ["time", "city"],
+                        "properties": {
+                            "time": {"type": "string", "description": "Time in HH:MM format."},
+                            "city": {"type": ["string", "null"], "description": "Explicit city/timezone or null."},
+                        },
+                    },
                 },
             },
         },
@@ -83,10 +85,10 @@ SYSTEM_PROMPT = """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТС
 
 ЗАДАЧА:
 Проанализируй CURRENT MESSAGE с учётом HISTORY и метаданных отправителя (SENDER / ANCHOR).
-Цель: определить, содержит ли сообщение координацию события с временем, и извлечь времена.
+Цель: определить, содержит ли сообщение обсуждение, предложение или уточнение времени встречи, созвона или дедлайна (даже если это отказ от времени), и извлечь их.
 
 АЛГОРИТМ ОТВЕТА:
-А) event_logic — есть ли встреча, созвон, дедлайн или договорённость с временем?
+А) event_logic — есть ли встреча, дедлайн, обсуждение или уточнение (в т.ч. отказ) конкретного времени?
 Б) time_logic — переведи все упомянутые времена в 24-часовой формат (HH:MM).
 В) geo_logic — есть ли явное упоминание города/часового пояса для каждого времени?
 Г) Заполни JSON строго по схеме ниже, эхом вернув sender_id и sender_name из блока SENDER.
@@ -94,9 +96,10 @@ SYSTEM_PROMPT = """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТС
 ПРАВИЛА ИЗВЛЕЧЕНИЯ ВРЕМЕНИ:
 1. 24-часовой формат строго, «8 вечера» = 20:00, «пол десятого» = 09:30 или 21:30 по контексту.
 2. Относительное время вычисляй от ANCHOR: «через час» при ANCHOR 12:21 → 13:21.
-3. Если два времени указывают одно событие в разных зонах — выбери одно и запиши город.
-4. Числа в нетемпоральном контексте (номера, этажи) — НЕ время.
-5. Когда event=false: time=[], city=[].
+3. ДЕДУПЛИКАЦИЯ: Если одно событие указано в нескольких зонах (например, "9:00 EST / 14:00 London") — выбери ОДНО наиболее точное время и запиши город. Не выводи дубликаты одного события.
+4. СТРУКТУРА: используй массив 'points', где каждый объект содержит 'time' и 'city'. Если город не указан, city=null.
+5. Числа в нетемпоральном контексте (номера, этажи) — НЕ время.
+6. Когда event=false: points=[].
 
 JSON SCHEMA:
 """ + json.dumps(EVENT_DETECTION_SCHEMA, indent=2, ensure_ascii=False) + """
@@ -110,7 +113,7 @@ HISTORY:
 [Иван]: когда созвонимся?
 CURRENT MESSAGE:
 [Антон]: Завтра в 8 вечера ок?
-→ {"reflections":{"event_logic":"предлагается созвон завтра вечером","time_logic":"8 вечера = 20:00","geo_logic":"город не указан"},"event":true,"sender_id":"42","sender_name":"Антон","time":["20:00"],"city":[null]}
+→ {"reflections":{"event_logic":"предлагается созвон завтра вечером","time_logic":"8 вечера = 20:00","geo_logic":"город не указан"},"event":true,"sender_id":"42","sender_name":"Антон","points":[{"time":"20:00","city":null}]}
 
 Пример 2 — явный город:
 SENDER: id=7  name=Jane
@@ -119,7 +122,7 @@ HISTORY:
 [Lead]: включи американских коллег
 CURRENT MESSAGE:
 [Jane]: sync tomorrow at 9am EST, that's 2pm London
-→ {"reflections":{"event_logic":"синхронизация с США завтра","time_logic":"2pm London = 14:00, берём лондонское","geo_logic":"London"},"event":true,"sender_id":"7","sender_name":"Jane","time":["14:00"],"city":["London"]}
+→ {"reflections":{"event_logic":"синхронизация с США завтра","time_logic":"2pm London = 14:00, берём лондонское","geo_logic":"London"},"event":true,"sender_id":"7","sender_name":"Jane","points":[{"time":"14:00","city":"London"}]}
 
 Пример 3 — нет события:
 SENDER: id=99  name=Оля
@@ -127,7 +130,7 @@ ANCHOR: 2026-03-13T21:22:00Z
 HISTORY:
 CURRENT MESSAGE:
 [Оля]: ребят вы серьезно? у нас есть чат для флуда
-→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","time":[],"city":[]}
+→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","points":[]}
 """
 
 
