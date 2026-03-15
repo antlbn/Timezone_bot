@@ -35,19 +35,24 @@ async def on_message(message: discord.Message):
             mention_author=True,
         )
 
-        # Append to history for future context (no LLM call)
-        append_to_history(
-            platform=PLATFORM,
-            chat_id=chat_id,
-            message_data={
-                "platform":      PLATFORM,
-                "chat_id":       chat_id,
-                "author_id":     str(message.author.id),
-                "author_name":   user_name,
-                "text":          message.content,
-                "timestamp_utc": timestamp_utc,
-            },
-        )
+        # 1.1 Snapshot N preceding messages, then append current message to deque
+        msg_data = {
+            "platform":      PLATFORM,
+            "chat_id":       chat_id,
+            "author_id":     str(message.author.id),
+            "author_name":   user_name,
+            "text":          message.content,
+            "timestamp_utc": timestamp_utc,
+            "message_id":    message.id,
+        }
+        snapshot = append_to_history(PLATFORM, chat_id, msg_data)
+
+        # 1.2 Save to Redis for later processing
+        from src.storage.pending import save_pending_message
+        await save_pending_message(message.author.id, PLATFORM, {
+            **msg_data,
+            "snapshot": snapshot
+        })
         return
 
     # 2. Active-member filter — prune stale DB members while we're here

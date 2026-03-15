@@ -11,6 +11,8 @@ async def process_message(
     timestamp_utc: str,
     sender_db: dict | None = None,
     send_fn=None,  # async callable(text: str) → None
+    skip_history_append: bool = False,
+    precomputed_snapshot: list[dict] | None = None,
 ) -> dict:
     """
     Main entry point for the LLM pipeline.
@@ -42,12 +44,18 @@ async def process_message(
         "timestamp_utc": timestamp_utc,
     }
 
-    # 1. Snapshot N preceding messages, then append current message to deque
-    snapshot = append_to_history(platform, chat_id, msg_data)
+    if skip_history_append:
+        snapshot = precomputed_snapshot or []
+        logger.debug(f"[chat:{chat_id}] Using precomputed snapshot (size={len(snapshot)})")
+    else:
+        # 1. Snapshot N preceding messages, then append current message to deque
+        snapshot = append_to_history(platform, chat_id, msg_data)
 
     # 2. Per-chat lock — one LLM call at a time per chat
     lock = get_chat_lock(platform, chat_id)
-    if lock.locked():
+    
+    # If it's a normal message (not recovery), fail fast if locked
+    if not skip_history_append and lock.locked():
         return {
             "event":       False,
             "sender_id":   user_id,
@@ -57,6 +65,7 @@ async def process_message(
             "reason":      "Skipped due to concurrent chat lock",
         }
 
+    # If it's a recovery message, we WAIT for the lock to ensure it's processed
     async with lock:
         result = await detect_event(
             current_msg=msg_data,

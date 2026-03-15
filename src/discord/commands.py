@@ -92,7 +92,52 @@ async def handle_settz(interaction: discord.Interaction, city: str):
         f"Set: {location['city']} {location['flag']} ({location['timezone']})"
     )
     logger.info(f"[guild:{interaction.guild_id}] User {interaction.user.id} -> {location['timezone']}")
+    
+    # 2. Process pending message
+    await _process_discord_pending(interaction)
 
+async def _process_discord_pending(interaction: discord.Interaction):
+    """Helper to check for and process pending Discord messages."""
+    from src.storage.pending import get_and_delete_pending_message
+    pending = await get_and_delete_pending_message(interaction.user.id, PLATFORM)
+    
+    if pending:
+        logger.info(f"[guild:{interaction.guild_id}] Processing pending message for user {interaction.user.id}")
+        from src.event_detection import process_message
+        
+        # Build send_reply_fn using MessageReference
+        async def send_reply_fn(text: str) -> None:
+            # We need the channel to send a message to it
+            channel = interaction.channel
+            if not channel:
+                # Fallback to fetching it if possible
+                channel = bot.get_channel(int(pending["chat_id"]))
+            
+            if channel:
+                message_ref = discord.MessageReference(
+                    message_id=int(pending["message_id"]),
+                    channel_id=int(pending["chat_id"]),
+                    guild_id=interaction.guild_id
+                )
+                await channel.send(text, reference=message_ref)
+            else:
+                logger.error(f"Could not find channel {pending['chat_id']} to send pending reply")
+        
+        # Re-fetch user record for LLM context
+        user_record = await storage.get_user(interaction.user.id, platform=PLATFORM)
+        
+        await process_message(
+            message_text=pending["text"],
+            chat_id=str(pending["chat_id"]),
+            user_id=str(interaction.user.id),
+            platform=PLATFORM,
+            author_name=pending["author_name"],
+            timestamp_utc=pending["timestamp_utc"],
+            sender_db=user_record,
+            send_fn=send_reply_fn,
+            skip_history_append=True,
+            precomputed_snapshot=pending.get("snapshot")
+        )
 
 @bot.tree.command(name="tb_settz", description="Set your timezone")
 @app_commands.describe(city="Your city name (e.g. Berlin, Tokyo, New York)")
@@ -140,6 +185,9 @@ async def handle_manual_time(interaction: discord.Interaction, time_str: str):
         f"Set: {location['city']} {location['flag']} ({location['timezone']})"
     )
     logger.info(f"[guild:{interaction.guild_id}] User {interaction.user.id} -> {location['timezone']} (manual)")
+    
+    # Process pending message
+    await _process_discord_pending(interaction)
 
 
 @bot.tree.command(name="tb_members", description="List server members with timezones")

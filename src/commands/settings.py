@@ -120,5 +120,38 @@ async def _save_and_finish(
     
     await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
     
+    # 2. Check for and process pending message
+    from src.storage.pending import get_and_delete_pending_message
+    pending = await get_and_delete_pending_message(message.from_user.id, "telegram")
+    
+    if pending:
+        logger.info(f"[chat:{message.chat.id}] Processing pending message for user {message.from_user.id}")
+        from src.event_detection import process_message
+        
+        # Build send_fn that replies to the original message
+        async def send_reply_fn(text: str) -> None:
+            await message.bot.send_message(
+                chat_id=message.chat.id,
+                text=text,
+                reply_to_message_id=pending.get("message_id")
+            )
+            
+        # We re-fetch user record to be sure (though we have location here)
+        # But process_message expects a sender_db dict
+        user_record = await storage.get_user(message.from_user.id, platform="telegram")
+        
+        await process_message(
+            message_text=pending["text"],
+            chat_id=str(message.chat.id),
+            user_id=str(message.from_user.id),
+            platform="telegram",
+            author_name=pending["author_name"],
+            timestamp_utc=pending["timestamp_utc"],
+            sender_db=user_record,
+            send_fn=send_reply_fn,
+            skip_history_append=True,
+            precomputed_snapshot=pending.get("snapshot")
+        )
+
     log_suffix = " (retry)" if is_retry else ""
     logger.info(f"[chat:{message.chat.id}] User {message.from_user.id} -> {location['timezone']}{log_suffix}")

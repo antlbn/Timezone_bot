@@ -59,19 +59,25 @@ async def handle_time_mention(message: Message, state: FSMContext):
             reply_markup=ForceReply(selective=True),
         )
 
-        # Append to history for future context (no LLM call)
-        append_to_history(
-            platform="telegram",
-            chat_id=str(chat_id),
-            message_data={
-                "platform":      "telegram",
-                "chat_id":       str(chat_id),
-                "author_id":     str(user_id),
-                "author_name":   user_name,
-                "text":          message.text,
-                "timestamp_utc": timestamp_utc,
-            },
-        )
+        # 1.1 Snapshot N preceding messages, then append current message to deque
+        msg_data = {
+            "platform":      "telegram",
+            "chat_id":       str(chat_id),
+            "author_id":     str(user_id),
+            "author_name":   user_name,
+            "text":          message.text,
+            "timestamp_utc": timestamp_utc,
+            "message_id":    message.message_id,
+        }
+        snapshot = append_to_history("telegram", str(chat_id), msg_data)
+
+        # 1.2 Save to Redis for later processing
+        from src.storage.pending import save_pending_message
+        await save_pending_message(user_id, "telegram", {
+            **msg_data,
+            "snapshot": snapshot
+        })
+        
         return
 
     # 2. Check cooldown before hitting the LLM

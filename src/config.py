@@ -41,3 +41,7 @@ def get_log_level() -> str:
 def get_bot_settings() -> dict:
     """Get bot settings from config."""
     return get_config().get("bot", {})
+
+def get_redis_url() -> str:
+    """Get Redis URL from environment. Defaults to local."""
+    return os.getenv("REDIS_URL", "redis://localhost:6379/1")
