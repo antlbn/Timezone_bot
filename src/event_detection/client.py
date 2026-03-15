@@ -15,15 +15,12 @@ def get_llm_client() -> AsyncOpenAI:
     """
     global _client
     if _client is None:
-        base_url = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
-        # OpenAI SDK requires *some* API key string even for local servers.
-        api_key = os.getenv("LLM_API_KEY", "ollama")
+        base_url = os.getenv("LLM_BASE_URL")
+        api_key = os.getenv("GEMINI_API_KEY")
         
-        # Enable explicit aiohttp TCP connector config if needed later
         _client = AsyncOpenAI(
             base_url=base_url,
             api_key=api_key,
-            # We can pass custom http_client here if connection timeouts occur in Docker
             http_client=None 
         )
         logger.info(f"Initialized LLM client with base_url: {base_url}")
@@ -32,4 +29,4 @@ def get_llm_client() -> AsyncOpenAI:
 
 def get_llm_model() -> str:
     """Returns the configured model name, e.g. 'llama3' or 'gpt-4o-mini'."""
-    return os.getenv("LLM_MODEL", "llama3")
+    return os.getenv("LLM_MODEL", "gemini-3.1-flash-lite-preview")

@@ -3,7 +3,7 @@
   "title": "Timezone Bot — LLM Module Output (v2.0)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["reflections", "event", "sender_id", "sender_name", "time", "city"],
+  "required": ["reflections", "event", "sender_id", "sender_name", "points"],
   "properties": {
     "reflections": {
       "type": "object",
@@ -28,17 +28,17 @@
       "type": "string",
       "description": "Display name echoed from SENDER block; used in formatted reply"
     },
-    "time": {
+    "points": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Extracted times in 24h format. Empty array when event=false.",
-      "examples": [["14:00"], ["09:30", "15:00"]]
-    },
-    "city": {
-      "type": "array",
-      "items": { "type": ["string", "null"] },
-      "description": "Parallel to 'time'. City/region as explicit TZ context for time[i], or null → use sender DB TZ.",
-      "examples": [[null], ["New York", null]]
+      "items": {
+        "type": "object",
+        "required": ["time", "city"],
+        "properties": {
+          "time": { "type": "string", "description": "24h format HH:MM" },
+          "city": { "type": ["string", "null"], "description": "City name OR null" }
+        }
+      },
+      "description": "List of extracted time points with their respective locations."
     }
   }
 }

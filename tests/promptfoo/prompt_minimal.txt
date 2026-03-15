@@ -4,7 +4,7 @@ Use PREVIOUS CHAT CONTEXT to resolve dates/times.
 ANCHOR time is for relative calculations (e.g., "in an hour").
 
 RULES:
-- "event": true if discussing, proposing, or refining a specific upcoming meeting, call, or deadline (even if refusing a time).
+- "event": true if discussing, proposing, or refining a specific upcoming meeting, call, or deadline.
 - "points": list of objects {time: "HH:MM", city: string | null}.
 - DEDUPLICATION: If one event is mentioned in multiple timezones (e.g., "9am EST / 2pm London"), PICK ONLY ONE entry. Favor the one with an explicit city.
 

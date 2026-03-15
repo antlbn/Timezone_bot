@@ -19,9 +19,9 @@ The LLM is now the **orchestrator**, not just a classifier:
    The LLM decides whether the message contains a time-coordination event and fills a structured
    JSON response.
 3. **Tool call** (algorithm triggered by LLM): when the LLM identifies an actionable event
-   (`event == true`, `times` non-empty), it calls the `convert_time` tool — a thin wrapper
+   (`event == true`, `points` non-empty), it calls the `convert_time` tool — a thin wrapper
    around the existing Transform module. The module reads participant timezones from DB, converts
-   every time value, and posts the formatted result to the chat.
+   every time value, and posts a single aggregated formatted result to the chat.
 
 ### Why this shape?
 
@@ -53,7 +53,7 @@ The LLM is now the **orchestrator**, not just a classifier:
 
 ```
 src/
-├── llm/
+├── event_detection/
 │   ├── __init__.py         # Public API: process_message(platform, chat_id, msg, sender_db)
 │   ├── client.py           # OpenAI-SDK client; agnostic base_url config
 │   ├── prompts.py          # System prompt + JSON schema + tool definition
@@ -62,7 +62,7 @@ src/
 │   └── tools.py            # convert_time tool wrapper → Transform → Formatter → Reply
 ```
 
-> **Old module**: `src/event_detection/` is deprecated and will be removed in the next cleanup sprint.
+> **Note**: This module was previously planned as `src/llm/` but remains in `src/event_detection/` for stability.
 
 ---
 
@@ -114,8 +114,8 @@ Incoming message
   │              │
   ▼              ▼
 [Start          [Append to history buffer]
- onboarding         │
- dialog]            ▼
+  onboarding         │
+  dialog]            ▼
                 [LLM pipeline ──▶ section 6]
 ```
 
@@ -174,8 +174,7 @@ CURRENT MESSAGE:
 [Alice]: Созвон завтра в 14:00?
 ```
 
-> Why plain text? Most models (including small ones used via Ollama) are more reliable with
-> structured plain text than with JSON-in-JSON user turns.
+---
 
 ### 6.3 LLM JSON Response Schema
 
@@ -192,16 +191,17 @@ The LLM **MUST** output strict JSON only (no prose). Schema stored at
   "event": true,
   "sender_id": "123456",
   "sender_name": "Alice",
-  "time": ["14:00"],
-  "city": [null]
+  "points": [
+    {"time": "14:00", "city": null}
+  ]
 }
 ```
 
-> **Chain-of-thought via `reflections`**: the model fills `reflections` before `event`/`time`/`city`
+> **Chain-of-thought via `reflections`**: the model fills `reflections` before `event`/`points`
 > to improve accuracy on ambiguous cases. Fields are validated but not shown to users.
 
-> **`time` and `city` are parallel arrays of the same length.** `city[i]` is the explicit timezone
-> context for `time[i]`. Use `null` when no city was mentioned for that time entry.
+> **`points` is an array of objects.** Each object contains `time` (24h) and `city` (explicit TZ
+> context or `null` for sender DB TZ).
 
 **Field reference:**
 
@@ -211,122 +211,46 @@ The LLM **MUST** output strict JSON only (no prose). Schema stored at
 | `event` | `bool` | `true` → actionable time event; LLM calls `convert_time` tool |
 | `sender_id` | `str` | Echoed from `SENDER: id=…`; passed directly to tool call |
 | `sender_name` | `str` | Echoed from `SENDER: name=…`; used in formatted reply |
-| `time` | `str[]` | Extracted times in 24h format, e.g. `["14:00", "09:30"]`. Empty `[]` when `event=false` |
-| `city` | `(str\|null)[]` | Parallel to `time`. City/region as explicit TZ context, or `null` → sender DB TZ |
+| `points` | `object[]` | List of `{"time": "HH:MM", "city": "Name"|null}` objects. |
 
 ### 6.4 Decision Policy
 
-**Set `event=true`, `polarity="positive"` when:**
+**Set `event=true` when:**
 - Proposed joint meetings / calls / events: «завтра в 14:00 созвон», «встретимся в 19:00»
 - Time windows of availability offered to others: «я смогу в 10 и в 14:00, выбирайте»
+- **Deadlines**: «код нужно сдать в понедельник до 17:00»
+- **Coordination / Refusals**: «в 17:00 не смогу», «давайте в 18:30 тогда» (essential for group context)
 
-**Set `event=false`, `polarity="negative"`, `times=[]`, `event_location=null` when:**
-- Past references: «я вчера в 8 уже спал»
-- Refusal / unavailability: «I cannot be on the meeting at 15:30»
+**Set `event=false` when:**
+- Past references (not involving correction): «я вчера в 8 уже спал»
 - Personal plans irrelevant to others: «я завтра пойду погуляю с собакой»
 - Open question, no decision: «как думаете во сколько нужно созвониться?»
-- No time mention at all
-
-> **Bias toward silence**: when uncertain, prefer `event=false`. The bot should be quiet more
-> often than it fires.
+- No time/deadline mention at all
 
 ---
 
-## 7. Tool Call: `convert_time`
+## 7. Event Action: `execute_convert_time`
 
-### 7.1 When the LLM triggers it
+### 7.1 When the bot triggers it
 
-The LLM calls `convert_time` when **both** conditions are met:
+The bot triggers the conversion logic directly from the LLM JSON response when **both** conditions are met:
 - `event == true`
-- `times` is non-empty
+- `points` is non-empty
 
-The tool is defined in the system prompt as an OpenAI-compatible function tool.
+### 7.2 Execution Flow
 
-### 7.2 Tool Input
+1. **Geocodes** all `points` with non-null cities.
+2. **Transforms** all times to participant zones.
+3. **Aggregates** all results into a single multi-line reply.
+4. **Replies** to the chat once per actionable message.
 
-```json
-{
-  "sender_id": "123456",
-  "sender_name": "Alice",
-  "time": ["14:00", "15:30"],
-  "city": ["New York", null]
-}
-```
-
-| Field | Required | Description |
-|---|---|---|
-| `sender_id` | yes | Platform user ID (string) |
-| `sender_name` | yes | Display name for formatting |
-| `time` | yes | Non-empty list of time strings from LLM |
-| `city` | yes | Parallel array to `time`. Each entry: city name or `null` (→ sender DB TZ) |
-
-### 7.3 Tool Execution (Algorithm)
-
-The tool iterates over `(time[i], city[i])` pairs:
-
-```
-For each (time_str, city) in zip(time, city):
-        │
-        ▼
-  [Resolve source TZ for this entry]
-        │
-   city non-null?
-        │
-  ┌─────┴────────────┐
-  YES                NO
-  │                  │
-  ▼                  ▼
-geocode(city)        sender DB timezone
-→ IANA TZ           (from 05_storage.md via sender_id)
-        │
-        └──────────────────┐
-                           ▼
-              [Transform Module — 03_transformation_specs.md]
-              source_tz → UTC → each participant's local TZ
-              Participants list = all members of (platform, chat_id) from DB
-              Sender's own TZ is always included
-                           │
-                           ▼
-              [Formatter — 07_response_format.md]
-              Build human-readable message
-                           │
-                           ▼
-              [Reply to chat (one reply per time entry)]
-```
-
-**Geocoding fallback**: if city geocoding fails (unknown city, typo) → fall back to sender's DB TZ
-and log a warning. Mirrors behavior in `03_transformation_specs.md`.
-
-### 7.4 Output Message Format
-
-When `city[i]` is **null** (sender TZ used as source):
-
-```
-📅 Alice: 14:00
-─────────────────
-🇩🇪 Alice (Berlin)    14:00
-🇺🇸 Bob (New York)    08:00
-🇯🇵 Carol (Tokyo)     21:00
-```
-
-When `city[i]` is **non-null** (e.g. `"New York"`):
-
-```
-📅 Alice: 14:00 по Нью-Йорку
-─────────────────
-🇺🇸 New York (origin)  14:00
-🇩🇪 Alice (Berlin)     20:00
-🇺🇸 Bob (New York)     14:00
-🇯🇵 Carol (Tokyo)      03:00⁺¹
-```
-
-> Exact formatting template is owned by `07_response_format.md`. This section defines the
-> **data contract** → what fields the tool passes to the Formatter.
+> Exact formatting template is owned by `07_response_format.md`.
 
 ---
 
 ## 8. Configuration (`configuration.yaml`)
 
+```yaml
 llm:
   enabled: true
 
@@ -360,8 +284,6 @@ Both adapters share:
 - `chat_locks` dict
 - Storage (SQLite) via `05_storage.md`
 
-LLM HTTP calls are stateless and safe to run concurrently across both threads.
-
 ### Full Message Flow
 
 ```
@@ -381,22 +303,17 @@ Adapter (TG/Discord)
         ▼
 [LLM JSON response]
         │
-   event=true AND times non-empty?
+   event=true AND points non-empty?
         │
    ┌────┴──────┐
    NO          YES
    │            │
- STOP          [LLM calls convert_time tool]
+  STOP          [LLM calls convert_time tool]
                 │
                 ▼
-         [Resolve source TZ]
-         (geocode event_location OR sender DB TZ)
-                │
-                ▼
+         [Resolve source TZ per point]
          [Transform → all participants]
-                │
-                ▼
-         [Formatter → chat reply]
+         [Formatter → aggregated reply]
 ```
 
 ---
@@ -407,7 +324,7 @@ Testing strategy is unchanged from the previous MVP layer:
 - `tests/promptfoo/promptfooconfig.yaml`
 - `tests/promptfoo/cases.yaml`
 
-Each test case must assert: `event`, `polarity`, `times[]`, `event_location`, and optionally
+Each test case must assert: `event`, `points[]`, and optionally
 `sender_id` / `sender_name` echo.
 
 ---

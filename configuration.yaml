@@ -27,7 +27,7 @@ event_detection:
   enabled: true
 
   # LLM Temperature (0.0 = deterministic, 1.0 = creative)
-  temperature: 0.0
+  temperature: 0.1
 
   # Number of previous messages included in the LLM prompt (history snapshot).
   context_messages: 5

@@ -35,53 +35,10 @@ EVENT_DETECTION_SCHEMA = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CONVERT_TIME TOOL DEFINITION
-# Passed to the LLM via the `tools` parameter so it can call it directly.
-# ─────────────────────────────────────────────────────────────────────────────
-CONVERT_TIME_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "convert_time",
-        "description": (
-            "Convert event time(s) to local time for all chat participants. "
-            "Call this whenever event=true and points[] is non-empty. "
-            "Pass exactly the sender_id, sender_name, and points[] "
-            "from your JSON analysis."
-        ),
-        "parameters": {
-            "type": "object",
-            "required": ["sender_id", "sender_name", "points"],
-            "additionalProperties": False,
-            "properties": {
-                "sender_id": {
-                    "type": "string",
-                    "description": "Platform user ID of the message author (echo from SENDER block).",
-                },
-                "sender_name": {
-                    "type": "string",
-                    "description": "Display name of the message author (echo from SENDER block).",
-                },
-                "points": {
-                    "type": "array",
-                    "description": "List of extracted time points.",
-                    "items": {
-                        "type": "object",
-                        "required": ["time", "city"],
-                        "properties": {
-                            "time": {"type": "string", "description": "Time in HH:MM format."},
-                            "city": {"type": ["string", "null"], "description": "Explicit city/timezone or null."},
-                        },
-                    },
-                },
-            },
-        },
-    },
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
 # SYSTEM PROMPT
 # ─────────────────────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
+БЕЗ ЛИШНЕГО ТЕКСТА И ПОЯСНЕНИЙ.
 
 ЗАДАЧА:
 Проанализируй CURRENT MESSAGE с учётом HISTORY и метаданных отправителя (SENDER / ANCHOR).
@@ -140,4 +97,4 @@ def get_system_prompt() -> str:
 
 def get_tools() -> list[dict]:
     """Return the list of function tools to register with the LLM call."""
-    return [CONVERT_TIME_TOOL]
+    return []

@@ -82,35 +82,29 @@ def _format_tz_group(
     return part
 
 
-def format_conversion_reply(
+def format_single_point_line(
     original_time: str,
     sender_city: str,
     sender_tz: str,
     sender_flag: str,
     members: list[dict],
-    sender_name: str = ""
+    show_sender_info: bool = True
 ) -> str:
-    """
-    Format according to spec with username:
-    Anton: 10:30 Sarajevo 🇧🇦 | 16:30 Paris 🇫🇷 | 18:30 Moscow 🇷🇺
-    /tb_help
-    """
+    """Format a single line of conversions for one time point."""
     settings = get_bot_settings()
     display_limit = settings.get("display_limit_per_chat", 10)
-    # 0 means no limit
     if display_limit == 0:
-        display_limit = len(members) + 1  # effectively unlimited
+        display_limit = len(members) + 1
     show_usernames = settings.get("show_usernames", False)
-    
-    # Filter out sender from members (avoid self-conversion)
+
+    # Filter out sender from members
     other_members = [m for m in members if m["city"] != sender_city]
     
-    # Format sender part (always shown)
-    sender_part = _format_sender_part(original_time, sender_city, sender_flag, sender_name)
+    # Format sender part
+    sender_part = _format_sender_part(original_time, sender_city, sender_flag, name="")
     
-    # If no other members to convert
     if not other_members:
-        return f"{sender_part}\n/tb_help"
+        return sender_part
     
     # Group members by timezone and sort by UTC offset
     sorted_groups = _group_and_sort_members(other_members, display_limit)
@@ -120,11 +114,66 @@ def format_conversion_reply(
         part = _format_tz_group(original_time, sender_tz, tz, group, show_usernames)
         parts.append(part)
     
-    # Combine everything
     line = sender_part + " | " + " | ".join(parts)
     
-    # Add truncation indicator
     if len(other_members) > display_limit:
         line += f" | ... +{len(other_members) - display_limit} more"
+        
+    return line
+
+
+def format_multi_conversion(
+    conversions: list[dict],
+    members: list[dict],
+    sender_name: str = ""
+) -> str:
+    """
+    Format multiple time points into a single beautiful message.
+    Format:
+    Anton: 10:30 Sarajevo 🇧🇦 | 12:30 London 🇬🇧
+           15:00 Sarajevo 🇧🇦 | 17:00 London 🇬🇧
+    /tb_help
+    """
+    lines = []
     
-    return f"{line}\n/tb_help"
+    for i, conv in enumerate(conversions):
+        point_line = format_single_point_line(
+            conv["original_time"],
+            conv["source_city"],
+            conv["source_tz"],
+            conv["source_flag"],
+            members
+        )
+        
+        if i == 0 and sender_name:
+            # First line gets the name
+            prefix = f"{sender_name}: "
+            # Calculate indent for subsequent lines based on name length
+            indent = " " * len(prefix)
+            lines.append(f"{prefix}{point_line}")
+        elif sender_name:
+            # Subsequent lines are indented
+            lines.append(f"{indent}{point_line}")
+        else:
+            lines.append(point_line)
+            
+    content = "\n".join(lines)
+    return f"{content}\n/tb_help"
+
+
+def format_conversion_reply(
+    original_time: str,
+    sender_city: str,
+    sender_tz: str,
+    sender_flag: str,
+    members: list[dict],
+    sender_name: str = ""
+) -> str:
+    """Format a single time point conversion (legacy/helper)."""
+    conversions = [{
+        "original_time": original_time,
+        "source_city": sender_city,
+        "source_tz": sender_tz,
+        "source_flag": sender_flag
+    }]
+    return format_multi_conversion(conversions, members, sender_name)

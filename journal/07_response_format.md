@@ -63,13 +63,16 @@ If time transitions to another day:
 
 ## 6. Multiple Times
 
-If message contains multiple times — separate blocks:
+If a message contains multiple times, the bot aggregates them into a **single, multi-line result** with indentation to align with the sender's name.
 
+**Example:**
 ```
-18:00 Berlin 🇩🇪 | 12:00 New York 🇺🇸 | 02:00⁺¹ Tokyo 🇯🇵
+Alice: 10:30 Sarajevo 🇧🇦 | 09:30 London 🇬🇧
+       15:00 Sarajevo 🇧🇦 | 14:00 London 🇬🇧
+/tb_help
+```
 
-19:30 Berlin 🇩🇪 | 13:30 New York 🇺🇸 | 03:30⁺¹ Tokyo 🇯🇵
-```
+This prevents chat clutter and keeps all relevant conversions in one atomic block.
 
 ---
 

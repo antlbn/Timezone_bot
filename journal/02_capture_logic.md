@@ -9,7 +9,7 @@ The logic is simple:
 - If the prefilter is **enabled** in `configuration.yaml`, the bot will only call the LLM if a message contains strings that **look like time** (regex) or **keywords** related to meetings/calls.
 - If the prefilter is **disabled** (the default), this module is skipped, and the LLM receives every message directly.
 
-**Important Note**: This module does **not** extract the final times used for the bot's response. It only decides "should we call the LLM?" The LLM itself remains responsible for extracting the actual `times[]` and `event_location`.
+**Important Note**: This module does **not** extract the final times used for the bot's response. It only decides "should we call the LLM?" The LLM itself remains responsible for extracting the actual `points[]` (time and location).
 
 Message
   │

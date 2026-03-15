@@ -71,25 +71,23 @@ async def test_chat_lock_concurrency():
         await task1
 
 @pytest.mark.asyncio
-async def test_llm_tool_call_dispatch(monkeypatch):
-    """Test that detector correctly handles an actual tool_call from the LLM."""
+async def test_llm_json_dispatch(monkeypatch):
+    """Test that detector correctly handles an actual JSON response from the LLM."""
     from src.event_detection.detector import detect_event
     from unittest.mock import MagicMock
     import json
 
-    # 1. Сборка фейкового ответа OpenAI (как будто модель вызвала tool)
-    mock_tool_call = MagicMock()
-    mock_tool_call.function.name = "convert_time"
-    mock_tool_call.function.arguments = json.dumps({
+    # 1. Сборка фейкового ответа OpenAI (JSON в контенте)
+    mock_choice = MagicMock()
+    mock_choice.finish_reason = "stop"
+    mock_choice.message.content = json.dumps({
+        "reflections": {"event_logic": "test", "time_logic": "test", "geo_logic": "test"},
+        "event": True,
         "sender_id": "888",
         "sender_name": "Boss",
-        "time": ["20:00"],
-        "city": ["London"]
+        "points": [{"time": "20:00", "city": "London"}]
     })
-
-    mock_choice = MagicMock()
-    mock_choice.finish_reason = "tool_calls"
-    mock_choice.message.tool_calls = [mock_tool_call]
+    mock_choice.message.tool_calls = None
 
     # Мокаем вызов LLM
     mock_call_llm = AsyncMock(return_value=mock_choice)
@@ -104,18 +102,17 @@ async def test_llm_tool_call_dispatch(monkeypatch):
         current_msg={"author_id": "888", "author_name": "Boss", "text": "Call at 8pm London"},
         snapshot=[],
         sender_db={},
-        send_fn=AsyncMock(), # Передаем фейковую отправку
+        send_fn=AsyncMock(),
         platform="telegram",
         chat_id="chat1"
     )
 
-    # 4. Проверяем, что execute_convert_time был вызван с правильными аргументами из tool_call
+    # 4. Проверяем, что execute_convert_time был вызван
     mock_execute.assert_called_once()
     kwargs = mock_execute.call_args.kwargs
     assert kwargs["sender_id"] == "888"
-    assert kwargs["times"] == ["20:00"]
-    assert kwargs["cities"] == ["London"]
+    assert kwargs["points"] == [{"time": "20:00", "city": "London"}]
     
-    # 5. Проверяем, что детектор вернул заглушку для логов
     assert result["event"] is True
     assert result["time"] == ["20:00"]
+    assert result["points"] == [{"time": "20:00", "city": "London"}]

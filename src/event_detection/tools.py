@@ -15,8 +15,7 @@ logger = get_logger()
 async def execute_convert_time(
     sender_id: str,
     sender_name: str,
-    times: list[str],
-    cities: list[str | None],
+    points: list[dict],
     sender_db: dict,
     platform: str,
     chat_id: str,
@@ -29,8 +28,7 @@ async def execute_convert_time(
     ----------
     sender_id   : Platform user ID of the message author.
     sender_name : Display name of the message author.
-    times       : List of time strings (HH:MM) from the LLM.
-    cities      : Parallel list — city override for each time, or None → sender DB TZ.
+    points      : List of dicts [{"time": "HH:MM", "city": "Name" | None}]
     sender_db   : Sender's DB record (must contain at least 'timezone' and 'city').
     platform    : "telegram" | "discord"
     chat_id     : Platform-specific chat/guild ID (string).
@@ -42,8 +40,11 @@ async def execute_convert_time(
         logger.warning(f"[chat:{chat_id}] convert_time: no members in DB, skipping reply.")
         return
 
-    for i, time_str in enumerate(times):
-        city_override = cities[i] if i < len(cities) else None
+    conversions = []
+
+    for point in points:
+        time_str = point.get("time")
+        city_override = point.get("city")
 
         # Resolve source timezone for this time entry
         if city_override:
@@ -66,17 +67,20 @@ async def execute_convert_time(
             source_tz   = sender_db.get("timezone", "UTC")
             source_flag = sender_db.get("flag", "")
 
-        reply = formatter.format_conversion_reply(
-            time_str,
-            source_city,
-            source_tz,
-            source_flag,
-            members,
-            sender_name,
-        )
+        conversions.append({
+            "original_time": time_str,
+            "source_city": source_city,
+            "source_tz": source_tz,
+            "source_flag": source_flag
+        })
 
-        await send_fn(reply)
-        logger.debug(
-            f"[chat:{chat_id}] Replied: time={time_str}, city={city_override}, "
-            f"source_tz={source_tz}"
-        )
+    # Use a new multi-point formatter to build a single message
+    from src import formatter
+    reply = formatter.format_multi_conversion(
+        conversions=conversions,
+        members=members,
+        sender_name=sender_name
+    )
+
+    await send_fn(reply)
+    logger.debug(f"[chat:{chat_id}] Aggregated reply sent for {len(conversions)} points")

@@ -3,7 +3,7 @@
 ## 1. Overview
 Module designed for converting time between arbitrary timezones with protection from "political" time shifts (legislative changes) and DST transitions (daylight saving time).
 
-> **v1.2 Update**: The transformation module now accepts an optional `source_tz` parameter. When the LLM Event Detector returns a non-null `event_location`, the application geocodes it and passes the resulting IANA timezone as `source_tz`, overriding the sender's DB timezone for this conversion only.
+> **v1.2 Update**: The transformation module now accepts a list of `points`. When a `point` contains a non-null `city`, the application geocodes it and passes the resulting IANA timezone as `source_tz`, overriding the sender's DB timezone for that specific time point.
 
 ## 2. Technology Stack
 * **Core Libraries:** 
@@ -28,12 +28,12 @@ Any time transformation must go through a "zero point" (UTC). Direct conversion 
                          │         └─▶ 02:00⁺¹ Tokyo 🇯🇵
 ```
 
-**Source TZ resolution:**
-- If `event_location` != null → `source_tz = geocode(event_location).iana_tz`
-- If `event_location` == null → `source_tz = sender's DB timezone`
+**Source TZ resolution (per point):**
+- If `point.city` != null → `source_tz = geocode(point.city).iana_tz`
+- If `point.city` == null → `source_tz = sender's DB timezone`
 
 ### Workflow:
-1. **Extraction**: `times[]` received from LLM Event Detector (`14_llm_module.md`). Optional `source_tz` override also provided if `event_location` was geocoded.
+1. **Extraction**: `points[]` received from LLM Event Detector (`14_llm_module.md`).
 2. **Anchoring**: Binding to current date (`datetime.now()`) to determine the current DST mode.
 3. **Localization**: Creating an `Aware datetime` object in the **source timezone** (`source_tz` if provided, else sender's DB TZ).
 4. **Normalization**: Shifting the object to **UTC** (reference point).
