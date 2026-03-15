@@ -11,6 +11,8 @@ The logic is simple:
 
 **Important Note**: This module does **not** extract the final times used for the bot's response. It only decides "should we call the LLM?" The LLM itself remains responsible for extracting the actual `points[]` (time and location).
 
+**Deferred Processing**: Since 2026-03-15, if the capture logic identifies a time but the user is not registered, the message is **deferred** (saved to Redis) and processed after onboarding. See `15_onboarding_capture.md`.
+
 Message
   │
   ├─▶ [Time-like Regex]      ──▶ time_candidates found?

@@ -319,18 +319,25 @@ Pattern: **Decorator** over existing `Storage` interface.
 
 ---
 
-### 9.7 Out of Scope
+### 9.7 Performance Tuning Options
 
-| Technology | Why Not Applicable |
+| Technology | Support Status |
 |------------|---------------------|
 | **Read Replicas** | SQLite doesn't support |
 | **Connection Pooling** | SQLite = single-writer |
-| **Redis** | Overkill for single-instance |
+| **Redis** | **Used for Temporary Storage** (since 2026-03-15) |
 | **LRU Eviction** | Entire dataset ~50KB |
 
 ---
 
-## 10. Future Considerations
+## 10. Temporary Storage (Redis)
+
+Starting from the "Onboarding Capture" feature, the bot uses **Redis** for ephemeral data.
+
+- **Purpose:** Storing pending messages for users in the onboarding flow.
+- **Key Schema:** `pending_msg:{platform}:{user_id}`
+- **TTL:** 60s (automatic cleanup).
+- **Implementation:** `src/storage/pending.py`
 
 > [!NOTE]
 > Standard SQLite version is implemented. Section 9 — ready architecture for future optimization.
