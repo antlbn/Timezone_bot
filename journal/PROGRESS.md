@@ -1,3 +1,10 @@
+## 2026-03-15 (session 2) - Architecture Review & Security Refinements
+- **Review**: Conducted a comprehensive audit of specifications, acknowledging the success of the "Working Memory" caching layer.
+- **Security**: Implemented **Hard Skip** for messages > 2000 chars in the LLM pipeline to prevent token abuse.
+- **Performance**: Increased message aging limit to **30s** to improve reliability during high LLM latency.
+- **Consistency**: Verified Discord platform parity for UTC-offset registration via the universal resolver.
+- **Docs**: Updated `spec_review.md` with prioritized technical debt and deferred features (Regex Fallback, Moving Hint).
+
 ## 2026-03-15 (session) - Onboarding Message Capture (Zero-Friction)
 - **Feature**: Implemented "pending message" capture during onboarding via in-memory storage.
 - **Context Preservation**: Added support for precomputed snapshots to maintain historical context when a message is processed after a delay.

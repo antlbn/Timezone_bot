@@ -1,5 +1,5 @@
 import datetime
-from src.config import get_max_message_age
+from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
 from src.event_detection.history import append_to_history, get_chat_lock
 from src.event_detection.detector import detect_event
@@ -22,6 +22,15 @@ async def process_message(
     """
     Main entry point for the LLM pipeline with queuing and aging.
     """
+    # 0. Hard skip for excessively long messages (security / cost protection)
+    hard_limit = get_max_message_hard_skip()
+    if len(message_text) > hard_limit:
+        logger.warning(f"[chat:{chat_id}] Message too long ({len(message_text)} chars), hard skipping.")
+        return {
+            "event": False, "sender_id": user_id, "sender_name": author_name,
+            "time": [], "city": [], "reason": f"Message exceeded hard limit of {hard_limit} chars",
+        }
+
     msg_data = {
         "platform":      platform,
         "chat_id":       chat_id,
@@ -70,10 +79,13 @@ async def process_message(
             now = datetime.datetime.now(datetime.timezone.utc)
             age = (now - msg_time).total_seconds()
             if age > max_age:
-                logger.warning(f"[chat:{chat_id}] Message became stale while waiting in queue ({int(age)}s), skipping.")
+                logger.warning(
+                    f"[chat:{chat_id}] Message became stale while waiting in queue. "
+                    f"Age: {int(age)}s (Limit: {max_age}s). Dropping msg from '{author_name}'."
+                )
                 return {
                     "event": False, "sender_id": user_id, "sender_name": author_name,
-                    "time": [], "city": [], "reason": "Message stale after queue",
+                    "time": [], "city": [], "reason": f"Message stale after queueing ({int(age)}s)",
                 }
 
         result = await detect_event(

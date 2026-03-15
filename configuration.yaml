@@ -38,6 +38,8 @@ event_detection:
 
   # Concurrency & Aging
   # Messages older than this are skipped if waiting in queue
-  max_message_age_seconds: 20
+  max_message_age_seconds: 30
+  # Hard skip: messages longer than this are ignored entirely (no LLM, no history)
+  max_message_hard_skip_chars: 2000
   # How long to keep "frozen" messages during onboarding
   onboarding_timeout_seconds: 60

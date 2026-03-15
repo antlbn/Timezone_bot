@@ -46,6 +46,10 @@ def get_max_message_age() -> int:
     """Get max message age in seconds from config."""
     return get_config().get("event_detection", {}).get("max_message_age_seconds", 20)
 
+def get_max_message_hard_skip() -> int:
+    """Get max message length for hard skip from config."""
+    return get_config().get("event_detection", {}).get("max_message_hard_skip_chars", 2000)
+
 def get_onboarding_timeout() -> int:
     """Get onboarding timeout in seconds from config."""
     return get_config().get("event_detection", {}).get("onboarding_timeout_seconds", 60)
