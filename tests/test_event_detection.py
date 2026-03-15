@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import datetime
 from unittest.mock import AsyncMock, patch
 from src.event_detection import process_message
 from src.event_detection.history import _message_history, _chat_locks
@@ -33,7 +34,8 @@ async def test_process_message_event():
             platform="telegram",
             author_name="John",
             timestamp_utc="2026-03-05T10:00:00Z",
-            sender_db={"timezone": "Europe/London", "city": "London"}
+            sender_db={"timezone": "Europe/London", "city": "London"},
+            skip_aging=True
         )
 
         assert res["event"] is True
@@ -53,22 +55,27 @@ async def test_chat_lock_concurrency():
     with patch("src.event_detection.detect_event", side_effect=slow_detect):
         # Fire first message (it will hold the lock for 0.5s)
         task1 = asyncio.create_task(process_message(
-            "Msg 1", "chat1", "user1", "telegram", "John", "2026-03-05T10:00:00Z"
+            "Msg 1", "chat1", "user1", "telegram", "John", "2026-03-05T10:00:00Z", skip_aging=True
         ))
 
         # Wait a bit to ensure task1 started and took the lock
         await asyncio.sleep(0.1)
 
         # Fire second message in same chat
-        res2 = await process_message(
-            "Msg 2", "chat1", "user2", "telegram", "Doe", "2026-03-05T10:00:10Z"
-        )
+        # Now it will WAIT instead of returning immediately
+        task2 = asyncio.create_task(process_message(
+            "Msg 2", "chat1", "user2", "telegram", "Doe", "2026-03-05T10:00:10Z", skip_aging=True
+        ))
 
-        # res2 should return immediately with event=False because lock is held
-        assert res2["event"] is False
-        assert "lock" in res2.get("reason", "").lower()
+        # verify that task2 is not done yet
+        await asyncio.sleep(0.1)
+        assert not task2.done(), "Task 2 should be waiting for the lock"
 
         await task1
+        res2 = await task2
+        
+        # res2 should eventually succeed (event=False as per slow_detect, but it waited)
+        assert res2["event"] is False
 
 @pytest.mark.asyncio
 async def test_llm_json_dispatch(monkeypatch):
@@ -116,3 +123,55 @@ async def test_llm_json_dispatch(monkeypatch):
     assert result["event"] is True
     assert result["time"] == ["20:00"]
     assert result["points"] == [{"time": "20:00", "city": "London"}]
+
+@pytest.mark.asyncio
+async def test_message_aging_pre_lock():
+    """Verify that a message already older than max_age is skipped before locking."""
+    # Build an old timestamp (e.g. 60s ago)
+    old_time = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=60)).isoformat()
+    
+    with patch("src.event_detection.detect_event", new_callable=AsyncMock) as mock_detect:
+        res = await process_message(
+            "Old message", "chat1", "u1", "tg", "J", old_time, skip_aging=False
+        )
+        assert res["event"] is False
+        assert "stale" in res.get("reason", "").lower()
+        mock_detect.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_message_aging_post_lock():
+    """Verify that a message is skipped if it becomes old while waiting for the lock."""
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    # Message is fresh now
+    msg_time = now.isoformat()
+    
+    # Mock a long-running detection that will hold the lock
+    async def fast_detect(*args, **kwargs):
+        return {"event": False}
+
+    with patch("src.event_detection.detect_event", side_effect=fast_detect):
+        lock = _chat_locks[("tg", "chat1")] = asyncio.Lock()
+        await lock.acquire() # Hold the lock manually
+        
+        # Start processing Msg 2 (it's fresh)
+        task = asyncio.create_task(process_message(
+            "Msg 2", "chat1", "u2", "tg", "J", msg_time, skip_aging=False
+        ))
+        
+        await asyncio.sleep(0.1) # Let it hit the lock
+        
+        # Now artificially age the message by waiting longer than max_age (20s)
+        # We don't want to actually sleep 20s in tests, so we'll mock datetime.now
+        future_now = now + datetime.timedelta(seconds=30)
+        
+        with patch("datetime.datetime") as mock_dt:
+            mock_dt.now.return_value = future_now
+            mock_dt.fromisoformat.side_effect = datetime.datetime.fromisoformat
+            mock_dt.timezone = datetime.timezone
+            
+            lock.release() # Release lock, allowing Task to continue
+            res = await task
+            
+            assert res["event"] is False
+            assert "stale" in res.get("reason", "").lower()

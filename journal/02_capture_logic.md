@@ -11,7 +11,7 @@ The logic is simple:
 
 **Important Note**: This module does **not** extract the final times used for the bot's response. It only decides "should we call the LLM?" The LLM itself remains responsible for extracting the actual `points[]` (time and location).
 
-**Deferred Processing**: Since 2026-03-15, if the capture logic identifies a time but the user is not registered, the message is **deferred** (saved to Redis) and processed after onboarding. See `15_onboarding_capture.md`.
+**Deferred Processing**: Since 2026-03-15, any message from an unregistered user triggers onboarding and is **deferred** (saved to in-memory storage). Once onboarding is complete, the message is automatically sent to the LLM pipeline. See `15_onboarding_capture.md`.
 
 Message
   │

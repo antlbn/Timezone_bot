@@ -14,6 +14,13 @@ User time → Sender's TZ → UTC (pivot) → Each member's TZ
 
 **Why:** Direct Local→Local conversions are error-prone and don't scale. Single pivot point simplifies DST handling.
 
+### LLM Parallelism & Concurrency
+
+The bot uses a **per-chat queuing system** to handle high-frequency messages without losing context or wasting tokens:
+- **Individual Locks**: Every chat (`chat_id`) has its own `asyncio.Lock`. Messages within one chat are processed sequentially.
+- **Cross-Chat Parallelism**: Different chats (e.g., Telegram Chat A and Discord Server B) are processed in parallel.
+- **Singleton Client**: A single `AsyncOpenAI` client handles all requests, maximizing connection reuse.
+
 ---
 
 ## 2. Platform Architecture
@@ -54,13 +61,12 @@ User time → Sender's TZ → UTC (pivot) → Each member's TZ
 
 ## 3. Key Design Decisions
 
-### 3.1 Why Regex Over LLM/Fuzzy?
+### 3.1 Why LLM for Event Detection?
 
 | Approach | Verdict | Reasoning |
 |----------|---------|-----------|
-| **Regex** | ✅ Chosen | Work chats use conventional formats (`10am`, `14:00`). Predictable, zero cost. |
-| **rapidfuzz** | ❌ Rejected | Experimented with it. Natural phrases ("в полдень") are rare and cause false positives. |
-| **LLM** | ❌ Overkill | Expensive per-message. Makes sense only if high accuracy for natural language is critical. |
+| **Regex** | ❌ Replaced | Limited to predefined formats. Misses context and natural language ("noon", "next Friday"). |
+| **LLM** | ✅ Chosen | Handles ambiguity, multiple times, and natural language. Enforces schema via JSON output. |
 
 ### 3.2 Why Nominatim (OSM) Over Google Geocoding?
 
@@ -77,18 +83,25 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 **Discord:** Uses same approach for consistency + `on_member_remove` event for cleanup.
 
-### 3.4 Why MemoryStorage Over Redis?
+### 3.4 Why 4-Layer "Clean Memory" Over Redis?
+
+The bot implements a custom in-memory architecture to handle state without external dependencies:
+1.  **Users Cache**: Read-through snapshots of SQLite data.
+2.  **Chat Context**: Rolling history for LLM awareness.
+3.  **LLM Queue**: Async locks per chat with **20s aging** to prevent stale responses.
+4.  **Onboarding Buffer**: Deferral of messages from unregistered users (60s TTL).
 
 | Factor | Decision |
 |--------|----------|
-| **Complexity** | `MemoryStorage` — zero config, built into aiogram |
-| **Scale** | Single-instance bot, doesn't need distributed state |
-| **Trade-off** | FSM state lost on restart. User just re-enters city — acceptable for MVP. |
+| **Complexity** | Zero config — no Redis server required. |
+| **UX** | Zero-Friction — any message triggers onboarding and is processed later. |
+| **Safety** | Per-chat locks prevent data race and LLM token waste. |
 
 ### 3.5 Why SQLite Over PostgreSQL?
 
 - **Zero setup** — comes with Python
 - **Async via aiosqlite** — fast enough for single-instance
+- **WAL (Write-Ahead Logging)** — Enabled to support safe concurrent access when running Telegram and Discord bots in separate processes sharing the same `bot.db`.
 - **Multi-platform ready** — `platform` column separates Telegram/Discord users
 
 ---
@@ -97,10 +110,10 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 | Module | Purpose |
 |--------|---------|
-| `src/capture.py` | Regex time extraction (patterns in `configuration.yaml`) |
+| `src/event_detection/` | LLM Orchestrator, History, and Locking |
 | `src/transform.py` | UTC-Pivot conversions, IANA timezone database |
 | `src/geo.py` | City → Coordinates → Timezone (Nominatim + TimezoneFinder) |
-| `src/storage/` | SQLite: `users` + `chat_members` tables |
+| `src/storage/` | SQLite + **In-Memory Caches & Pending Storage** |
 | `src/formatter.py` | Response text generation, UTC offset sorting |
 | `src/commands/` | Telegram handlers + FSM + Middleware |
 | `src/discord/` | Discord handlers + UI (Views, Modals) |
@@ -111,10 +124,8 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 | Issue | Impact | Mitigation |
 |-------|--------|------------|
-| **Cooldown in-memory** | Resets on restart | Acceptable for MVP. Move to DB/Redis if needed. |
-| **FSM state lost on restart** | User re-enters city | Minor UX inconvenience. Redis can fix. |
-| **No natural language times** | "at noon" not detected | Regex covers 95% of work chat patterns. |
-| **Direct SQLite I/O** | Disk read per message | Design ready for cache layer ([05_storage.md §9](../journal/05_storage.md) — **not implemented**). |
+| **Cold Start** | Caches empty on restart | Passively filled on first message/lookup. |
+| **Platform Limits** | Discord buttons vs Telegram ForceReply | Unified core logic handles both variants. |
 
 ---
 
@@ -122,10 +133,8 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 | Priority | Enhancement |
 |----------|-------------|
-| **High** | Dockerization for easy deployment |
-| **Medium** | In-memory DB cache (Write-Through) |
-| **Medium** | Persistent FSM state (Redis) |
-| **Low** | Lightweight LLM layer for natural language fallback |
+| **Medium** | Dockerization for easy deployment |
+| **Low** | WhatsApp support |
 
 ---
 
@@ -152,7 +161,6 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 Detailed specifications in `journal/`:
 - [01_scope_and_MVP.md](../journal/01_scope_and_MVP.md) — Project scope, tech stack
-- [02_capture_logic.md](../journal/02_capture_logic.md) — Time detection patterns
-- [04_bot_logic.md](../journal/04_bot_logic.md) — Workflow diagrams, FSM flows
-- [05_storage.md](../journal/05_storage.md) — DB schema, caching architecture
-- [12_discord_integration.md](../journal/12_discord_integration.md) — Discord-specific UX decisions
+- [05_storage.md](../journal/05_storage.md) — DB schema, Clean Memory architecture
+- [14_llm_module.md](../journal/14_llm_module.md) — LLM Event Detection pipeline
+- [15_onboarding_capture.md](../journal/15_onboarding_capture.md) — Zero-Friction deferral logic

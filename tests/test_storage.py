@@ -1,6 +1,7 @@
 """Integration tests for storage module."""
 import pytest
 import os
+import aiosqlite
 from pathlib import Path
 from src.storage.sqlite import SQLiteStorage
 
@@ -148,3 +149,12 @@ async def test_mixed_platform_members():
     dc_members = await storage.get_chat_members(CHAT_ID, platform="discord")
     assert len(dc_members) == 1
     assert dc_members[0]["user_id"] == 2
+
+
+@pytest.mark.asyncio
+async def test_sqlite_wal_mode():
+    """Verify that SQLite is running in WAL mode."""
+    async with aiosqlite.connect(TEST_DB) as db:
+        async with db.execute("PRAGMA journal_mode;") as cursor:
+            row = await cursor.fetchone()
+            assert row[0].lower() == "wal"

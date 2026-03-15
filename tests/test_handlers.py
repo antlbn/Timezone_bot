@@ -9,12 +9,15 @@ from src.commands.common import handle_time_mention
 from src.commands.states import SetTimezone
 
 @pytest.fixture
-def mock_storage(monkeypatch):
-    """Mock the singleton storage instance."""
+def mock_storage_and_cache(monkeypatch):
+    """Mock the storage singleton and cache."""
     storage_mock = AsyncMock()
-    # Apply mock to the module where it is used
+    cache_mock = AsyncMock()
+    # Apply mocks to the modules where they are used
     monkeypatch.setattr("src.commands.settings.storage", storage_mock)
-    return storage_mock
+    monkeypatch.setattr("src.commands.settings.get_user_cached", cache_mock)
+    monkeypatch.setattr("src.commands.settings.invalidate_user_cache", MagicMock())
+    return storage_mock, cache_mock
 
 @pytest.fixture
 def mock_message():
@@ -28,6 +31,7 @@ def mock_message():
     message.chat.id = 12345
     message.answer = AsyncMock()
     message.reply = AsyncMock()
+    message.message_id = 1
     message.reply_to_message = None  # Default to no reply
     return message
 
@@ -40,10 +44,11 @@ def mock_state():
     return state
 
 @pytest.mark.asyncio
-async def test_cmd_me_exists(mock_storage, mock_message):
+async def test_cmd_me_exists(mock_storage_and_cache, mock_message):
     """Test /tb_me when user exists in DB."""
+    mock_storage, mock_cache = mock_storage_and_cache
     # Setup mock return value
-    mock_storage.get_user.return_value = {
+    mock_cache.return_value = {
         "city": "Berlin",
         "timezone": "Europe/Berlin",
         "flag": "🇩🇪"
@@ -52,8 +57,8 @@ async def test_cmd_me_exists(mock_storage, mock_message):
     # Run handler
     await cmd_me(mock_message)
 
-    # Verify storage called correctly
-    mock_storage.get_user.assert_called_once_with(12345, platform="telegram")
+    # Verify cache called (CMD ME uses cache now)
+    mock_cache.assert_called_once_with(12345, platform="telegram")
     
     # Verify reply
     mock_message.reply.assert_called_once()
@@ -61,9 +66,10 @@ async def test_cmd_me_exists(mock_storage, mock_message):
     assert "Berlin 🇩🇪 (Europe/Berlin)" in args[0]
 
 @pytest.mark.asyncio
-async def test_cmd_me_not_exists(mock_storage, mock_message):
+async def test_cmd_me_not_exists(mock_storage_and_cache, mock_message):
     """Test /tb_me when user does NOT exist."""
-    mock_storage.get_user.return_value = None
+    _, mock_cache = mock_storage_and_cache
+    mock_cache.return_value = None
 
     await cmd_me(mock_message)
 
@@ -90,8 +96,9 @@ async def test_cmd_settz_start(mock_message, mock_state):
 
 
 @pytest.mark.asyncio
-async def test_process_city_success(mock_storage, mock_message, mock_state, monkeypatch):
+async def test_process_city_success(mock_storage_and_cache, mock_message, mock_state, monkeypatch):
     """Test successful city selection."""
+    mock_storage, _ = mock_storage_and_cache
     # Mock geo logic
     # We need to mock 'src.commands.settings.geo'
     mock_geo = MagicMock()
@@ -130,14 +137,16 @@ async def test_process_city_success(mock_storage, mock_message, mock_state, monk
 
 
 @pytest.mark.asyncio
-async def test_handle_time_mention_success(mock_storage, mock_message, mock_state, monkeypatch):
+async def test_handle_time_mention_success(mock_storage_and_cache, mock_message, mock_state, monkeypatch):
     """Test full flow: message -> LLM trigger -> conversion reply."""
-    # Mock storage for user
-    mock_storage.get_user.return_value = {
+    # Mock get_user_cached
+    mock_cache = AsyncMock()
+    mock_cache.return_value = {
         "city": "Berlin",
         "timezone": "Europe/Berlin",
         "flag": "🇩🇪"
     }
+    monkeypatch.setattr("src.commands.common.get_user_cached", mock_cache)
     
     # Mock event_detection.process_message
     mock_process = AsyncMock()
@@ -148,16 +157,13 @@ async def test_handle_time_mention_success(mock_storage, mock_message, mock_stat
     }
     monkeypatch.setattr("src.commands.common.process_message", mock_process)
     
-    # Apply storage mock to common.py too
-    monkeypatch.setattr("src.commands.common.storage", mock_storage)
-
     # Input message
     mock_message.text = "Let's meet at 15:00"
     mock_message.date = MagicMock()
     mock_message.date.isoformat.return_value = "2026-03-05T10:00:00"
     
     # Run handler
-    await handle_time_mention(mock_message, mock_state)
+    await handle_time_mention(mock_message, mock_state, skip_aging=True)
     
     # Verify processing
     # 1. process_message called?

@@ -1,5 +1,5 @@
 ## 2026-03-15 (session) - Onboarding Message Capture (Zero-Friction)
-- **Feature**: Implemented "pending message" capture during onboarding via Redis.
+- **Feature**: Implemented "pending message" capture during onboarding via in-memory storage.
 - **Context Preservation**: Added support for precomputed snapshots to maintain historical context when a message is processed after a delay.
 - **Concurrency**: Refined chat lock logic to allow "recovery" messages to wait for their turn instead of failing fast.
 - **UX**: Bot now responds with a direct reply to the original message after onboarding completion.

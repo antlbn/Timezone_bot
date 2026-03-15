@@ -42,6 +42,10 @@ def get_bot_settings() -> dict:
     """Get bot settings from config."""
     return get_config().get("bot", {})
 
-def get_redis_url() -> str:
-    """Get Redis URL from environment. Defaults to local."""
-    return os.getenv("REDIS_URL", "redis://localhost:6379/1")
+def get_max_message_age() -> int:
+    """Get max message age in seconds from config."""
+    return get_config().get("event_detection", {}).get("max_message_age_seconds", 20)
+
+def get_onboarding_timeout() -> int:
+    """Get onboarding timeout in seconds from config."""
+    return get_config().get("event_detection", {}).get("onboarding_timeout_seconds", 60)

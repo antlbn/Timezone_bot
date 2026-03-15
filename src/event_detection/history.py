@@ -10,9 +10,9 @@ _message_history: dict[tuple[str, str], deque] = {}
 _chat_locks: dict[tuple[str, str], asyncio.Lock] = {}
 
 def _get_history_limit() -> int:
-    """Read the extended context limit from config, defaulting to 3."""
+    """Read the context limit from config, defaulting to 5."""
     settings = get_bot_settings()
-    return settings.get("event_detection", {}).get("extended_context_messages", 3)
+    return settings.get("event_detection", {}).get("context_messages", 5)
 
 def _get_max_chars() -> int:
     """Read max characters per message limit from config, defaulting to 500."""

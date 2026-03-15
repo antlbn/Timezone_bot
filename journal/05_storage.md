@@ -325,19 +325,25 @@ Pattern: **Decorator** over existing `Storage` interface.
 |------------|---------------------|
 | **Read Replicas** | SQLite doesn't support |
 | **Connection Pooling** | SQLite = single-writer |
-| **Redis** | **Used for Temporary Storage** (since 2026-03-15) |
-| **LRU Eviction** | Entire dataset ~50KB |
+| **Working Memory (In-Memory Cache)** | **Implemented** (since 2026-03-15) |
+| **LRU Eviction** | Used for user snapshots |
 
 ---
 
-## 10. Temporary Storage (Redis)
+## 10. Working Memory (In-Memory Processing)
 
-Starting from the "Onboarding Capture" feature, the bot uses **Redis** for ephemeral data.
+Starting from the "Onboarding Capture" feature (2026-03-15), the bot implements the following technical highlights:
+- **Clean Memory**: 4-layer in-memory architecture for performance.
+- **SQLite WAL Mode**: Enabled for safe multi-process access and concurrent read/write.
+- **Source of Truth**: SQLite always holds the persistent user state.
 
-- **Purpose:** Storing pending messages for users in the onboarding flow.
-- **Key Schema:** `pending_msg:{platform}:{user_id}`
-- **TTL:** 60s (automatic cleanup).
-- **Implementation:** `src/storage/pending.py`
+### 10.1 Key Layers
+- **Users Cache:** Read-through snapshots of user data from SQLite.
+- **Chat Context:** Rolling buffer of recent history.
+- **LLM Queue:** Async locking mechanism with message aging (20s timeout).
+- **Onboarding Buffer:** Temporary storage for messages pending registration (60s TTL).
+
+For technical details, see `15_onboarding_capture.md`.
 
 > [!NOTE]
 > Standard SQLite version is implemented. Section 9 — ready architecture for future optimization.

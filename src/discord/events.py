@@ -5,6 +5,8 @@ import discord
 
 from src.discord import bot
 from src.storage import storage
+from src.storage.user_cache import get_user_cached
+from src.storage.pending import save_pending_message
 from src.logger import get_logger
 from src.event_detection import process_message
 from src.event_detection.history import append_to_history
@@ -21,7 +23,7 @@ async def on_message(message: discord.Message):
     if not message.guild:
         return
 
-    sender = await storage.get_user(message.author.id, platform=PLATFORM)
+    sender = await get_user_cached(message.author.id, platform=PLATFORM)
     timestamp_utc = message.created_at.isoformat() + "Z" if message.created_at else ""
     user_name = message.author.display_name or "User"
     chat_id = str(message.guild.id)
@@ -47,8 +49,7 @@ async def on_message(message: discord.Message):
         }
         snapshot = append_to_history(PLATFORM, chat_id, msg_data)
 
-        # 1.2 Save to Redis for later processing
-        from src.storage.pending import save_pending_message
+        # 1.2 Save to In-Memory storage for later processing
         await save_pending_message(message.author.id, PLATFORM, {
             **msg_data,
             "snapshot": snapshot

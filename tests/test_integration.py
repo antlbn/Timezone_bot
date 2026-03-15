@@ -66,7 +66,8 @@ async def test_full_pipeline_integration(monkeypatch):
         author_name=sender_name,
         timestamp_utc="2026-03-14T20:00:00Z",
         sender_db=sender_db,
-        send_fn=mock_send
+        send_fn=mock_send,
+        skip_aging=True
     )
     
     # 5. Assertions

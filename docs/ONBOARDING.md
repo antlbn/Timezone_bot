@@ -69,13 +69,14 @@ uv run pytest tests/ -v
 Once the bot is running:
 1.  **Add the bot** to any Telegram group or Discord channel.
 2.  **No setup required**: You don't need to send `/start` or any configuration commands.
-3.  **Passive Detection**: The bot listens for messages containing time (e.g., *"Let's meet at 5pm"*) and automatically replies with conversions for other members.
+3.  **Zero-Friction Onboarding**: When an unregistered user sends **any** message to the chat, the bot immediately triggers the onboarding flow and **saves (buffers)** that message. Once the user sets their city, the bot automatically processes the buffered message and replies to it.
+4.  **LLM-Powered Detection**: The bot uses an LLM to understand natural language time mentions and extracted events, ensuring high accuracy without complex regex configuration.
 
 ---
 
 ## 🛠️ Configuration
 
-The bot configurable via `configuration.yaml`.
+The bot is configurable via `configuration.yaml`.
 
 | Setting | Type | Description |
 | :--- | :--- | :--- |
@@ -84,4 +85,5 @@ The bot configurable via `configuration.yaml`.
 | `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
 | `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
 | `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
-| `capture.patterns` | List | **Regex Rules**. Define what the bot considers a "time string" (supports 12h/24h). |
+| `bot.max_message_age_seconds` | Integer | Max age (seconds) for messages in queue before they are considered stale (default 20). |
+| `llm.model` | String | Model used for event detection (e.g., `gpt-4o`, `llama-3`). |

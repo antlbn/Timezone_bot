@@ -4,6 +4,9 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
+from src.storage.user_cache import get_user_cached, invalidate_user_cache
+from src.storage.pending import get_and_delete_pending_message
+from src.event_detection import process_message
 from src import geo, formatter
 from src.logger import get_logger
 from src.commands.states import SetTimezone
@@ -14,7 +17,7 @@ logger = get_logger()
 @router.message(Command("tb_me"))
 async def cmd_me(message: Message):
     """Show user's current timezone."""
-    existing_user = await storage.get_user(message.from_user.id, platform="telegram")
+    existing_user = await get_user_cached(message.from_user.id, platform="telegram")
     
     if not existing_user:
         await message.reply("Not set. Use /tb_settz")
@@ -112,6 +115,7 @@ async def _save_and_finish(
         flag=location["flag"],
         username=username
     )
+    invalidate_user_cache(message.from_user.id, platform="telegram")
     
     if message.chat.id != message.from_user.id:
         await storage.add_chat_member(message.chat.id, message.from_user.id, platform="telegram")
@@ -121,12 +125,10 @@ async def _save_and_finish(
     await message.answer(f"Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
     
     # 2. Check for and process pending message
-    from src.storage.pending import get_and_delete_pending_message
     pending = await get_and_delete_pending_message(message.from_user.id, "telegram")
     
     if pending:
         logger.info(f"[chat:{message.chat.id}] Processing pending message for user {message.from_user.id}")
-        from src.event_detection import process_message
         
         # Build send_fn that replies to the original message
         async def send_reply_fn(text: str) -> None:
@@ -136,9 +138,8 @@ async def _save_and_finish(
                 reply_to_message_id=pending.get("message_id")
             )
             
-        # We re-fetch user record to be sure (though we have location here)
-        # But process_message expects a sender_db dict
-        user_record = await storage.get_user(message.from_user.id, platform="telegram")
+        # We re-fetch user record from CACHE (now it has the new data)
+        user_record = await get_user_cached(message.from_user.id, platform="telegram")
         
         await process_message(
             message_text=pending["text"],

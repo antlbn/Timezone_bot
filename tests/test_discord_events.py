@@ -43,11 +43,13 @@ class TestAutoCleanup:
         from src.discord.events import on_message
         
         # Setup: sender is registered
-        mock_storage.get_user.return_value = {
+        mock_cache = AsyncMock()
+        mock_cache.return_value = {
             "city": "Berlin",
             "timezone": "Europe/Berlin",
             "flag": "🇩🇪"
         }
+        monkeypatch.setattr("src.discord.events.get_user_cached", mock_cache)
         
         # Setup: two members in DB, but only one is still in guild
         mock_storage.get_chat_members.return_value = [
@@ -63,12 +65,12 @@ class TestAutoCleanup:
         
         mock_message.guild.get_member = get_member
         
-        # Mock process_message to return time trigger
+        # Mock process_message to return event trigger
         mock_process = AsyncMock()
         mock_process.return_value = {
-            "trigger": True,
-            "times": ["15:00"],
-            "event_location": None
+            "event": True,
+            "time": ["15:00"],
+            "city": [None]
         }
         monkeypatch.setattr("src.discord.events.process_message", mock_process)
         
@@ -124,11 +126,13 @@ class TestAutoCleanup:
         from src.discord.events import on_message
         
         # Setup: sender is registered
-        mock_storage.get_user.return_value = {
+        mock_cache = AsyncMock()
+        mock_cache.return_value = {
             "city": "Berlin",
             "timezone": "Europe/Berlin",
             "flag": "🇩🇪"
         }
+        monkeypatch.setattr("src.discord.events.get_user_cached", mock_cache)
         
         # Setup: one member, but stale
         mock_storage.get_chat_members.return_value = [

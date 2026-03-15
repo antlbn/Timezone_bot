@@ -1,54 +1,58 @@
-import json
-import redis.asyncio as redis
-from src.config import get_redis_url
+"""
+In-Memory Pending Storage (Layer 4 of Working Memory).
+Stores messages for users currently in the onboarding flow.
+Replaces Redis-based storage.
+"""
+import time
+import asyncio
+from src.config import get_onboarding_timeout
 from src.logger import get_logger
 
 logger = get_logger()
 
-async def _get_client():
-    """Create a new Redis client."""
-    return redis.from_url(get_redis_url(), decode_responses=True)
+# Structure: {(user_id, platform): {"data": dict, "expires": float}}
+_frozen_messages = {}
 
-async def save_pending_message(user_id: int, platform: str, message_data: dict, ttl: int = 60):
+async def save_pending_message(user_id: int, platform: str, message_data: dict):
     """
-    Save a message that is pending onboarding.
+    Save message data to in-memory 'frozen' storage for onboarding.
+    """
+    timeout = get_onboarding_timeout()
+    expires = time.time() + timeout
     
-    Parameters:
-    - user_id: Platform user ID.
-    - platform: "telegram" | "discord"
-    - message_data: Dictionary with message info (text, chat_id, snapshot, etc.)
-    - ttl: Time to live in seconds (default 60).
-    """
-    key = f"pending_msg:{platform}:{user_id}"
-    client = await _get_client()
-    try:
-        # Serialize data to JSON
-        value = json.dumps(message_data)
-        await client.set(key, value, ex=ttl)
-        logger.debug(f"Saved pending message for {platform}:{user_id} (TTL={ttl})")
-    except Exception as e:
-        logger.error(f"Error saving pending message to Redis: {e}", exc_info=True)
-    finally:
-        await client.aclose()
+    _frozen_messages[(user_id, platform)] = {
+        "data": message_data,
+        "expires": expires
+    }
+    logger.info(f"Saved pending message for {user_id} ({platform}). TTL: {timeout}s.")
 
 async def get_and_delete_pending_message(user_id: int, platform: str) -> dict | None:
     """
-    Atomically retrieve and delete a pending message.
+    Retrieve and remove the pending message for a user.
+    Checks for expiration.
     """
-    key = f"pending_msg:{platform}:{user_id}"
-    client = await _get_client()
-    try:
-        # FETCH AND DELETE in one go (simulated with GET + DEL since we want the data)
-        # We could use a Lua script for true atomicity, but GET then DEL is fine here 
-        # because the key is user-specific and onboarding is sequential.
-        value = await client.get(key)
-        if value:
-            await client.delete(key)
-            logger.debug(f"Retrieved and deleted pending message for {platform}:{user_id}")
-            return json.loads(value)
+    key = (user_id, platform)
+    if key not in _frozen_messages:
         return None
-    except Exception as e:
-        logger.error(f"Error getting pending message from Redis: {e}", exc_info=True)
+    
+    item = _frozen_messages.pop(key)
+    if time.time() > item["expires"]:
+        logger.warning(f"Pending message for {user_id} ({platform}) expired.")
         return None
-    finally:
-        await client.aclose()
+    
+    return item["data"]
+
+async def cleanup_loop():
+    """
+    Background task to clean up expired frozen messages.
+    """
+    while True:
+        await asyncio.sleep(60)
+        now = time.time()
+        to_delete = [
+            k for k, v in _frozen_messages.items() 
+            if now > v["expires"]
+        ]
+        for k in to_delete:
+            _frozen_messages.pop(k, None)
+            logger.debug(f"Cleaned up expired frozen message for {k}.")

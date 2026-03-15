@@ -35,3 +35,9 @@ event_detection:
   # Protection against token limit exhaustion.
   # Messages longer than this are truncated before adding to deque/LLM.
   max_message_length_chars: 500
+
+  # Concurrency & Aging
+  # Messages older than this are skipped if waiting in queue
+  max_message_age_seconds: 20
+  # How long to keep "frozen" messages during onboarding
+  onboarding_timeout_seconds: 60

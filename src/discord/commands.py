@@ -7,6 +7,9 @@ from discord import app_commands
 from src.discord import bot
 from src.discord.ui import FallbackView
 from src.storage import storage
+from src.storage.user_cache import get_user_cached, invalidate_user_cache
+from src.storage.pending import get_and_delete_pending_message
+from src.event_detection import process_message
 from src import geo, formatter
 from src.transform import get_utc_offset
 from src.logger import get_logger
@@ -40,7 +43,7 @@ async def cmd_help(interaction: discord.Interaction):
 @bot.tree.command(name="tb_me", description="Show your current timezone")
 async def cmd_me(interaction: discord.Interaction):
     """Show user's current timezone."""
-    user = await storage.get_user(interaction.user.id, platform=PLATFORM)
+    user = await get_user_cached(interaction.user.id, platform=PLATFORM)
     
     if not user:
         await interaction.response.send_message("Not set. Use `/tb_settz`", ephemeral=True)
@@ -79,6 +82,7 @@ async def handle_settz(interaction: discord.Interaction, city: str):
         flag=location["flag"],
         username=username
     )
+    invalidate_user_cache(interaction.user.id, platform=PLATFORM)
     
     # Add to guild members if in a guild
     if interaction.guild:
@@ -98,12 +102,10 @@ async def handle_settz(interaction: discord.Interaction, city: str):
 
 async def _process_discord_pending(interaction: discord.Interaction):
     """Helper to check for and process pending Discord messages."""
-    from src.storage.pending import get_and_delete_pending_message
     pending = await get_and_delete_pending_message(interaction.user.id, PLATFORM)
     
     if pending:
         logger.info(f"[guild:{interaction.guild_id}] Processing pending message for user {interaction.user.id}")
-        from src.event_detection import process_message
         
         # Build send_reply_fn using MessageReference
         async def send_reply_fn(text: str) -> None:
@@ -123,8 +125,8 @@ async def _process_discord_pending(interaction: discord.Interaction):
             else:
                 logger.error(f"Could not find channel {pending['chat_id']} to send pending reply")
         
-        # Re-fetch user record for LLM context
-        user_record = await storage.get_user(interaction.user.id, platform=PLATFORM)
+        # Re-fetch user record from CACHE
+        user_record = await get_user_cached(interaction.user.id, platform=PLATFORM)
         
         await process_message(
             message_text=pending["text"],
@@ -173,6 +175,7 @@ async def handle_manual_time(interaction: discord.Interaction, time_str: str):
         flag=location["flag"],
         username=username
     )
+    invalidate_user_cache(interaction.user.id, platform=PLATFORM)
     
     if interaction.guild:
         await storage.add_chat_member(

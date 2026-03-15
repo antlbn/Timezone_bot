@@ -62,38 +62,43 @@ Telegram Group                     Discord server
 +--------------------------------------------------+
 |                    BOT CORE                      |
 |  +----------+   +-----------+   +-----------+    |
-|  | Capture  |-->| Transform |-->| Formatter |    |
-|  | (Regex)  |   | (UTC-Piv) |   | (Output)  |    |
+|  | Event    |-->| Transform |-->| Formatter |    |
+|  | Detection|   | (UTC-Piv) |   | (Output)  |    |
+|  | (LLM)     |   |           |   |           |    |
 |  +----------+   +-----------+   +-----------+    |
 |        |              |                          |
 |        +-------+------+                          |
 |                v                                 |
 |           +----------+                           |
-|           | Storage  |                           |
-|           | (SQLite) |                           |
+|           | Working  |                           |
+|           | Memory   |                           |
+|           | (In-Mem) |                           |
 |           +----------+                           |
 +--------------------------------------------------+
 ```
 
 **Modules:**
-- **Capture** — regex-based time pattern detection (configurable via YAML)
+- **Event Detection** — LLM-powered time and event extraction (JSON schema enforced)
 - **Transform** — UTC-pivot conversion ensuring consistency with IANA timezone database
 - **Formatter** — output formatting with grouping and day markers
-- **Storage** — SQLite for users and chat membership
+- **Working Memory** — 4-layer in-memory architecture (Caches, Queues, Context, Deferral)
+- **Storage** — SQLite for persistent user data and chat membership
 - **Geocoding** — city name to timezone resolution (geopy + timezonefinder)
 
 ---
 
 ## Current Status
 
-**MVP Release** — Telegram + Discord supported.
+**Stable Release** — Telegram + Discord supported.
 
-| Limitation | Note |
-|------------|------|
-| Detection | Regex-based; misses natural language ("quarter past five") |
-| Storage | SQLite (lightweight, no external deps) |
+| Feature | Status | Note |
+|------------|------|------|
+| **Detection** | ✅ LLM-Powered | Handles natural language ("quarter past five", "at noon") |
+| **Queuing** | ✅ Per-chat Lock | Messages wait their turn, no concurrency loss |
+| **Memory** | ✅ 4-Layer | High performance, zero external deps (no Redis) |
+| **Storage** | ✅ SQLite | Persistent source of truth |
 
-**Roadmap:** Dockerization, WhatsApp support, in-memory caching.
+**Roadmap:** Dockerization, WhatsApp support.
 
 ---
 

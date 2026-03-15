@@ -20,9 +20,9 @@ providers:
   # - id: openrouter:stepfun/step-3.5-flash:free
   #   config:
   #     temperature: 0.1
-  # - id: google:gemini-3.1-flash-lite-preview
-  #   config:
-  #     temperature: 0.1
+  - id: google:gemini-3.1-flash-lite-preview
+    config:
+      temperature: 0.1
   
 
   # Instructor-based providers (structured JSON extraction)

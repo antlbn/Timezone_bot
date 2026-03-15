@@ -6,6 +6,8 @@ from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
+from src.storage.user_cache import get_user_cached
+from src.storage.pending import save_pending_message
 from src.config import get_bot_settings
 from src.logger import get_logger
 from src.commands.states import SetTimezone
@@ -35,7 +37,7 @@ async def cmd_help(message: Message):
 
 
 @router.message(F.text)
-async def handle_time_mention(message: Message, state: FSMContext):
+async def handle_time_mention(message: Message, state: FSMContext, skip_aging: bool = False):
     """Handle regular messages — onboarding for new users, LLM event detection for registered ones."""
     if not message.text:
         return
@@ -45,7 +47,7 @@ async def handle_time_mention(message: Message, state: FSMContext):
     user_name = message.from_user.first_name or "User"
     timestamp_utc = message.date.isoformat() + "Z" if message.date else ""
 
-    sender = await storage.get_user(user_id, platform="telegram")
+    sender = await get_user_cached(user_id, platform="telegram")
 
     # 1. Onboarding — sender not registered yet
     if not sender or not sender.get("timezone"):
@@ -71,8 +73,7 @@ async def handle_time_mention(message: Message, state: FSMContext):
         }
         snapshot = append_to_history("telegram", str(chat_id), msg_data)
 
-        # 1.2 Save to Redis for later processing
-        from src.storage.pending import save_pending_message
+        # 1.2 Save to In-Memory storage for later processing
         await save_pending_message(user_id, "telegram", {
             **msg_data,
             "snapshot": snapshot
@@ -103,6 +104,7 @@ async def handle_time_mention(message: Message, state: FSMContext):
         timestamp_utc=timestamp_utc,
         sender_db=sender,
         send_fn=send_fn,
+        skip_aging=skip_aging,
     )
 
     logger.info(

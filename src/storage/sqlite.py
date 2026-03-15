@@ -16,6 +16,9 @@ class SQLiteStorage(Storage):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         
         async with aiosqlite.connect(self.db_path) as db:
+            # Enable WAL mode for better concurrency (especially for multi-process access)
+            await db.execute("PRAGMA journal_mode=WAL;")
+            
             # Users table: Key = (user_id, platform)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS users (
