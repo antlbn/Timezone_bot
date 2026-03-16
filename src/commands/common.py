@@ -90,11 +90,14 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
             return
         _last_reply[chat_id] = now
 
-    # 3. Build send_fn so tools.py can reply to this chat
+    # 3. Update activity timestamp
+    await storage.update_activity(message.from_user.id, "telegram")
+
+    # 4. Build send_fn so tools.py can reply to this chat
     async def send_fn(text: str) -> None:
         await message.answer(text)
 
-    # 4. LLM pipeline — detection + tool dispatch happen inside process_message
+    # 5. LLM pipeline — detection + tool dispatch happen inside process_message
     result = await process_message(
         message_text=message.text,
         chat_id=str(chat_id),

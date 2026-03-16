@@ -34,6 +34,10 @@ async def main():
     from src.discord import bot
     import src.discord.commands  # noqa: F401 - registers commands
     import src.discord.events    # noqa: F401 - registers events
+    from src.discord.tasks import start_tasks
+    
+    start_tasks()
+    logger.info("Discord background tasks initialized")
     
     logger.info("Starting Discord bot...")
     await bot.start(token)

@@ -56,12 +56,8 @@ async def on_message(message: discord.Message):
         })
         return
 
-    # 2. Active-member filter — prune stale DB members while we're here
-    db_members = await storage.get_chat_members(message.guild.id, platform=PLATFORM)
-    for m in list(db_members):
-        if not message.guild.get_member(m["user_id"]):
-            await storage.remove_chat_member(message.guild.id, m["user_id"], platform=PLATFORM)
-            logger.info(f"[guild:{chat_id}] Auto-removed stale user {m['user_id']}")
+    # 2. Update activity timestamp
+    await storage.update_activity(message.author.id, PLATFORM)
 
     # 3. Build send_fn so tools.py can reply to this channel
     async def send_fn(text: str) -> None:

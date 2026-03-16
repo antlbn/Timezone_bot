@@ -40,9 +40,16 @@ class SQLiteStorage(Storage):
                     user_id INTEGER,
                     platform TEXT DEFAULT 'telegram',
                     PRIMARY KEY (chat_id, user_id, platform),
-                    FOREIGN KEY (user_id, platform) REFERENCES users(user_id, platform)
+                    FOREIGN KEY (user_id, platform) REFERENCES users(user_id, platform) ON DELETE CASCADE
                 )
             """)
+
+            # Add last_active_at if it doesn't exist
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                logger.debug("Added last_active_at column to users table")
+            except Exception:
+                pass # Already exists
             
             await db.commit()
 
@@ -120,3 +127,34 @@ class SQLiteStorage(Storage):
                 (chat_id, platform)
             )
             await db.commit()
+
+    async def update_activity(self, user_id: int, platform: str):
+        """Update last_active_at for a user."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE user_id = ? AND platform = ?",
+                (user_id, platform)
+            )
+            await db.commit()
+
+    async def delete_inactive_users(self, days: int) -> int:
+        """Delete users who haven't been active for N days. Returns count."""
+        async with aiosqlite.connect(self.db_path) as db:
+            # First, find user count to return
+            async with db.execute(
+                "SELECT COUNT(*) FROM users WHERE last_active_at < datetime('now', ?)",
+                (f"-{days} days",)
+            ) as cursor:
+                row = await cursor.fetchone()
+                count = row[0] if row else 0
+
+            if count > 0:
+                # chat_members has FOREIGN KEY ... ON DELETE CASCADE, 
+                # but let's be explicit or ensure PRAGMA foreign_keys=ON is active.
+                await db.execute("PRAGMA foreign_keys = ON;")
+                await db.execute(
+                    "DELETE FROM users WHERE last_active_at < datetime('now', ?)",
+                    (f"-{days} days",)
+                )
+                await db.commit()
+            return count
