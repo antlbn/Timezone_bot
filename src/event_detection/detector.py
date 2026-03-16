@@ -69,8 +69,9 @@ async def call_llm(messages: list[dict]) -> object:
     return response.choices[0]
 
 
-def _parse_llm_json(raw_json: str) -> dict:
+def _parse_llm_json(raw_json: str, platform: str = "", chat_id: str = "") -> dict:
     """Parse and validate LLM JSON, filling safe defaults on failure."""
+    ctx = f"[{platform}:{chat_id}] " if platform and chat_id else ""
     try:
         data = json.loads(raw_json)
         reflections = data.get("reflections", {})
@@ -94,7 +95,7 @@ def _parse_llm_json(raw_json: str) -> dict:
             "points":      points,
         }
     except Exception as exc:
-        logger.error(f"LLM JSON parse error: {exc}. Raw: {raw_json}")
+        logger.error(f"{ctx}LLM JSON parse error: {exc}. Raw: {raw_json}")
         return {
             "reflections": {},
             "event": False,
@@ -128,15 +129,15 @@ async def detect_event(
         {"role": "user",   "content": user_content},
     ]
 
-    logger.debug(f"LLM call | chat={chat_id} | msg='{current_msg.get('text', '')[:60]}'")
+    logger.debug(f"[{platform}:{chat_id}] LLM call | msg='{current_msg.get('text', '')[:60]}'")
 
     choice = await call_llm(messages)
     raw = choice.message.content or ""
-    result = _parse_llm_json(raw)
+    result = _parse_llm_json(raw, platform=platform, chat_id=chat_id)
 
     if result["event"] and result["points"] and send_fn:
         logger.info(
-            f"[chat:{chat_id}] Actionable event detected via JSON | "
+            f"[{platform}:{chat_id}] Actionable event detected via JSON | "
             f"sender={result['sender_id']} points_count={len(result['points'])}"
         )
         from src.event_detection.tools import execute_convert_time

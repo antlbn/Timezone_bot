@@ -25,7 +25,7 @@ async def process_message(
     # 0. Hard skip for excessively long messages (security / cost protection)
     hard_limit = get_max_message_hard_skip()
     if len(message_text) > hard_limit:
-        logger.warning(f"[chat:{chat_id}] Message too long ({len(message_text)} chars), hard skipping.")
+        logger.warning(f"[{platform}:{chat_id}] Message too long ({len(message_text)} chars), hard skipping.")
         return {
             "event": False, "sender_id": user_id, "sender_name": author_name,
             "time": [], "city": [], "reason": f"Message exceeded hard limit of {hard_limit} chars",
@@ -47,15 +47,15 @@ async def process_message(
             msg_time = datetime.datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
             now = datetime.datetime.now(datetime.timezone.utc)
             diff = (now - msg_time).total_seconds()
-            logger.debug(f"[chat:{chat_id}] Message age check: diff={diff:.2f}s, max_age={max_age}s")
+            logger.debug(f"[{platform}:{chat_id}] Message age check: diff={diff:.2f}s, max_age={max_age}s")
             if diff > max_age:
-                logger.warning(f"[chat:{chat_id}] Message too old ({int(diff)}s), skipping.")
+                logger.warning(f"[{platform}:{chat_id}] Message too old ({int(diff)}s), skipping.")
                 return {
                     "event": False, "sender_id": user_id, "sender_name": author_name,
                     "time": [], "city": [], "reason": "Message stale before processing",
                 }
         except Exception as e:
-            logger.error(f"Error checking message age: {e}")
+            logger.error(f"[{platform}:{chat_id}] Error checking message age: {e}")
     
     # Pre-parse time for second aging check below
     try:
@@ -65,7 +65,7 @@ async def process_message(
 
     if skip_history_append:
         snapshot = precomputed_snapshot or []
-        logger.debug(f"[chat:{chat_id}] Using precomputed snapshot (size={len(snapshot)})")
+        logger.debug(f"[{platform}:{chat_id}] Using precomputed snapshot (size={len(snapshot)})")
     else:
         snapshot = append_to_history(platform, chat_id, msg_data)
 
@@ -80,7 +80,7 @@ async def process_message(
             age = (now - msg_time).total_seconds()
             if age > max_age:
                 logger.warning(
-                    f"[chat:{chat_id}] Message became stale while waiting in queue. "
+                    f"[{platform}:{chat_id}] Message became stale while waiting in queue. "
                     f"Age: {int(age)}s (Limit: {max_age}s). Dropping msg from '{author_name}'."
                 )
                 return {

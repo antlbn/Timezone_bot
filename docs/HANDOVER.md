@@ -133,6 +133,8 @@ The bot implements a custom in-memory architecture to handle state without exter
 
 | Priority | Enhancement |
 |----------|-------------|
+| **High** | **LRU Cache + Activity Tracking**: Implement memory limits for `user_cache.py` and auto-purge users inactive for N days. |
+| **Medium** | **Background Sync (Discord)**: Replace per-message cleanup with a daily background task to catch members who left while bot was offline. |
 | **Medium** | Dockerization for easy deployment |
 | **Low** | WhatsApp support |
 

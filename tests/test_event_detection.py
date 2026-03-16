@@ -161,9 +161,9 @@ async def test_message_aging_post_lock():
         
         await asyncio.sleep(0.1) # Let it hit the lock
         
-        # Now artificially age the message by waiting longer than max_age (20s)
-        # We don't want to actually sleep 20s in tests, so we'll mock datetime.now
-        future_now = now + datetime.timedelta(seconds=30)
+        # Now artificially age the message by waiting longer than max_age (30s)
+        # We don't want to actually sleep 30s in tests, so we'll mock datetime.now
+        future_now = now + datetime.timedelta(seconds=40)
         
         with patch("datetime.datetime") as mock_dt:
             mock_dt.now.return_value = future_now
