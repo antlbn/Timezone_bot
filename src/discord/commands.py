@@ -8,7 +8,7 @@ from src.discord import bot
 from src.discord.ui import FallbackView
 from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
-from src.storage.pending import get_and_delete_pending_message
+from src.storage.pending import get_and_delete_pending_messages
 from src.event_detection import process_message
 from src import geo, formatter
 from src.transform import get_utc_offset
@@ -102,11 +102,16 @@ async def handle_settz(interaction: discord.Interaction, city: str):
 
 async def _process_discord_pending(interaction: discord.Interaction):
     """Helper to check for and process pending Discord messages."""
-    pending = await get_and_delete_pending_message(interaction.user.id, PLATFORM)
+    pending_list = await get_and_delete_pending_messages(interaction.user.id, PLATFORM)
+    if not pending_list:
+        return
+
+    logger.info(f"[guild:{interaction.guild_id}] Processing {len(pending_list)} pending messages for user {interaction.user.id}")
     
-    if pending:
-        logger.info(f"[guild:{interaction.guild_id}] Processing pending message for user {interaction.user.id}")
-        
+    # Re-fetch user record from CACHE
+    user_record = await get_user_cached(interaction.user.id, platform=PLATFORM)
+
+    for pending in pending_list:
         # Build send_reply_fn using MessageReference
         async def send_reply_fn(text: str) -> None:
             # We need the channel to send a message to it
@@ -124,9 +129,6 @@ async def _process_discord_pending(interaction: discord.Interaction):
                 await channel.send(text, reference=message_ref)
             else:
                 logger.error(f"Could not find channel {pending['chat_id']} to send pending reply")
-        
-        # Re-fetch user record from CACHE
-        user_record = await get_user_cached(interaction.user.id, platform=PLATFORM)
         
         await process_message(
             message_text=pending["text"],

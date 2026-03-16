@@ -33,9 +33,10 @@ class SQLiteStorage(Storage):
                 user_id INTEGER,
                 platform TEXT DEFAULT 'telegram',
                 username TEXT DEFAULT '',
-                city TEXT NOT NULL,
-                timezone TEXT NOT NULL,
+                city TEXT,
+                timezone TEXT,
                 flag TEXT DEFAULT '',
+                onboarding_declined INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, platform)
@@ -53,12 +54,18 @@ class SQLiteStorage(Storage):
             )
         """)
 
-        # Add last_active_at if it doesn't exist
+        # Migrations
         try:
             await db.execute("ALTER TABLE users ADD COLUMN last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
             logger.debug("Added last_active_at column to users table")
         except Exception:
-            pass # Already exists
+            pass
+        
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN onboarding_declined INTEGER DEFAULT 0")
+            logger.debug("Added onboarding_declined column to users table")
+        except Exception:
+            pass
         
         await db.commit()
 
@@ -67,7 +74,7 @@ class SQLiteStorage(Storage):
         """Get user by ID and platform."""
         db = await self._get_conn()
         async with db.execute(
-            "SELECT user_id, platform, username, city, timezone, flag FROM users WHERE user_id = ? AND platform = ?",
+            "SELECT user_id, platform, username, city, timezone, flag, onboarding_declined FROM users WHERE user_id = ? AND platform = ?",
             (user_id, platform)
         ) as cursor:
                 row = await cursor.fetchone()
@@ -120,14 +127,15 @@ class SQLiteStorage(Storage):
             await db.commit()
         return count
 
-    async def set_user(self, user_id: int, platform: str, city: str, timezone: str, flag: str = "", username: str = ""):
+    async def set_user(self, user_id: int, platform: str, city: Optional[str], timezone: Optional[str], flag: str = "", username: str = "", onboarding_declined: bool = False):
         """Create or update user timezone."""
         db = await self._get_conn()
+        declined_int = 1 if onboarding_declined else 0
         await db.execute("""
-            INSERT INTO users (user_id, platform, username, city, timezone, flag)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, platform) DO UPDATE SET username = ?, city = ?, timezone = ?, flag = ?
-        """, (user_id, platform, username, city, timezone, flag, username, city, timezone, flag))
+            INSERT INTO users (user_id, platform, username, city, timezone, flag, onboarding_declined)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET username = ?, city = ?, timezone = ?, flag = ?, onboarding_declined = ?
+        """, (user_id, platform, username, city, timezone, flag, declined_int, username, city, timezone, flag, declined_int))
         await db.commit()
 
     async def add_chat_member(self, chat_id: int, user_id: int, platform: str):

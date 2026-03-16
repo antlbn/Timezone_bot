@@ -55,17 +55,20 @@ async def execute_convert_time(
                 source_tz   = geo_result["timezone"]
                 source_flag = geo_result["flag"]
             else:
-                logger.warning(
-                    f"[chat:{chat_id}] Geocode failed for '{city_override}', "
-                    f"falling back to sender DB TZ."
-                )
-                source_city = sender_db.get("city", "")
-                source_tz   = sender_db.get("timezone", "UTC")
+                # If city override failed, try sender DB as fallback
+                source_city = sender_db.get("city")
+                source_tz   = sender_db.get("timezone")
                 source_flag = sender_db.get("flag", "")
         else:
-            source_city = sender_db.get("city", "")
-            source_tz   = sender_db.get("timezone", "UTC")
+            # No city override, use sender DB
+            source_city = sender_db.get("city")
+            source_tz   = sender_db.get("timezone")
             source_flag = sender_db.get("flag", "")
+
+        # CRITICAL: If still no timezone, we cannot convert. Skip this point.
+        if not source_tz:
+            logger.debug(f"[chat:{chat_id}] No source TZ for point {point}, skipping point.")
+            continue
 
         conversions.append({
             "original_time": time_str,

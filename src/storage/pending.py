@@ -10,37 +10,60 @@ from src.logger import get_logger
 
 logger = get_logger()
 
-# Structure: {(user_id, platform): {"data": dict, "expires": float}}
+# Structure: {(user_id, platform): {"messages": List[dict], "expires": float}}
 _frozen_messages = {}
 
 async def save_pending_message(user_id: int, platform: str, message_data: dict):
     """
     Save message data to in-memory 'frozen' storage for onboarding.
+    Appends if entry exists and is not expired.
     """
+    key = (user_id, platform)
     timeout = get_onboarding_timeout()
-    expires = time.time() + timeout
+    now = time.time()
     
-    _frozen_messages[(user_id, platform)] = {
-        "data": message_data,
-        "expires": expires
-    }
-    logger.info(f"Saved pending message for {user_id} ({platform}). TTL: {timeout}s.")
+    if key in _frozen_messages and now < _frozen_messages[key]["expires"]:
+        # Entry exists and is fresh — just append
+        _frozen_messages[key]["messages"].append(message_data)
+        logger.info(f"Appended pending message for {user_id} ({platform}). Total: {len(_frozen_messages[key]['messages'])}")
+    else:
+        # Create new entry or replace expired one
+        _frozen_messages[key] = {
+            "messages": [message_data],
+            "expires": now + timeout
+        }
+        logger.info(f"Started new pending queue for {user_id} ({platform}). TTL: {timeout}s.")
 
-async def get_and_delete_pending_message(user_id: int, platform: str) -> dict | None:
+async def get_and_delete_pending_messages(user_id: int, platform: str) -> list[dict]:
     """
-    Retrieve and remove the pending message for a user.
+    Retrieve and remove ALL pending messages for a user.
     Checks for expiration.
     """
     key = (user_id, platform)
     if key not in _frozen_messages:
-        return None
+        return []
     
     item = _frozen_messages.pop(key)
     if time.time() > item["expires"]:
-        logger.warning(f"Pending message for {user_id} ({platform}) expired.")
-        return None
+        logger.warning(f"Pending messages for {user_id} ({platform}) expired.")
+        return []
     
-    return item["data"]
+    return item["messages"]
+
+async def peek_pending_messages(user_id: int, platform: str) -> list[dict]:
+    """
+    Look at pending messages without deleting them.
+    Checks for expiration.
+    """
+    key = (user_id, platform)
+    if key not in _frozen_messages:
+        return []
+    
+    item = _frozen_messages[key]
+    if time.time() > item["expires"]:
+        return []
+    
+    return item["messages"]
 
 async def cleanup_loop():
     """

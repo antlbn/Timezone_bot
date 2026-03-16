@@ -1,13 +1,13 @@
 from time import time
 
 from aiogram import Router, F
-from aiogram.types import Message, ChatMemberUpdated, ForceReply
+from aiogram.types import Message, ChatMemberUpdated, ForceReply, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
-from src.storage.user_cache import get_user_cached
-from src.storage.pending import save_pending_message
+from src.storage.user_cache import get_user_cached, invalidate_user_cache
+from src.storage.pending import save_pending_message, get_and_delete_pending_messages
 from src.config import get_bot_settings
 from src.logger import get_logger
 from src.commands.states import SetTimezone
@@ -49,19 +49,8 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
 
     sender = await get_user_cached(user_id, platform="telegram")
 
-    # 1. Onboarding — sender not registered yet
-    if not sender or not sender.get("timezone"):
-        if sender and not sender.get("timezone"):
-            logger.error(f"User {user_id} exists in DB but has no timezone")
-
-        await state.update_data(user_id=user_id)
-        await state.set_state(SetTimezone.waiting_for_city)
-        await message.reply(
-            f"{user_name}, what city are you in?",
-            reply_markup=ForceReply(selective=True),
-        )
-
-        # 1.1 Snapshot N preceding messages, then append current message to deque
+    # 1. Onboarding — sender not registered yet (and hasn't declined)
+    if not sender or (not sender.get("timezone") and not sender.get("onboarding_declined")):
         msg_data = {
             "platform":      "telegram",
             "chat_id":       str(chat_id),
@@ -71,13 +60,31 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
             "timestamp_utc": timestamp_utc,
             "message_id":    message.message_id,
         }
-        snapshot = append_to_history("telegram", str(chat_id), msg_data)
 
-        # 1.2 Save to In-Memory storage for later processing
-        await save_pending_message(user_id, "telegram", {
-            **msg_data,
-            "snapshot": snapshot
-        })
+        # Check if we already have pending messages to avoid duplicate button prompts
+        existing_pending = await get_and_delete_pending_messages(user_id, "telegram")
+        
+        if not existing_pending:
+            # First time seeing this user (or previous session expired)
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📍 Set city", callback_data=f"onboarding:set:{user_id}"),
+                InlineKeyboardButton(text="✖️ No thanks", callback_data=f"onboarding:decline:{user_id}")
+            ]])
+            
+            welcome_text = (
+                f"Hi {user_name}! I can help coordinate times in this chat. "
+                "To show your local time to others, I need to know your city."
+            )
+            await message.reply(welcome_text, reply_markup=kb)
+            
+            # Put back the messages if they were fresh (save_pending_message handles fresh check)
+            await save_pending_message(user_id, "telegram", msg_data)
+        else:
+            # Already pending, just add this one to the queue
+            # (re-save all to maintain order and expiration)
+            for m in existing_pending:
+                await save_pending_message(user_id, "telegram", m)
+            await save_pending_message(user_id, "telegram", msg_data)
         
         return
 

@@ -2,7 +2,7 @@ import pytest
 import asyncio
 import datetime
 from unittest.mock import AsyncMock, patch
-from src.storage.pending import save_pending_message, get_and_delete_pending_message
+from src.storage.pending import save_pending_message, get_and_delete_pending_messages
 from src.event_detection import process_message
 from src.event_detection.history import get_chat_lock
 
@@ -12,9 +12,10 @@ async def test_pending_storage_memory_logic():
     platform = "test"
     uid = 101
     await save_pending_message(uid, platform, {"text": "hello"})
-    res = await get_and_delete_pending_message(uid, platform)
-    assert res["text"] == "hello"
-    assert await get_and_delete_pending_message(uid, platform) is None
+    res = await get_and_delete_pending_messages(uid, platform)
+    assert len(res) == 1
+    assert res[0]["text"] == "hello"
+    assert await get_and_delete_pending_messages(uid, platform) == []
 
 @pytest.mark.asyncio
 async def test_waiting_lock_queuing():
