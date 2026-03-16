@@ -1,3 +1,9 @@
+## Future Roadmap (Backlog from Code Review)
+- **Memory Management**: Add `LRU` logic to `user_cache.py`. **User Suggestion**: Implement cleanup for users inactive for N days.
+- **Discord Performance**: Move member cleanup to a background task (e.g., once every 24h). 
+- **Reliability**: Address "Bot Downtime" risk — background sync is better than `on_member_remove` because it catches members who left while the bot was offline.
+- **Observability**: Add `chat_id` and `platform` to all `logger.error` calls in the LLM pipeline for better diagnostics.
+
 ## 2026-03-15 (session 2) - Architecture Review & Security Refinements
 - **Review**: Conducted a comprehensive audit of specifications, acknowledging the success of the "Working Memory" caching layer.
 - **Security**: Implemented **Hard Skip** for messages > 2000 chars in the LLM pipeline to prevent token abuse.
