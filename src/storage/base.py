@@ -49,3 +49,13 @@ class Storage(ABC):
     async def clear_chat_members(self, chat_id: int, platform: str):
         """Remove all members of a chat (e.g. when bot is kicked)."""
         pass
+
+    @abstractmethod
+    async def update_activity(self, user_id: int, platform: str):
+        """Update last_active_at for a user."""
+        pass
+
+    @abstractmethod
+    async def delete_inactive_users(self, days: int) -> int:
+        """Delete users (and their chat memberships) who haven't been active for N days. Returns count."""
+        pass
