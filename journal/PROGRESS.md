@@ -1,3 +1,7 @@
+## 2026-03-16 (session 1)
+- **Observability**: Added `platform` and `chat_id` context to all LLM-related logs in `detector.py` and `__init__.py`.
+- **Testing**: Linked message aging tests to `configuration.yaml` via `get_max_message_age()`, removing hardcoded "magic numbers".
+
 ## Future Roadmap (Backlog from Code Review)
 - **Memory Management**: Add `LRU` logic to `user_cache.py`. **User Suggestion**: Implement cleanup for users inactive for N days.
 - **Discord Performance**: Move member cleanup to a background task (e.g., once every 24h). 

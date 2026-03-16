@@ -4,6 +4,7 @@ import datetime
 from unittest.mock import AsyncMock, patch
 from src.event_detection import process_message
 from src.event_detection.history import _message_history, _chat_locks
+from src.config import get_max_message_age
 
 
 @pytest.fixture(autouse=True)
@@ -125,10 +126,11 @@ async def test_llm_json_dispatch(monkeypatch):
     assert result["points"] == [{"time": "20:00", "city": "London"}]
 
 @pytest.mark.asyncio
-async def test_message_aging_pre_lock():
-    """Verify that a message already older than max_age is skipped before locking."""
-    # Build an old timestamp (e.g. 60s ago)
-    old_time = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=60)).isoformat()
+async def test_message_age_limit():
+    """Verify that messages older than max_age are skipped (Pass 1)."""
+    max_age = get_max_message_age()
+    # Build an old timestamp (e.g. max_age + 1s ago)
+    old_time = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=max_age + 1)).isoformat()
     
     with patch("src.event_detection.detect_event", new_callable=AsyncMock) as mock_detect:
         res = await process_message(
@@ -137,6 +139,8 @@ async def test_message_aging_pre_lock():
         assert res["event"] is False
         assert "stale" in res.get("reason", "").lower()
         mock_detect.assert_not_called()
+
+# test_message_aging_pre_lock was redundant, removed.
 
 @pytest.mark.asyncio
 async def test_message_aging_post_lock():
@@ -161,9 +165,10 @@ async def test_message_aging_post_lock():
         
         await asyncio.sleep(0.1) # Let it hit the lock
         
-        # Now artificially age the message by waiting longer than max_age (30s)
-        # We don't want to actually sleep 30s in tests, so we'll mock datetime.now
-        future_now = now + datetime.timedelta(seconds=40)
+        # Now artificially age the message by waiting longer than max_age from config
+        max_age = get_max_message_age()
+        # We don't want to actually sleep in tests, so we'll mock datetime.now
+        future_now = now + datetime.timedelta(seconds=max_age + 5)
         
         with patch("datetime.datetime") as mock_dt:
             mock_dt.now.return_value = future_now
