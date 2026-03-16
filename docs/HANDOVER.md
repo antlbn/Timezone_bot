@@ -86,7 +86,7 @@ Telegram bots can't list all chat members without admin rights. Instead:
 ### 3.4 Why 4-Layer "Clean Memory" Over Redis?
 
 The bot implements a custom in-memory architecture to handle state without external dependencies:
-1.  **Users Cache**: Read-through snapshots of SQLite data.
+1.  **Users Cache**: Read-through **LRU snapshots** (Limit: 10k users) of SQLite data.
 2.  **Chat Context**: Rolling history for LLM awareness.
 3.  **LLM Queue**: Async locks per chat with **20s aging** to prevent stale responses.
 4.  **Onboarding Buffer**: Deferral of messages from unregistered users (60s TTL).
@@ -101,7 +101,8 @@ The bot implements a custom in-memory architecture to handle state without exter
 
 - **Zero setup** — comes with Python
 - **Async via aiosqlite** — fast enough for single-instance
-- **WAL (Write-Ahead Logging)** — Enabled to support safe concurrent access when running Telegram and Discord bots in separate processes sharing the same `bot.db`.
+- **Persistent Connection** — Reuse single DB handle for the lifetime of the process.
+- **WAL (Write-Ahead Logging)** — Global PRAGMA for high concurrency.
 - **Multi-platform ready** — `platform` column separates Telegram/Discord users
 
 ---
@@ -133,8 +134,8 @@ The bot implements a custom in-memory architecture to handle state without exter
 
 | Priority | Enhancement |
 |----------|-------------|
-| **High** | **LRU Cache + Activity Tracking**: Implement memory limits for `user_cache.py` and auto-purge users inactive for N days. |
-| **Medium** | **Background Sync (Discord)**: Replace per-message cleanup with a daily background task to catch members who left while bot was offline. |
+| **High** | **LRU Cache + Activity Tracking**: **Implemented** (2026-03-16). |
+| **Medium** | **Background Sync (Discord)**: **Implemented** (2026-03-15). |
 | **Medium** | Dockerization for easy deployment |
 | **Low** | WhatsApp support |
 

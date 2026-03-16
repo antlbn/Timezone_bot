@@ -81,8 +81,8 @@ Telegram Group                     Discord server
 - **Event Detection** — LLM-powered time and event extraction (JSON schema enforced)
 - **Transform** — UTC-pivot conversion ensuring consistency with IANA timezone database
 - **Formatter** — output formatting with grouping and day markers
-- **Working Memory** — 4-layer in-memory architecture (Caches, Queues, Context, Deferral)
-- **Storage** — SQLite for persistent user data and chat membership
+- **Working Memory** — 4-layer in-memory architecture with LRU caching (Layer 1)
+- **Storage** — SQLite (WAL mode, persistent connection) for persistent state
 - **Geocoding** — city name to timezone resolution (geopy + timezonefinder)
 
 ---
@@ -95,8 +95,8 @@ Telegram Group                     Discord server
 |------------|------|------|
 | **Detection** | ✅ LLM-Powered | Handles natural language ("quarter past five", "at noon") |
 | **Queuing** | ✅ Per-chat Lock | Messages wait their turn, no concurrency loss |
-| **Memory** | ✅ 4-Layer | High performance, zero external deps (no Redis) |
-| **Storage** | ✅ SQLite | Persistent source of truth |
+| **Memory** | ✅ 4-Layer + LRU| High performance, size-limited (O(1) lookups) |
+| **Storage** | ✅ SQLite | Persistent, high-concurrency (WAL mode) |
 
 **Roadmap:** Dockerization, WhatsApp support.
 

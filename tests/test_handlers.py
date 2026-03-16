@@ -15,6 +15,7 @@ def mock_storage_and_cache(monkeypatch):
     cache_mock = AsyncMock()
     # Apply mocks to the modules where they are used
     monkeypatch.setattr("src.commands.settings.storage", storage_mock)
+    monkeypatch.setattr("src.commands.common.storage", storage_mock)  # <-- ADDED
     monkeypatch.setattr("src.commands.settings.get_user_cached", cache_mock)
     monkeypatch.setattr("src.commands.settings.invalidate_user_cache", MagicMock())
     return storage_mock, cache_mock

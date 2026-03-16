@@ -64,7 +64,7 @@ async def test_message_aging_while_waiting():
                 lock.release()
                 
                 result = await msg_task
-                assert result.get("reason") == "Message stale after queue"
+                assert "Message stale after queueing" in result.get("reason")
                 mock_detect.assert_not_called()
     finally:
         if lock.locked(): lock.release()

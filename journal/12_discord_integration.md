@@ -90,7 +90,15 @@ On each time mention, bot checks if users from DB are still on the server:
 for m in db_members:
     if not message.guild.get_member(m["user_id"]):
         await storage.remove_chat_member(...)  # Auto-remove stale user
+
+# tasks.py - Scheduled Sync (Implemented 2026-03-15)
+# Daily task to catch members who left while bot was offline.
+async def sync_discord_members():
+    ...
 ```
+
+### 4.2 Server Removal
+When the bot is removed from a guild (`on_guild_remove`), it triggers `clear_chat_members(guild_id)` to purge all associated participant data for that server.
 
 ---
 

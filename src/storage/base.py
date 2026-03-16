@@ -59,3 +59,8 @@ class Storage(ABC):
     async def delete_inactive_users(self, days: int) -> int:
         """Delete users (and their chat memberships) who haven't been active for N days. Returns count."""
         pass
+
+    @abstractmethod
+    async def close(self):
+        """Close database connection."""
+        pass

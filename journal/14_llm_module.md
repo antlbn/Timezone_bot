@@ -329,15 +329,13 @@ Each test case must assert: `event`, `points[]`, and optionally
 
 ---
 
-## 12. Observability & Logging
+To ensure reliable production monitoring, the pipeline uses **`logging.LoggerAdapter`** to automatically inject context into all log entries (debug, info, error).
 
-To ensure reliable production monitoring, every LLM-related log entry (debug, info, error) **MUST** include the following context:
+**Context fields:**
 - `platform`: `telegram` or `discord`
 - `chat_id`: The unique identifier for the conversation.
 
-**Example Log Format:**
-`[telegram:12345678] Actionable event detected...`
-`[discord:987654321] LLM JSON parse error...`
+The entry point `process_message` wraps the global logger with an `extra_prefix` before passing it down to the detector.
 
 ---
 

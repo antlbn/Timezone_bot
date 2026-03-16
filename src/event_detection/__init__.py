@@ -1,4 +1,6 @@
 import datetime
+import logging
+from typing import List, Dict, Optional, Any, Callable
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
 from src.event_detection.history import append_to_history, get_chat_lock
@@ -13,19 +15,24 @@ async def process_message(
     platform: str,
     author_name: str,
     timestamp_utc: str,
-    sender_db: dict | None = None,
-    send_fn=None,  # async callable(text: str) → None
+    sender_db: Dict | None = None,
+    send_fn: Callable | None = None,  # async callable(text: str) → None
     skip_history_append: bool = False,
     skip_aging: bool = False,
-    precomputed_snapshot: list[dict] | None = None,
-) -> dict:
+    precomputed_snapshot: List[Dict] | None = None,
+) -> Dict[str, Any]:
     """
     Main entry point for the LLM pipeline with queuing and aging.
     """
+    # Create a contextual logger for this message
+    ctx_logger = logging.LoggerAdapter(logger, {"extra_prefix": f"[{platform}:{chat_id}]"})
+
+    ctx_logger.info(f"Processing message from {author_name} ({user_id})")
+
     # 0. Hard skip for excessively long messages (security / cost protection)
     hard_limit = get_max_message_hard_skip()
     if len(message_text) > hard_limit:
-        logger.warning(f"[{platform}:{chat_id}] Message too long ({len(message_text)} chars), hard skipping.")
+        ctx_logger.warning(f"Message too long ({len(message_text)} chars), hard skipping.")
         return {
             "event": False, "sender_id": user_id, "sender_name": author_name,
             "time": [], "city": [], "reason": f"Message exceeded hard limit of {hard_limit} chars",
@@ -95,6 +102,7 @@ async def process_message(
             send_fn=send_fn,
             platform=platform,
             chat_id=chat_id,
+            ctx_logger=ctx_logger,
         )
 
     return result

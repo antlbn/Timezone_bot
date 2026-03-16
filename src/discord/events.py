@@ -86,3 +86,9 @@ async def on_member_remove(member: discord.Member):
     """Remove user from storage when they leave the guild."""
     await storage.remove_chat_member(member.guild.id, member.id, platform=PLATFORM)
     logger.info(f"[guild:{member.guild.id}] Member {member.id} left, removed from storage")
+
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    """Remove all members from research when bot is kicked from guild."""
+    await storage.clear_chat_members(guild.id, platform=PLATFORM)
+    logger.info(f"[guild:{guild.id}] Bot removed from guild, cleared all members from storage")

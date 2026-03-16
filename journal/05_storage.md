@@ -3,7 +3,7 @@
 ## 1. Overview
 
 Data storage module for users and their chat membership.
-Using **aiosqlite** (async SQLite) — fast, reliable, compatible with aiogram.
+Using **aiosqlite** (async SQLite) with **persistent connection** and **WAL mode**.
 
 > [!NOTE]
 > **UPDATE 2026-02-03**: Module refactored into package `src/storage/`.
@@ -47,6 +47,13 @@ CREATE TABLE users (
     updated_at  TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, platform)
 );
+```
+
+### 2.2 Activity Tracking
+A new column `last_active_at` was added to `users` to support automatic cleanup of inactive users.
+
+```sql
+ALTER TABLE users ADD COLUMN last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ```
 
 ### 2.2 Table `chat_members`
@@ -106,6 +113,12 @@ remove_chat_member(chat_id: int, user_id: int, platform: str) -> None
 
 # Clear chat
 clear_chat_members(chat_id: int, platform: str) -> None
+
+# Track activity
+update_activity(user_id: int, platform: str) -> None
+
+# Cleanup
+delete_inactive_users(days: int) -> int  # Returns count of deleted users
 ```
 
 ---
@@ -226,9 +239,8 @@ def init_db(db_path: str = "./data/bot.db"):
 
 ## 9. In-Memory Caching Layer (Future Enhancement)
 
-> [!WARNING]
-> **NOT IMPLEMENTED** — This section describes a future design proposal only.
-> Current implementation queries SQLite directly on every request.
+> [!IMPORTANT]
+> **IMPLEMENTED 2026-03-16** — Layer 1 (User Snapshots) now uses an **LRU Cache** with 10k capacity.
 
 ### 9.1 Motivation
 

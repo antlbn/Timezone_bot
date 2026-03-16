@@ -33,6 +33,8 @@ logging:
 In log messages, simply add chat ID if available:
 `[chat:123] Timezone set to Europe/Berlin`
 
+Starting from **2026-03-16**, the LLM pipeline uses `logging.LoggerAdapter` to automatically inject `[platform:chat_id]` into all logs within the pipeline context.
+
 ---
 
 ## 5. Exception Handling

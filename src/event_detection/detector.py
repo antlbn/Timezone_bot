@@ -2,6 +2,7 @@ import json
 from src.logger import get_logger
 from src.event_detection.client import get_llm_client, get_llm_model
 from src.event_detection.prompts import get_system_prompt, get_tools
+from typing import Any, List, Dict
 from src.config import get_bot_settings
 
 logger = get_logger()
@@ -69,9 +70,8 @@ async def call_llm(messages: list[dict]) -> object:
     return response.choices[0]
 
 
-def _parse_llm_json(raw_json: str, platform: str = "", chat_id: str = "") -> dict:
+def _parse_llm_json(raw_json: str, ctx_logger: Any) -> dict:
     """Parse and validate LLM JSON, filling safe defaults on failure."""
-    ctx = f"[{platform}:{chat_id}] " if platform and chat_id else ""
     try:
         data = json.loads(raw_json)
         reflections = data.get("reflections", {})
@@ -95,7 +95,7 @@ def _parse_llm_json(raw_json: str, platform: str = "", chat_id: str = "") -> dic
             "points":      points,
         }
     except Exception as exc:
-        logger.error(f"{ctx}LLM JSON parse error: {exc}. Raw: {raw_json}")
+        ctx_logger.error(f"LLM JSON parse error: {exc}. Raw: {raw_json}")
         return {
             "reflections": {},
             "event": False,
@@ -114,6 +114,7 @@ async def detect_event(
     send_fn=None,
     platform: str = "",
     chat_id: str = "",
+    ctx_logger: Any = None, # Added ctx_logger parameter
 ) -> dict:
     """
     Direct JSON Event Detection.
@@ -123,21 +124,24 @@ async def detect_event(
     3. Parse JSON response.
     4. If event=true, execute the conversion logic directly.
     """
+    if ctx_logger is None:
+        ctx_logger = logger # Fallback to global logger if not provided
+
     user_content = _build_user_content(current_msg, snapshot, sender_db)
     messages = [
         {"role": "system", "content": get_system_prompt()},
         {"role": "user",   "content": user_content},
     ]
 
-    logger.debug(f"[{platform}:{chat_id}] LLM call | msg='{current_msg.get('text', '')[:60]}'")
+    ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
 
     choice = await call_llm(messages)
     raw = choice.message.content or ""
-    result = _parse_llm_json(raw, platform=platform, chat_id=chat_id)
+    result = _parse_llm_json(raw, ctx_logger=ctx_logger)
 
     if result["event"] and result["points"] and send_fn:
-        logger.info(
-            f"[{platform}:{chat_id}] Actionable event detected via JSON | "
+        ctx_logger.info(
+            f"Actionable event detected via JSON | "
             f"sender={result['sender_id']} points_count={len(result['points'])}"
         )
         from src.event_detection.tools import execute_convert_time

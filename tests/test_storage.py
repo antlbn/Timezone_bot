@@ -5,28 +5,45 @@ import aiosqlite
 from pathlib import Path
 from src.storage.sqlite import SQLiteStorage
 
-# Temporary database path for testing (relative to tests directory)
+# Temporary database path for testing
 TEST_DB = Path(__file__).parent / "test_bot.db"
-storage = SQLiteStorage(TEST_DB)
 
-@pytest.fixture(autouse=True)
-async def setup_test_db():
-    """Setup a fresh temporary database for each test."""
-    # Ensure fresh start
-    if TEST_DB.exists():
-        os.remove(TEST_DB)
+@pytest.fixture
+async def storage():
+    """Setup a fresh temporary database and storage instance for each test."""
+    def cleanup_files():
+        for suffix in ["", "-wal", "-shm"]:
+            p = Path(str(TEST_DB) + suffix)
+            if p.exists():
+                try:
+                    os.remove(p)
+                except:
+                    pass
+
+    cleanup_files()
+            
+    _storage = SQLiteStorage(TEST_DB)
+    await _storage.init()
     
-    # Initialize schema
-    await storage.init()
-    
-    yield
+    yield _storage
     
     # Clean up
-    if TEST_DB.exists():
-        os.remove(TEST_DB)
+    await _storage.close()
+    
+    # Robust deletion with retry
+    import asyncio
+    for _ in range(5):
+        try:
+            for suffix in ["", "-wal", "-shm"]:
+                p = Path(str(TEST_DB) + suffix)
+                if p.exists():
+                    os.remove(p)
+            break
+        except:
+            await asyncio.sleep(0.1)
 
 @pytest.mark.asyncio
-async def test_set_and_get_user():
+async def test_set_and_get_user(storage):
     """Test setting and retrieving user data."""
     await storage.set_user(123, "telegram", "test_city", "UTC", "🇺🇸", "test_user")
     
@@ -38,7 +55,7 @@ async def test_set_and_get_user():
     assert user["username"] == "test_user"
 
 @pytest.mark.asyncio
-async def test_chat_members():
+async def test_chat_members(storage):
     """Test adding and retrieving chat members."""
     # First need a user
     await storage.set_user(111, "telegram", "Berlin", "Europe/Berlin", "🇩🇪", "user1")
@@ -61,7 +78,7 @@ async def test_chat_members():
     assert berlin_user["city"] == "Berlin"
 
 @pytest.mark.asyncio
-async def test_remove_chat_member():
+async def test_remove_chat_member(storage):
     """Test removing a specific chat member."""
     await storage.set_user(1, "telegram", "A", "UTC", "", "u1")
     await storage.add_chat_member(55, 1, platform="telegram")
@@ -74,7 +91,7 @@ async def test_remove_chat_member():
     assert len(members) == 0
 
 @pytest.mark.asyncio
-async def test_clear_chat_members():
+async def test_clear_chat_members(storage):
     """Test clearing all members of a chat."""
     await storage.set_user(1, "telegram", "A", "UTC", "", "u1")
     await storage.set_user(2, "telegram", "B", "UTC", "", "u2")
@@ -87,7 +104,7 @@ async def test_clear_chat_members():
     assert len(members) == 0
 
 @pytest.mark.asyncio
-async def test_platform_separation():
+async def test_platform_separation(storage):
     """Test that users with same ID on different platforms are separate."""
     # Create user 123 on Telegram
     await storage.set_user(123, "telegram", "Berlin", "Europe/Berlin")
@@ -105,7 +122,7 @@ async def test_platform_separation():
 
 
 @pytest.mark.asyncio
-async def test_update_user_fields():
+async def test_update_user_fields(storage):
     """Test updating existing user data (e.g. city change)."""
     # 1. Create initial user
     await storage.set_user(777, "telegram", "London", "Europe/London", "🇬🇧")
@@ -123,7 +140,7 @@ async def test_update_user_fields():
 
 
 @pytest.mark.asyncio
-async def test_mixed_platform_members():
+async def test_mixed_platform_members(storage):
     """Test that get_chat_members filters by platform correctly."""
     CHAT_ID = 9000
     
@@ -152,9 +169,10 @@ async def test_mixed_platform_members():
 
 
 @pytest.mark.asyncio
-async def test_sqlite_wal_mode():
+async def test_sqlite_wal_mode(storage):
     """Verify that SQLite is running in WAL mode."""
-    async with aiosqlite.connect(TEST_DB) as db:
-        async with db.execute("PRAGMA journal_mode;") as cursor:
-            row = await cursor.fetchone()
-            assert row[0].lower() == "wal"
+    # We check through the storage connection to ensure it's active
+    db = await storage._get_conn()
+    async with db.execute("PRAGMA journal_mode;") as cursor:
+        row = await cursor.fetchone()
+        assert row[0].lower() == "wal"

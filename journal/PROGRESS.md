@@ -1,3 +1,10 @@
+## 2026-03-16 (session 2) - Code Quality & Robustness Refactor
+- **Storage**: Refactored `SQLiteStorage` to use a **persistent connection** and global PRAGMAs (`WAL`, `Foreign Keys`).
+- **Memory**: Implemented **LRU Cache** (OrderDict, 10k limit) for Layer 1 User Snapshots.
+- **Observability**: Implemented **LoggerAdapter** in the LLM pipeline for automatic `[platform:chat_id]` prefixing.
+- **Discord**: Added `on_guild_remove` handler to clear chat members when bot is kicked from a server.
+- **Reliability**: Stabilized the test suite (fixed 13/13 passing) and implemented robust file cleanup for Windows/Mac FS locks.
+
 ## 2026-03-16 (session 1)
 - **Observability**: Added `platform` and `chat_id` context to all LLM-related logs in `detector.py` and `__init__.py`.
 - **Testing**: Linked message aging tests to `configuration.yaml` via `get_max_message_age()`, removing hardcoded "magic numbers".

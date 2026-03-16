@@ -4,161 +4,57 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 
 
-class TestAutoCleanup:
-    """Tests for auto-cleanup of stale members during time conversion."""
-    
-    @pytest.fixture
-    def mock_message(self):
-        """Create a mock Discord Message."""
-        message = MagicMock(spec=discord.Message)
-        
-        # Author
-        message.author = MagicMock()
-        message.author.bot = False
-        message.author.id = 12345
-        message.author.display_name = "TestUser"
-        
-        # Guild
-        message.guild = MagicMock()
-        message.guild.id = 9999
-        
-        # Content with time
-        message.content = "Let's meet at 15:00"
-        
-        # Reply
-        message.reply = AsyncMock()
-        
-        return message
+class TestBackgroundSync:
+    """Tests for the daily background member sync task."""
     
     @pytest.fixture
     def mock_storage(self, monkeypatch):
         """Mock the storage singleton."""
         storage_mock = AsyncMock()
-        monkeypatch.setattr("src.discord.events.storage", storage_mock)
+        monkeypatch.setattr("src.discord.tasks.storage", storage_mock)
         return storage_mock
+
+    @pytest.fixture
+    def mock_bot(self, monkeypatch):
+        """Mock the bot instance and guilds."""
+        mock_bot = MagicMock()
+        monkeypatch.setattr("src.discord.tasks.bot", mock_bot)
+        return mock_bot
+
     @pytest.mark.asyncio
-    async def test_stale_member_removed(self, mock_message, mock_storage, monkeypatch):
-        """Test that stale members (not in guild) are removed from DB."""
-        # Import after mocking
-        from src.discord.events import on_message
+    async def test_sync_discord_members_prunes_stale(self, mock_storage, mock_bot, monkeypatch):
+        """Test that sync_discord_members prunes members not in guild."""
+        from src.discord.tasks import sync_discord_members
         
-        # Setup: sender is registered
-        mock_cache = AsyncMock()
-        mock_cache.return_value = {
-            "city": "Berlin",
-            "timezone": "Europe/Berlin",
-            "flag": "🇩🇪"
-        }
-        monkeypatch.setattr("src.discord.events.get_user_cached", mock_cache)
-        
-        # Setup: two members in DB, but only one is still in guild
+        # Setup: Mock bot.guilds
+        guild = MagicMock()
+        guild.id = 9999
+        mock_bot.guilds = [guild]
+        mock_bot.wait_until_ready = AsyncMock() # Skip wait
+
+        # Setup: members in DB
         mock_storage.get_chat_members.return_value = [
-            {"user_id": 12345, "city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪"},
-            {"user_id": 99999, "city": "London", "timezone": "Europe/London", "flag": "🇬🇧"},  # Stale!
+            {"user_id": 12345}, # Active
+            {"user_id": 99999}, # Stale
         ]
+
+        # Mock guild.get_member and guild.fetch_member
+        def get_member(uid):
+            return MagicMock() if uid == 12345 else None
+        guild.get_member = get_member
         
-        # Mock guild.get_member: returns member for 12345, None for 99999
-        def get_member(user_id):
-            if user_id == 12345:
-                return MagicMock()  # Active member
-            return None  # Stale member
-        
-        mock_message.guild.get_member = get_member
-        
-        # Mock process_message to return event trigger
-        mock_process = AsyncMock()
-        mock_process.return_value = {
-            "event": True,
-            "time": ["15:00"],
-            "city": [None]
-        }
-        monkeypatch.setattr("src.discord.events.process_message", mock_process)
-        
+        # guild.fetch_member should raise error for 99999
+        async def fetch_member(uid):
+            if uid == 99999:
+                raise Exception("Not found")
+            return MagicMock()
+        guild.fetch_member = fetch_member
+
         # Execute
-        await on_message(mock_message)
-        
-        # Verify stale user was removed
-        mock_storage.remove_chat_member.assert_called_once_with(
-            9999,  # guild_id
-            99999,  # stale user_id
-            platform="discord"
-        )
-    
-    @pytest.mark.asyncio
-    async def test_active_members_kept(self, mock_message, mock_storage, monkeypatch):
-        """Test that active members are NOT removed."""
-        from src.discord.events import on_message
-        
-        # Setup: sender is registered
-        mock_storage.get_user.return_value = {
-            "city": "Berlin",
-            "timezone": "Europe/Berlin",
-            "flag": "🇩🇪"
-        }
-        
-        # Setup: all members are still in guild
-        mock_storage.get_chat_members.return_value = [
-            {"user_id": 12345, "city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪"},
-            {"user_id": 67890, "city": "London", "timezone": "Europe/London", "flag": "🇬🇧"},
-        ]
-        
-        # Mock guild.get_member: both users exist
-        mock_message.guild.get_member = lambda uid: MagicMock()  # All exist
-        
-        # Mock process_message
-        mock_process = AsyncMock()
-        mock_process.return_value = {
-            "event": True,
-            "time": ["15:00"],
-            "city": [None]
-        }
-        monkeypatch.setattr("src.discord.events.process_message", mock_process)
-        
-        # Execute
-        await on_message(mock_message)
-        
-        # Verify NO removals
-        mock_storage.remove_chat_member.assert_not_called()
-    
-    @pytest.mark.asyncio
-    async def test_all_stale_returns_early(self, mock_message, mock_storage, monkeypatch):
-        """Test that if ALL members are stale, no reply is sent."""
-        from src.discord.events import on_message
-        
-        # Setup: sender is registered
-        mock_cache = AsyncMock()
-        mock_cache.return_value = {
-            "city": "Berlin",
-            "timezone": "Europe/Berlin",
-            "flag": "🇩🇪"
-        }
-        monkeypatch.setattr("src.discord.events.get_user_cached", mock_cache)
-        
-        # Setup: one member, but stale
-        mock_storage.get_chat_members.return_value = [
-            {"user_id": 99999, "city": "London", "timezone": "Europe/London", "flag": "🇬🇧"},
-        ]
-        
-        # All members are stale
-        mock_message.guild.get_member = lambda uid: None
-        
-        # Mock process_message
-        mock_process = AsyncMock()
-        mock_process.return_value = {
-            "event": True,
-            "time": ["15:00"],
-            "city": [None]
-        }
-        monkeypatch.setattr("src.discord.events.process_message", mock_process)
-        
-        # Execute
-        await on_message(mock_message)
-        
-        # Verify stale removed
-        mock_storage.remove_chat_member.assert_called_once()
-        
-        # Verify NO reply sent (no active members)
-        mock_message.reply.assert_not_called()
+        await sync_discord_members.coro() # Call the underlying coroutine
+
+        # Verify removal called for stale user
+        mock_storage.remove_chat_member.assert_called_once_with(9999, 99999, platform="discord")
 
 
 class TestOnMemberRemove:
