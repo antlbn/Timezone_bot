@@ -75,20 +75,21 @@ async def process_remove(message: Message, state: FSMContext):
     if data.get("user_id") != message.from_user.id:
         return
     
-    if not message.reply_to_message or message.reply_to_message.from_user.is_bot is False:
-        return
+    # We don't strictly require a reply. If it's not a number, we assume they canceled.
     
     try:
         num = int(message.text.strip())
     except ValueError:
-        await message.answer("Enter a number")
+        # Not a number: clear state and process as a normal message
         await state.clear()
+        from src.commands.common import handle_time_mention
+        await handle_time_mention(message, state)
         return
     
     member_ids = data.get("member_ids", [])
     
     if num < 1 or num > len(member_ids):
-        await message.answer("Invalid number")
+        await message.answer("Invalid number. Cancelled removal.")
         await state.clear()
         return
     
