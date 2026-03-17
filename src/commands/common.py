@@ -13,6 +13,7 @@ from src.logger import get_logger
 from src.commands.states import SetTimezone
 from src.event_detection import process_message
 from src.event_detection.history import append_to_history
+from src.utils import auto_cleanup
 
 router = Router()
 logger = get_logger()
@@ -22,6 +23,7 @@ _last_reply: dict[int, float] = {}
 
 
 @router.message(Command("tb_help"))
+@auto_cleanup(delete_bot_msg=True)
 async def cmd_help(message: Message):
     """Show help menu."""
     help_text = (
@@ -33,7 +35,7 @@ async def cmd_help(message: Message):
         "/tb_remove - remove member\n\n"
         "Mention time (14:00) and I'll convert it!"
     )
-    await message.reply(help_text)
+    return await message.reply(help_text)
 
 
 @router.message(F.text)

@@ -11,28 +11,30 @@ from src.event_detection import process_message
 from src import geo, formatter
 from src.logger import get_logger
 from src.commands.states import SetTimezone
+from src.utils import auto_cleanup
 
 router = Router()
 logger = get_logger()
 
 @router.message(Command("tb_me"))
+@auto_cleanup(delete_bot_msg=True)
 async def cmd_me(message: Message):
     """Show user's current timezone."""
     existing_user = await get_user_cached(message.from_user.id, platform="telegram")
     
     if not existing_user:
-        await message.reply("Not set. Use /tb_settz")
-        return
+        return await message.reply("Not set. Use /tb_settz")
     
-    await message.reply(f"{existing_user['city']} {existing_user['flag']} ({existing_user['timezone']})")
+    return await message.reply(f"{existing_user['city']} {existing_user['flag']} ({existing_user['timezone']})")
 
 
 @router.message(Command("tb_settz"))
+@auto_cleanup(delete_bot_msg=True)
 async def cmd_settz(message: Message, state: FSMContext):
     """Start timezone setting flow."""
     await state.update_data(user_id=message.from_user.id)
     await state.set_state(SetTimezone.waiting_for_city)
-    await message.reply("What city are you in?", reply_markup=ForceReply(selective=True))
+    return await message.reply("What city are you in?", reply_markup=ForceReply(selective=True))
 
 
 @router.callback_query(F.data.startswith("onboarding:"))

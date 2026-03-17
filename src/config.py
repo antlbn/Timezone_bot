@@ -42,6 +42,10 @@ def get_bot_settings() -> dict:
     """Get bot settings from config."""
     return get_config().get("bot", {})
 
+def get_settings_cleanup_timeout() -> int:
+    """Get timeout in seconds for auto-cleaning settings dialogs (0 to disable)."""
+    return get_config().get("bot", {}).get("settings_cleanup_timeout_seconds", 10)
+
 def get_max_message_age() -> int:
     """Get max message age in seconds from config."""
     return get_config().get("event_detection", {}).get("max_message_age_seconds", 20)

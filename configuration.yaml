@@ -19,6 +19,8 @@ bot:
   show_usernames: false
   # Cooldown between bot replies in same chat (0 = disabled)
   cooldown_seconds: 0
+  # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.
+  settings_cleanup_timeout_seconds: 10
 
 # Event Detection (LLM Layer)
 # See: journal/14_llm_module.md
