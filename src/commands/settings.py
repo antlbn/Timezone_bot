@@ -111,10 +111,14 @@ async def process_city(message: Message, state: FSMContext):
     # Clean up the user's input and the bot's prompt
     try:
         await message.delete()
+    except Exception as e:
+        logger.warning(f"Failed to delete user's message: {e}")
+        
+    try:
         if data.get("prompt_message_id"):
             await message.bot.delete_message(chat_id=message.chat.id, message_id=data["prompt_message_id"])
     except Exception as e:
-        logger.warning(f"Failed to delete setup messages: {e}")
+        logger.warning(f"Failed to delete bot's prompt: {e}")
     
     city_name = message.text.strip()
     location = geo.get_timezone_by_city(city_name)
@@ -149,10 +153,14 @@ async def process_fallback_input(message: Message, state: FSMContext):
     # Clean up the user's input and the bot's prompt
     try:
         await message.delete()
+    except Exception as e:
+        logger.warning(f"Failed to delete user's message: {e}")
+        
+    try:
         if data.get("prompt_message_id"):
             await message.bot.delete_message(chat_id=message.chat.id, message_id=data["prompt_message_id"])
     except Exception as e:
-        logger.warning(f"Failed to delete setup messages: {e}")
+        logger.warning(f"Failed to delete bot's prompt: {e}")
     
     user_input = (message.text or "").strip()
     

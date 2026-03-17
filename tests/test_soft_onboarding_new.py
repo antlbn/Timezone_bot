@@ -74,7 +74,7 @@ async def test_onboarding_decline_processes_queue():
     callback.from_user = User(id=user_id, is_bot=False, first_name=user_name)
     callback.message = MagicMock(spec=Message)
     callback.message.chat = Chat(id=999, type="group")
-    callback.message.edit_text = AsyncMock()
+    callback.message.delete = AsyncMock()
     
     state = MagicMock()
     
@@ -96,7 +96,7 @@ async def test_onboarding_decline_processes_queue():
         
         # Verify process_message called for BOTH pending messages
         assert mock_process.call_count == 2
-        callback.message.edit_text.assert_called_with("No problem! If you change your mind, use /tb_settz later.")
+        callback.message.delete.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_process_city_relaxed_reply():
