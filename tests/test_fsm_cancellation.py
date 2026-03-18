@@ -13,6 +13,7 @@ def mock_message():
     message.from_user.id = 12345
     message.chat = MagicMock(spec=Chat)
     message.chat.id = 12345
+    message.chat.type = "group"
     message.answer = AsyncMock()
     return message
 

@@ -65,9 +65,30 @@ async def peek_pending_messages(user_id: int, platform: str) -> list[dict]:
     
     return item["messages"]
 
+# Track when we last sent a DM invite to avoid spamming: {(user_id, platform): timestamp}
+_dm_invite_timestamps: dict[tuple[int, str], float] = {}
+
+
+async def should_send_dm_invite(user_id: int, platform: str, cooldown: int) -> bool:
+    """Check if enough time has passed since we last invited this user to DM onboarding."""
+    key = (user_id, platform)
+    last_sent = _dm_invite_timestamps.get(key, 0)
+    return (time.time() - last_sent) >= cooldown
+
+
+async def mark_dm_invite_sent(user_id: int, platform: str):
+    """Record that we just sent a DM onboarding invite to this user."""
+    _dm_invite_timestamps[(user_id, platform)] = time.time()
+
+
+async def clear_dm_invite(user_id: int, platform: str):
+    """Clear the DM invite cooldown for a user (e.g. after successful onboarding)."""
+    _dm_invite_timestamps.pop((user_id, platform), None)
+
+
 async def cleanup_loop():
     """
-    Background task to clean up expired frozen messages.
+    Background task to clean up expired frozen messages and stale invite timestamps.
     """
     while True:
         await asyncio.sleep(60)
@@ -79,3 +100,10 @@ async def cleanup_loop():
         for k in to_delete:
             _frozen_messages.pop(k, None)
             logger.debug(f"Cleaned up expired frozen message for {k}.")
+        # Also clean up very old invite timestamps (> 24h) to prevent unbounded growth
+        stale_invites = [
+            k for k, ts in _dm_invite_timestamps.items()
+            if (now - ts) > 86400
+        ]
+        for k in stale_invites:
+            _dm_invite_timestamps.pop(k, None)

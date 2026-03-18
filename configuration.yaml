@@ -45,6 +45,8 @@ event_detection:
   max_message_hard_skip_chars: 2000
   # How long to keep "frozen" messages during onboarding
   onboarding_timeout_seconds: 60
+  # How long to wait before re-prompting a user who ignored/abandoned DM onboarding
+  dm_onboarding_cooldown_seconds: 600
 
 # Data Management
 storage:

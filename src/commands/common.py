@@ -1,19 +1,24 @@
+import asyncio
 from time import time
 
 from aiogram import Router, F
-from aiogram.types import Message, ChatMemberUpdated, ForceReply, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.deep_linking import create_start_link
 
 from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
-from src.storage.pending import save_pending_message, get_and_delete_pending_messages
-from src.config import get_bot_settings
+from src.storage.pending import (
+    save_pending_message, get_and_delete_pending_messages,
+    should_send_dm_invite, mark_dm_invite_sent,
+)
+from src.config import get_bot_settings, get_dm_onboarding_cooldown, get_settings_cleanup_timeout
 from src.logger import get_logger
 from src.commands.states import SetTimezone
 from src.event_detection import process_message
 from src.event_detection.history import append_to_history
-from src.utils import auto_cleanup
+from src.utils import auto_cleanup, delete_message_after
 
 router = Router()
 logger = get_logger()
@@ -63,31 +68,33 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
             "message_id":    message.message_id,
         }
 
-        # Check if we already have pending messages to avoid duplicate button prompts
-        existing_pending = await get_and_delete_pending_messages(user_id, "telegram")
-        
-        if not existing_pending:
-            # First time seeing this user (or previous session expired)
-            kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="📍 Set city", callback_data=f"onboarding:set:{user_id}"),
-                InlineKeyboardButton(text="✖️ No thanks", callback_data=f"onboarding:decline:{user_id}")
-            ]])
-            
-            welcome_text = (
-                f"Hi {user_name}! I can help coordinate times in this chat. "
-                "To show your local time to others, I need to know your city."
-            )
-            await message.reply(welcome_text, reply_markup=kb)
-            
-            # Put back the messages if they were fresh (save_pending_message handles fresh check)
-            await save_pending_message(user_id, "telegram", msg_data)
-        else:
-            # Already pending, just add this one to the queue
-            # (re-save all to maintain order and expiration)
-            for m in existing_pending:
-                await save_pending_message(user_id, "telegram", m)
-            await save_pending_message(user_id, "telegram", msg_data)
-        
+        # Always save this message to pending queue
+        await save_pending_message(user_id, "telegram", msg_data)
+
+        # Check cooldown — don't spam user if they recently ignored/abandoned an invite
+        cooldown = get_dm_onboarding_cooldown()
+        if not await should_send_dm_invite(user_id, "telegram", cooldown):
+            logger.debug(f"[chat:{chat_id}] DM invite on cooldown for user {user_id}, skipping")
+            return
+
+        # Generate deep link to bot's DM with onboarding payload
+        link = await create_start_link(message.bot, f"onboard_{user_id}_{chat_id}")
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="📍 Set up timezone", url=link)
+        ]])
+
+        invite_msg = await message.reply(
+            f"Hi {user_name}! Tap the button to quickly set up your timezone 👇",
+            reply_markup=kb,
+        )
+
+        await mark_dm_invite_sent(user_id, "telegram")
+
+        # Auto-cleanup the invite from the group chat
+        cleanup_timeout = get_settings_cleanup_timeout()
+        if cleanup_timeout > 0:
+            asyncio.create_task(delete_message_after(invite_msg, cleanup_timeout))
+
         return
 
     # 2. Check cooldown before hitting the LLM

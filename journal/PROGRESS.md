@@ -1,3 +1,6 @@
+## 2026-03-16 (session 1) - Changing logic of onboarding
+- **Feature**: changing onboarding logic
+
 ## 2026-03-16 (session 2) - Code Quality & Robustness Refactor
 - **Storage**: Refactored `SQLiteStorage` to use a **persistent connection** and global PRAGMAs (`WAL`, `Foreign Keys`).
 - **Memory**: Implemented **LRU Cache** (OrderDict, 10k limit) for Layer 1 User Snapshots.
