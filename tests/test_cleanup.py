@@ -1,7 +1,6 @@
 
 import pytest
 import asyncio
-import time
 from unittest.mock import patch
 from src.storage.pending import save_pending_message, _frozen_messages, cleanup_loop
 

@@ -9,7 +9,6 @@ from src.storage.user_cache import get_user_cached
 from src.storage.pending import save_pending_message
 from src.logger import get_logger
 from src.event_detection import process_message
-from src.event_detection.history import append_to_history
 
 logger = get_logger()
 PLATFORM = "discord"

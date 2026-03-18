@@ -10,7 +10,7 @@ from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
 from src.storage.pending import get_and_delete_pending_messages
 from src.event_detection import process_message
-from src import geo, formatter
+from src import geo
 from src.transform import get_utc_offset
 from src.logger import get_logger
 

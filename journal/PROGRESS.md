@@ -1,3 +1,7 @@
+## 2026-03-18 (session 4) - Linter Run
+- Thats it - that's linter RUN! 
+- **Fix**: unclosed DB connection while pytest run
+
 ## 2026-03-18 (session 3) - Mobile UX Optimization
 - **Feature**: Optimized coordinate response for mobile screens.
 - **Layout**: Locations are now displayed in a vertical list (one per line).

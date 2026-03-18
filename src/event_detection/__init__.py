@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import List, Dict, Optional, Any, Callable
+from typing import List, Dict, Any, Callable
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
 from src.event_detection.history import append_to_history, get_chat_lock
@@ -67,7 +67,7 @@ async def process_message(
     # Pre-parse time for second aging check below
     try:
         msg_time = datetime.datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    except:
+    except Exception:
         msg_time = datetime.datetime.now(datetime.timezone.utc)
 
     if skip_history_append:

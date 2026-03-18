@@ -1,7 +1,6 @@
 """
 Discord Background Tasks — periodic member sync and inactive user cleanup.
 """
-import asyncio
 from discord.ext import tasks
 from src.discord import bot
 from src.storage import storage
@@ -33,7 +32,7 @@ async def sync_discord_members():
                     # Double check with API if not in cache (to be absolutely sure)
                     try:
                         await guild.fetch_member(user_id)
-                    except:
+                    except Exception:
                         # Member really gone
                         await storage.remove_chat_member(guild.id, user_id, platform=PLATFORM)
                         total_removed += 1

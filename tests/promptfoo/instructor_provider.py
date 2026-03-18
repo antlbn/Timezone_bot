@@ -1,7 +1,5 @@
 import json
 import os
-import sys
-import os
 
 import instructor
 from openai import OpenAI

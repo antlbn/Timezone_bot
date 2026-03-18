@@ -6,7 +6,6 @@ from aiogram.fsm.context import FSMContext
 # Import handlers to test
 from src.commands.settings import process_city
 from src.commands.common import handle_time_mention, cmd_me, cmd_settz
-from src.commands.states import SetTimezone
 
 @pytest.fixture
 def mock_storage_and_cache(monkeypatch):

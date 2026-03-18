@@ -1,5 +1,4 @@
 import boto3
-import time
 import sys
 
 # --- ПОДГОТОВКА ---
@@ -22,7 +21,57 @@ DISCORD_TOKEN=your_discord_token
 OPENAI_API_KEY=your_openai_key
 """
 
-# ... (USER_DATA_TEMPLATE остается таким же)
+# --- USER DATA (CLOUD-INIT) ---
+# This script runs automatically on the first server boot.
+USER_DATA_TEMPLATE = f"""#!/bin/bash
+set -e
+
+# 1. Update and install basic tools
+apt-get update
+apt-get install -y git python3-pip curl
+
+# 2. Install uv (modern Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# 3. Clone repository
+mkdir -p /opt/timezone-bot
+git clone {REPO_URL} /opt/timezone-bot
+cd /opt/timezone-bot
+
+# 4. Create .env file from template
+cat <<EOF > .env
+{ENV_CONTENT}
+EOF
+
+# 5. Build environment and install dependencies
+/root/.cargo/bin/uv sync
+
+# 6. Create systemd service for Telegram bot
+cat <<EOF > /etc/systemd/system/tz-telegram.service
+[Unit]
+Description=Timezone Bot - Telegram
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/timezone-bot
+ExecStart=/root/.cargo/bin/uv run python -m src.main
+Restart=always
+EnvFile=/opt/timezone-bot/.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 7. Start the service
+systemctl daemon-reload
+systemctl enable tz-telegram
+systemctl start tz-telegram
+
+echo "Deployment complete!"
+"""
 
 def deploy():
     # Создаем клиент EC2

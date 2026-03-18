@@ -6,8 +6,8 @@ import time as time_mod
 
 # Import targets
 from src.commands.common import handle_time_mention
-from src.commands.settings import _process_pending_queue_dm, _handle_expired_messages
-from src.storage.pending import _frozen_messages, clear_dm_invite
+from src.commands.settings import _process_pending_queue_dm
+from src.storage.pending import _frozen_messages
 
 def create_mock_message(user_id, user_name, chat_id, text, bot):
     msg = MagicMock(spec=Message)

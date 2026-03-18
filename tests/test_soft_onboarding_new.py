@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 import time as time_mod
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from aiogram.types import Message, User, Chat, InlineKeyboardMarkup, CallbackQuery
 from src.commands.common import handle_time_mention
 from src.commands.settings import (
@@ -11,7 +11,6 @@ from src.commands.settings import (
 )
 from src.storage.pending import (
     _frozen_messages, _dm_invite_timestamps,
-    save_pending_message, get_and_delete_pending_messages,
     should_send_dm_invite, mark_dm_invite_sent, clear_dm_invite,
 )
 import datetime
@@ -272,7 +271,7 @@ async def test_dm_invite_cooldown():
     state = MagicMock()
 
     with patch("src.commands.common.get_user_cached", return_value=None), \
-         patch("src.commands.common.create_start_link", AsyncMock(return_value="https://t.me/bot?start=x")) as mock_link, \
+         patch("src.commands.common.create_start_link", AsyncMock(return_value="https://t.me/bot?start=x")), \
          patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply, \
          patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600), \
          patch("src.commands.common.get_settings_cleanup_timeout", return_value=10):

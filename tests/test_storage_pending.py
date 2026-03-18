@@ -41,7 +41,8 @@ async def test_waiting_lock_queuing():
             assert result.get("event") is True
             mock_detect.assert_called_once()
     finally:
-        if lock.locked(): lock.release()
+        if lock.locked():
+            lock.release()
 
 @pytest.mark.asyncio
 async def test_message_aging_while_waiting():
@@ -68,4 +69,5 @@ async def test_message_aging_while_waiting():
                 assert "Message stale after queueing" in result.get("reason")
                 mock_detect.assert_not_called()
     finally:
-        if lock.locked(): lock.release()
+        if lock.locked():
+            lock.release()

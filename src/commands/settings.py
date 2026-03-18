@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, ForceReply, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command, CommandStart, CommandObject
+from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
@@ -9,10 +9,9 @@ from src.storage.pending import (
     get_and_delete_pending_messages, clear_dm_invite,
     set_on_expire_callback
 )
-from src.config import get_inactive_user_retention_days
 from src.event_detection.history import append_to_history
 from src.event_detection import process_message
-from src import geo, formatter
+from src import geo
 from src.logger import get_logger
 from src.commands.states import SetTimezone
 from src.utils import auto_cleanup
@@ -55,8 +54,6 @@ async def dm_onboarding_start(message: Message, command: CommandObject, state: F
     existing = await get_user_cached(user_id, platform="telegram")
     if existing and existing.get("timezone"):
         return await show_dm_settings_menu(message, existing, user_id, chat_id)
-
-    retention_days = get_inactive_user_retention_days()
 
     welcome_text = (
         f"👋 Hi {user_name}!\n"
@@ -129,16 +126,6 @@ async def dm_privacy_callback(callback: CallbackQuery):
     """Show data privacy information."""
     from src.config import get_data_retention_days
     retention_days = get_data_retention_days()
-    
-    privacy_text = (
-        "🔒 *Data Privacy*\n"
-        "\n"
-        "I store your city, timezone, and platform identifiers in a local database "
-        "to enable time conversions.\n"
-        "\n"
-        f"If you are inactive for more than {retention_days} days, your data is "
-        "automatically deleted from my systems.\n"
-    )
     
     await callback.answer(
         text=f"Data is stored locally and auto-deleted after {retention_days} days of inactivity.",
@@ -353,7 +340,6 @@ async def process_city(message: Message, state: FSMContext):
         return
 
     is_dm = message.chat.type == "private"
-    source_chat_id = data.get("source_chat_id")
 
     # In group chat (e.g. /tb_settz flow), clean up messages
     if not is_dm:

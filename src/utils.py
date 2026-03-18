@@ -14,7 +14,7 @@ async def delete_message_after(message: Message, delay: int):
     await asyncio.sleep(delay)
     try:
         await message.delete()
-    except Exception as e:
+    except Exception:
         logger.debug(f"Auto-cleanup: could not delete message {message.message_id} (already deleted or no permission).")
 
 def auto_cleanup(delete_bot_msg: bool = True, keep_bot_msg_in_dm: bool = False):

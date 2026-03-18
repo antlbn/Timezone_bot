@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 from aiogram.types import Message, Chat, User
 from aiogram.fsm.context import FSMContext
 
-from src.commands.states import RemoveMember
 from src.commands.members import process_remove
+from src.commands.settings import process_city, process_fallback_input
 
 @pytest.fixture
 def mock_message():
@@ -65,8 +65,6 @@ async def test_process_remove_invalid_number(mock_message, mock_state):
     # Should show cancellation alert
     mock_message.answer.assert_called_once()
     assert "Cancelled" in mock_message.answer.call_args[0][0]
-
-from src.commands.settings import process_city, process_fallback_input
 
 @pytest.mark.asyncio
 async def test_process_city_invalid_input_prompts_fallback(mock_message, mock_state, monkeypatch):

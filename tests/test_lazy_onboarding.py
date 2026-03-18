@@ -1,14 +1,12 @@
 import pytest
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from aiogram.types import Message, User, Chat, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import Message, User, Chat, CallbackQuery
 from src.commands.common import handle_time_mention
 from src.commands.settings import (
-    dm_onboarding_start, dm_decline_callback, process_city, _handle_expired_messages
+    dm_decline_callback, process_city, _handle_expired_messages
 )
 from src.storage.pending import (
-    _frozen_messages, _dm_invite_timestamps,
-    save_pending_message, get_and_delete_pending_messages
+    _frozen_messages, _dm_invite_timestamps
 )
 import datetime
 import time as time_mod
@@ -86,7 +84,7 @@ async def test_lazy_event_triggers_invite():
     llm_result = {"event": True, "points": [{"time": "15:00"}], "sender_id": str(user_id), "sender_name": "TestUser"}
 
     with patch("src.commands.common.get_user_cached", return_value=None), \
-         patch("src.commands.common.process_message", AsyncMock(return_value=llm_result)) as mock_process, \
+         patch("src.commands.common.process_message", AsyncMock(return_value=llm_result)), \
          patch("src.commands.common.create_start_link", AsyncMock(return_value="https://t.me/bot?start=onboard")), \
          patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply, \
          patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600):

@@ -78,7 +78,6 @@ async def execute_convert_time(
         })
 
     # Use a new multi-point formatter to build a single message
-    from src import formatter
     reply = formatter.format_multi_conversion(
         conversions=conversions,
         members=members,

@@ -1,5 +1,4 @@
 import asyncio
-from time import time
 
 from aiogram import Router, F
 from aiogram.types import Message, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton
@@ -8,16 +7,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.deep_linking import create_start_link
 
 from src.storage import storage
-from src.storage.user_cache import get_user_cached, invalidate_user_cache
+from src.storage.user_cache import get_user_cached
 from src.storage.pending import (
-    save_pending_message, get_and_delete_pending_messages,
-    should_send_dm_invite, mark_dm_invite_sent,
+    save_pending_message, should_send_dm_invite, mark_dm_invite_sent,
 )
-from src.config import get_bot_settings, get_dm_onboarding_cooldown, get_settings_cleanup_timeout
+from src.config import get_dm_onboarding_cooldown, get_settings_cleanup_timeout
 from src.logger import get_logger
-from src.commands.states import SetTimezone
 from src.event_detection import process_message
-from src.event_detection.history import append_to_history
 from src.utils import auto_cleanup, delete_message_after
 
 router = Router()

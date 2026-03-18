@@ -1,6 +1,8 @@
 import os
+from langsmith import traceable
+from groq import Groq
 
-# Load .env manually to be safe before other imports
+# Load .env manually to be safe before other logic
 def load_env():
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
     if os.path.exists(env_path):
@@ -14,10 +16,6 @@ load_env()
 
 print(f"DEBUG: LANGCHAIN_ENDPOINT={os.environ.get('LANGCHAIN_ENDPOINT')}")
 print(f"DEBUG: LANGSMITH_ENDPOINT={os.environ.get('LANGSMITH_ENDPOINT')}")
-
-import json
-from langsmith import traceable
-from groq import Groq
 
 # 1. Setup Groq client
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))

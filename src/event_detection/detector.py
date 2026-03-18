@@ -1,8 +1,8 @@
 import json
 from src.logger import get_logger
 from src.event_detection.client import get_llm_client, get_llm_model
-from src.event_detection.prompts import get_system_prompt, get_tools
-from typing import Any, List, Dict
+from src.event_detection.prompts import get_system_prompt
+from typing import Any
 from src.config import get_bot_settings
 
 logger = get_logger()

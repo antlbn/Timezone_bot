@@ -1,8 +1,7 @@
 
 import pytest
-import asyncio
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from src.event_detection import process_message
 
 @pytest.mark.asyncio

@@ -1,7 +1,6 @@
 """Integration tests for storage module."""
 import pytest
 import os
-import aiosqlite
 from pathlib import Path
 from src.storage.sqlite import SQLiteStorage
 
@@ -17,7 +16,7 @@ async def storage():
             if p.exists():
                 try:
                     os.remove(p)
-                except:
+                except Exception:
                     pass
 
     cleanup_files()
@@ -38,8 +37,7 @@ async def storage():
                 p = Path(str(TEST_DB) + suffix)
                 if p.exists():
                     os.remove(p)
-            break
-        except:
+        except Exception:
             await asyncio.sleep(0.1)
 
 @pytest.mark.asyncio
