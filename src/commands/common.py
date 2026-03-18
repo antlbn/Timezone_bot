@@ -121,13 +121,47 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
 
     user_id = message.from_user.id
     chat_id = message.chat.id
-    user_name = message.from_user.first_name or "User"
+    user_name = message.from_user.full_name or "User"
     timestamp_utc = message.date.isoformat() + "Z" if message.date else ""
 
+    # 1. Check registration status
     sender = await get_user_cached(user_id, platform="telegram")
+    is_registered = bool(sender and sender.get("timezone") and not sender.get("onboarding_declined"))
 
-    # 1. Onboarding — sender not registered yet (and hasn't declined)
-    if not sender or (not sender.get("timezone") and not sender.get("onboarding_declined")):
+    # 2. Update activity timestamp (for all active users)
+    await storage.update_activity(user_id, "telegram")
+
+    # 3. Define send_fn for the LLM pipeline
+    async def send_fn(text: str) -> None:
+        await message.answer(text)
+
+    # 4. LLM pipeline — detection + tool dispatch
+    # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion
+    result = await process_message(
+        message_text=message.text,
+        chat_id=str(chat_id),
+        user_id=str(user_id),
+        platform="telegram",
+        author_name=user_name,
+        timestamp_utc=timestamp_utc,
+        sender_db=sender,
+        send_fn=send_fn if is_registered else None,
+        skip_aging=skip_aging,
+    )
+
+    logger.info(
+        f"[chat:{chat_id}] LLM result for {user_name}: event={result.get('event')} "
+        f"points={len(result.get('points', []))}"
+    )
+
+    # 5. Lazy Onboarding Trigger
+    # We only prompt for registration if an event was detected AND the user is unknown
+    if not is_registered and result.get("event"):
+        # Check if they already declined — if so, we don't nag them
+        if sender and sender.get("onboarding_declined"):
+            logger.debug(f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite")
+            return
+
         msg_data = {
             "platform":      "telegram",
             "chat_id":       str(chat_id),
@@ -138,7 +172,7 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
             "message_id":    message.message_id,
         }
 
-        # Always save this message to pending queue
+        # Freeze this actionable message for later processing
         await save_pending_message(user_id, "telegram", msg_data)
 
         # Check cooldown — don't spam user if they recently ignored/abandoned an invite
@@ -164,42 +198,6 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
         cleanup_timeout = get_settings_cleanup_timeout()
         if cleanup_timeout > 0:
             asyncio.create_task(delete_message_after(invite_msg, cleanup_timeout))
-
-        return
-
-    # 2. Check cooldown before hitting the LLM
-    cooldown = get_bot_settings().get("cooldown_seconds", 0)
-    if cooldown > 0:
-        now = time()
-        if now - _last_reply.get(chat_id, 0) < cooldown:
-            logger.debug(f"[chat:{chat_id}] Cooldown active, skipping LLM call")
-            return
-        _last_reply[chat_id] = now
-
-    # 3. Update activity timestamp
-    await storage.update_activity(message.from_user.id, "telegram")
-
-    # 4. Build send_fn so tools.py can reply to this chat
-    async def send_fn(text: str) -> None:
-        await message.answer(text)
-
-    # 5. LLM pipeline — detection + tool dispatch happen inside process_message
-    result = await process_message(
-        message_text=message.text,
-        chat_id=str(chat_id),
-        user_id=str(user_id),
-        platform="telegram",
-        author_name=user_name,
-        timestamp_utc=timestamp_utc,
-        sender_db=sender,
-        send_fn=send_fn,
-        skip_aging=skip_aging,
-    )
-
-    logger.info(
-        f"[chat:{chat_id}] LLM result: event={result.get('event')} "
-        f"times={result.get('time')} cities={result.get('city')}"
-    )
 
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER))

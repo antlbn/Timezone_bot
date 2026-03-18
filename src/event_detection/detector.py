@@ -136,7 +136,10 @@ async def detect_event(
     ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
 
     choice = await call_llm(messages)
-    raw = choice.message.content or ""
+    raw = ""
+    if hasattr(choice, "message") and choice.message:
+        raw = choice.message.content or ""
+    
     result = _parse_llm_json(raw, ctx_logger=ctx_logger)
 
     if result["event"] and result["points"] and send_fn:

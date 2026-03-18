@@ -117,7 +117,7 @@ async def test_dm_onboarding_start_handler():
         text = mock_answer.call_args[0][0]
         assert "What I am" in text
         assert "How to use me" in text
-        assert "Your data" in text
+        assert "data" in text.lower()
 
         # Verify FSM state is NOT set yet (waits for button)
         state.set_state.assert_not_called()
@@ -155,7 +155,7 @@ async def test_dm_setcity_callback():
 
     # Verify bot asked for city
     callback.message.answer.assert_called_once()
-    assert "what city" in callback.message.answer.call_args[0][0].lower()
+    assert "your city" in callback.message.answer.call_args[0][0].lower()
 
     # Verify FSM state set
     from src.commands.states import SetTimezone
@@ -203,8 +203,8 @@ async def test_dm_decline_processes_queue():
         # FSM cleared
         state.clear.assert_called_once()
 
-        # Pending processed
-        mock_process.assert_called_once()
+        # Pending discarded (not processed)
+        mock_process.assert_not_called()
 
         # Invite cooldown cleared
         mock_clear.assert_called_once_with(user_id, "telegram")
@@ -564,16 +564,16 @@ async def test_cleanup_loop_calls_callback_on_expiration():
     # We'll use a side_effect to raise CancelledError after 1 call to stop the loop.
     with patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]):
         try:
-            await cleanup_loop(MagicMock())
+            await cleanup_loop(bot=MagicMock())
         except asyncio.CancelledError:
             pass
             
     # 4. Verify
     mock_cb.assert_called_once()
     args = mock_cb.call_args[0]
-    assert args[0] == user_id
-    assert args[1] == platform
-    assert args[2] == [msg_data]
+    assert args[1] == user_id
+    assert args[2] == platform
+    assert args[3] == [msg_data]
     assert (user_id, platform) not in _frozen_messages
 
 

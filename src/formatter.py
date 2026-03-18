@@ -114,12 +114,13 @@ def format_single_point_line(
         part = _format_tz_group(original_time, sender_tz, tz, group, show_usernames)
         parts.append(part)
     
-    line = sender_part + " | " + " | ".join(parts)
-    
+    # Combine sender and other parts
+    all_parts = [sender_part] + parts
     if len(other_members) > display_limit:
-        line += f" | ... +{len(other_members) - display_limit} more"
-        
-    return line
+        all_parts.append(f"... +{len(other_members) - display_limit} more")
+    
+    # Vertical list for maximum mobile readability
+    return "\n".join(all_parts)
 
 
 def format_multi_conversion(
@@ -129,27 +130,24 @@ def format_multi_conversion(
 ) -> str:
     """
     Format multiple time points into a single beautiful message.
-    Format:
-    Anton: 10:30 Sarajevo 🇧🇦 | 12:30 London 🇬🇧
-           15:00 Sarajevo 🇧🇦 | 17:00 London 🇬🇧
-    /tb_help
+    Optimized for mobile: 2 locations per line, double newline between points.
     """
-    lines = []
-    
-    if sender_name:
-        lines.append(f"*{sender_name}:*")
+    point_lines = []
     
     for conv in conversions:
-        point_line = format_single_point_line(
+        point_text = format_single_point_line(
             conv["original_time"],
             conv["source_city"],
             conv["source_tz"],
             conv["source_flag"],
             members
         )
-        lines.append(point_line)
+        point_lines.append(point_text)
             
-    return "\n".join(lines)
+    body = "\n\n".join(point_lines)
+    if sender_name:
+        return f"{sender_name}:\n{body}"
+    return body
 
 
 def format_conversion_reply(

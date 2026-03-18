@@ -9,6 +9,8 @@ from src.utils import auto_cleanup, delete_message_after
 def mock_message():
     message = MagicMock(spec=Message)
     message.delete = AsyncMock()
+    message.chat = MagicMock()
+    message.chat.type = "group"
     return message
 
 

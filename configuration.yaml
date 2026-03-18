@@ -20,7 +20,7 @@ bot:
   # Cooldown between bot replies in same chat (0 = disabled)
   cooldown_seconds: 0
   # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.
-  settings_cleanup_timeout_seconds: 10
+  settings_cleanup_timeout_seconds: 30
 
 # Event Detection (LLM Layer)
 # See: journal/14_llm_module.md
@@ -44,7 +44,7 @@ event_detection:
   # Hard skip: messages longer than this are ignored entirely (no LLM, no history)
   max_message_hard_skip_chars: 2000
   # How long to keep "frozen" messages during onboarding
-  onboarding_timeout_seconds: 60
+  onboarding_timeout_seconds: 120
   # How long to wait before re-prompting a user who ignored/abandoned DM onboarding
   dm_onboarding_cooldown_seconds: 600
 

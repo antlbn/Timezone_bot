@@ -1,3 +1,18 @@
+## 2026-03-18 (session 3) - Mobile UX Optimization
+- **Feature**: Optimized coordinate response for mobile screens.
+- **Layout**: Locations are now displayed in a vertical list (one per line).
+- **Spacing**: Added a blank line between different time points for better separation.
+- **Bug Fix**: Fixed `AttributeError` in `detector.py` when LLM returns empty/None content.
+- **Verification**: All 119 tests pass (Suite updated for vertical list aesthetic).
+
+## 2026-03-18 (session 2) - Lazy Onboarding Experiment
+- **Feature**: Implemented **Lazy Onboarding** logic (LLM as a gatekeeper for registration).
+- **UX**: Bot only invites users to set their timezone IF they mention a time-coordination event.
+- **UX**: Messages with no detected event from new users are silently appended to history without registration prompts.
+- **Logic**: Messages from new users are **discarded** (not released) if they decline onboarding or if the invitation expires (Timeout).
+- **Parity**: Implemented for both **Telegram** and **Discord** platforms.
+- **Verification**: Created `tests/test_lazy_onboarding.py` (5 key scenarios). Total test suite: **146 passed**.
+
 ## 2026-03-18 (session) - DM-Based Onboarding & Multi-user Verif
 - **Feature**: Implemented **DM-based Onboarding via Deep Links** in Telegram.
 - **UX**: Group chat stays clean: only a minimal, auto-deleting invite is shown in groups.

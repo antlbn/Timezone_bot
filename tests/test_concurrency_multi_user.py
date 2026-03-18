@@ -60,8 +60,8 @@ async def test_concurrency_multi_user_flow():
          patch("src.commands.common.create_start_link", AsyncMock(return_value="https://t.me/bot?start=payload")), \
          patch("src.commands.common.get_settings_cleanup_timeout", return_value=0), \
          patch("src.commands.common.delete_message_after", AsyncMock()), \
-         patch("src.commands.common.process_message", AsyncMock()) as mock_process, \
-         patch("src.commands.settings.process_message", mock_process), \
+         patch("src.commands.common.process_message", AsyncMock(return_value={"event": True, "points": [{"time": "12:00"}]})) as mock_process, \
+         patch("src.commands.settings.process_message", side_effect=lambda *args, **kwargs: mock_process(*args, **kwargs)), \
          patch("src.commands.settings.get_user_cached", side_effect=get_user_mock):
 
         # --- STEP 1: All users send messages ---
@@ -82,13 +82,10 @@ async def test_concurrency_multi_user_flow():
         msg_charlie = create_mock_message(3, "Charlie", chat_id, "Charlie at 13:00", bot)
         await handle_time_mention(msg_charlie, MagicMock())
 
-        # VERIFY state after first wave
-        # David should be processed immediately
-        # Others should be frozen
-        assert mock_process.call_count == 1
-        assert mock_process.call_args[1]["author_name"] == "David"
+        # Lazy: Everyone hits the LLM immediately
+        assert mock_process.call_count == 4
         
-        assert len(_frozen_messages) == 3 # Alice, Bob, Charlie (keyed by (int, str))
+        assert len(_frozen_messages) == 3 # Alice, Bob, Charlie frozen AFTER LLM detection
         
         # --- STEP 2: Alice completes setup ---
         # Mock Alice registration
@@ -98,8 +95,8 @@ async def test_concurrency_multi_user_flow():
         await _process_pending_queue_dm(bot, user_id=1, source_chat_id=chat_id, user_name="Alice")
         
         # VERIFY Alice processed
-        # Alice should be the 2nd call to process_message
-        assert mock_process.call_count == 2
+        # Alice should be the 5th call to process_message (4 initial + 1 release)
+        assert mock_process.call_count == 5
         assert mock_process.call_args[1]["author_name"] == "Alice"
         
         # Alice removed from frozen
@@ -125,8 +122,8 @@ async def test_concurrency_multi_user_flow():
         # Give background tasks (asyncio.create_task) a moment to run
         await asyncio.sleep(0.1)
         
-        # VERIFY Bob and Charlie processed by cleanup
-        assert mock_process.call_count == 4
+        # VERIFY Bob and Charlie discarded by cleanup (No new LLM calls)
+        assert mock_process.call_count == 5
         
         # Everyone removed from frozen
         assert len(_frozen_messages) == 0

@@ -80,11 +80,11 @@ async def test_full_pipeline_integration(monkeypatch):
     # Check that both times are present in the single message
     assert "10:30 Sarajevo 🇧🇦" in reply
     assert "15:00 Sarajevo 🇧🇦" in reply
-    assert "Anton: " in reply
-    assert "London 🇬🇧" in reply
-    assert "/tb_help" in reply
-    
-    # Check indentation for the second line
+    # Check formatting
     lines = reply.split("\n")
-    assert lines[0].startswith("Anton: ")
-    assert lines[1].startswith("       15:00") # Indented based on "Anton: " length
+    assert lines[0] == "Anton:"
+    assert "10:30 Sarajevo 🇧🇦" in lines[1]
+    assert "09:30 London 🇬🇧" in lines[2]
+    assert lines[3] == ""
+    assert "15:00 Sarajevo 🇧🇦" in lines[4]
+    assert "14:00 London 🇬🇧" in lines[5]

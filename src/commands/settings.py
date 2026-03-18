@@ -191,8 +191,10 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
 
-    # Process pending messages (LLM will handle missing TZ)
-    await _process_pending_queue_dm(callback.message.bot, user_id, chat_id, user_name)
+    # Discard pending messages (Experiment: Lazy Onboarding)
+    discarded = await get_and_delete_pending_messages(user_id, "telegram")
+    if discarded:
+        logger.info(f"User {user_id} ({user_name}) declined onboarding. Discarded {len(discarded)} messages.")
 
 
 # ---------------------------------------------------------------------------
@@ -520,16 +522,12 @@ async def _handle_expired_messages(bot, user_id: int, platform: str, messages: l
     Callback triggered by pending.py cleanup_loop when onboarding expires.
     We process these messages 'as is' without waiting for registration.
     """
-    if platform != "telegram" or not messages:
+    if not messages:
         return
 
-    logger.info(f"Failsafe: Processing {len(messages)} expired messages for user {user_id}")
-    
-    if not bot:
-        logger.error("No bot instance provided for expired messages processing.")
-        return
-
-    await _drain_pending_messages(bot, user_id, messages)
+    # Experiment: In Lazy Onboarding, we discard messages if user ignores/declines
+    logger.info(f"Failsafe: User {user_id} ({platform}) ignored onboarding. Discarding {len(messages)} messages.")
+    # No action needed - messages are already removed from the pending storage by the cleanup loop
 
 
 async def _drain_pending_messages(bot, user_id: int, messages: list[dict]):

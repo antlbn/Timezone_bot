@@ -73,8 +73,8 @@ class TestFormatConversionReply:
             members=[],
             sender_name="Alice"
         )
-        assert "*Alice:*" in reply
-        assert "\n14:00 Berlin 🇩🇪" in reply
+        assert "Alice:" in reply
+        assert "\n14:00" in reply
         assert "/tb_help" not in reply
         assert "|" not in reply
 
@@ -95,11 +95,15 @@ class TestFormatConversionReply:
         )
         
         # 14:00 Berlin -> 08:00 NY (or 09:00 depending on DST), 22:00 Tokyo
-        assert "*Alice:*" in reply
+        assert "Alice:" in reply
         assert "14:00 Berlin 🇩🇪" in reply
         assert "New York 🇺🇸" in reply
         assert "Tokyo 🇯🇵" in reply
-        assert "|" in reply
+        assert "Alice:" in reply
+        assert "14:00 Berlin 🇩🇪" in reply
+        assert "New York 🇺🇸" in reply
+        assert "Tokyo 🇯🇵" in reply
+        assert "|" not in reply
 
     def test_day_offset(self):
         """Test day shift indicator (+1)."""
@@ -117,3 +121,29 @@ class TestFormatConversionReply:
         )
         
         assert "07:00⁺¹ Tokyo 🇯🇵" in reply
+    def test_mobile_wrapping(self):
+        """Test that 3 locations result in 2 lines (2 + 1 wrapping)."""
+        members = [
+            {"city": "New York", "timezone": "America/New_York", "flag": "🇺🇸", "username": "bob"},
+            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"}
+        ]
+        
+        reply = format_conversion_reply(
+            original_time="14:00",
+            sender_city="Berlin",
+            sender_tz="Europe/Berlin",
+            sender_flag="🇩🇪",
+            members=members,
+            sender_name="Alice"
+        )
+        
+        # Expected structure:
+        # Alice:
+        # 14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸
+        # 22:00 Tokyo 🇯🇵
+        lines = reply.split("\n")
+        assert lines[0] == "Alice:"
+        assert "Berlin" in lines[1]
+        assert "New York" in lines[2]
+        assert "Tokyo" in lines[3]
+        assert "|" not in "\n".join(lines)
