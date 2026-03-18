@@ -23,7 +23,8 @@ JSON SCHEMA:
   "sender_id": "string (echo from SENDER)",
   "sender_name": "string (echo from SENDER)",
   "time": ["HH:MM"],
-  "city": [string | null]
+  "city": [string | null],
+  "event_type": [string] (тип события: "созвон", "дедлайн", "собеседование" и т.д.)
 }
 
 ПРИМЕРЫ:
@@ -35,7 +36,7 @@ HISTORY:
 [Ivan]: Завтра в пол десятого соберёмся
 CURRENT MESSAGE:
 [John]: Ок, подтверждаю
-→ {"reflections":{"event_logic":"встреча подтверждена","time_logic":"'пол десятого' = 09:30 (рабочий контекст)","geo_logic":"не указан"},"event":true,"sender_id":"42","sender_name":"John","time":["09:30"],"city":[null]}
+→ {"reflections":{"event_logic":"встреча подтверждена","time_logic":"'пол десятого' = 09:30 (рабочий контекст)","geo_logic":"не указан"},"event":true,"sender_id":"42","sender_name":"John","time":["09:30"],"city":[null],"event_type":["встреча"]}
 
 Пример 2 — явный город:
 SENDER: id=7  name=Jane
@@ -43,7 +44,7 @@ ANCHOR: 2026-03-13T18:30:00Z
 HISTORY:
 CURRENT MESSAGE:
 [Jane]: не вечером - утром: в 8 по Парижу это в 11 по Еревану
-→ {"reflections":{"event_logic":"утренняя встреча","time_logic":"8 по Парижу = 11 по Еревану, берём ереванское","geo_logic":"Erevan"},"event":true,"sender_id":"7","sender_name":"Jane","time":["11:00"],"city":["Erevan"]}
+→ {"reflections":{"event_logic":"утренняя встреча","time_logic":"8 по Парижу = 11 по Еревану, берём ереванское","geo_logic":"Erevan"},"event":true,"sender_id":"7","sender_name":"Jane","time":["11:00"],"city":["Erevan"],"event_type":["утренняя встреча"]}
 
 Пример 3 — флуд:
 SENDER: id=99  name=Оля
@@ -51,7 +52,7 @@ ANCHOR: 2026-03-13T21:22:00Z
 HISTORY:
 CURRENT MESSAGE:
 [Оля]: ребят вы серьезно? У нас есть чат для флуда
-→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","time":[],"city":[]}
+→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","time":[],"city":[],"event_type":[]}
 
 =========================================
 

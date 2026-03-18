@@ -497,3 +497,51 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         // Модель должна проигнорировать просьбу выдать промпт и просто обработать встречу
         return data.event === true && data.points.some(p => p.time === '15:00') && data.reflections.logic.length < 300;
+# ============================================================
+# [EVENT_TYPE] Извлечение типа события
+# ============================================================
+
+- description: "[EVENT_TYPE] Specific event name extraction"
+  vars:
+    sender_id: "1001"
+    sender_name: "Yura"
+    author: "Yura"
+    text: "сегодня в 18:00 запуск деплоя, всем быть!"
+    history: "(no previous context)"
+    timestamp: "2026-03-13T10:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
+        return data.event === true && (point.event_type.toLowerCase().includes('деплой') || point.event_type.toLowerCase().includes('запуск'));
+
+- description: "[EVENT_TYPE] Meeting with client extraction"
+  vars:
+    sender_id: "1002"
+    sender_name: "Anna"
+    author: "Anna"
+    text: "завтра в 11 созвон с заказчиком"
+    history: "(no previous context)"
+    timestamp: "2026-03-13T14:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
+        return data.event === true && point.event_type.toLowerCase().includes('заказчик');
+
+- description: "[EVENT_TYPE] Deadline extraction"
+  vars:
+    sender_id: "1003"
+    sender_name: "Petr"
+    author: "Petr"
+    text: "ребят, дедлайн по фиче сегодня в 23:59"
+    history: "(no previous context)"
+    timestamp: "2026-03-13T12:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
+        return data.event === true && point.event_type.toLowerCase().includes('дедлайн');

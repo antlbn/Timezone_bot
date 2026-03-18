@@ -5,21 +5,22 @@ ANCHOR time is for relative calculations (e.g., "in an hour").
 
 RULES:
 - "event": true if discussing, proposing, or refining a specific upcoming meeting, call, or deadline.
-- "points": list of objects {time: "HH:MM", city: string | null}.
+- "points": list of objects {time: "HH:MM", city: string | null, event_type: string}.
+- "event_type": short descriptive name of the event (e.g., "созвон", "дедлайн", "пицца", "встреча с заказчиком").
 - DEDUPLICATION: If one event is mentioned in multiple timezones (e.g., "9am EST / 2pm London"), PICK ONLY ONE entry. Favor the one with an explicit city.
 
 SCHEMA:
 {
   "reflections": {"logic": "reasoning"},
   "event": boolean,
-  "points": [{"time": "HH:MM", "city": string | null}],
+  "points": [{"time": "HH:MM", "city": string | null, "event_type": string}],
   "sender_id": "{{sender_id}}",
   "sender_name": "{{sender_name}}"
 }
 
 EXAMPLE: 
 "sync tomorrow at 9am EST, that's 2pm London" 
-→ {"event": true, "points": [{"time": "14:00", "city": "London"}]}
+→ {"event": true, "points": [{"time": "14:00", "city": "London", "event_type": "sync"}]}
 
 PREVIOUS CHAT CONTEXT:
 {{history}}

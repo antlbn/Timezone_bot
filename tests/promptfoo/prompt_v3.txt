@@ -38,47 +38,48 @@ SCHEMA:
   },
   "event": boolean,
   "time": ["HH:MM"],
-  "city": [string | null]
+  "city": [string | null],
+  "event_type": [string] (тип события: "созвон", "дедлайн", "собеседование" и т.д.)
 }
 
 ПРИМЕРЫ:
 
 // Флуд → event: false
 - 21:22 Оля: "ребят вы серьезно? У нас есть чат для флуда"
-→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"нет","geo_logic":"нет"},"event":false,"time":[],"city":[]}
+→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"нет","geo_logic":"нет"},"event":false,"time":[],"city":[],"event_type":[]}
 
 // Идиома + утро
 - 12:00 John: "Завтра в пол десятого утра собирёмся"
-→ {"reflections":{"event_logic":"встреча завтра","time_logic":"пол десятого = 09:30, утро подтверждает","geo_logic":"нет"},"event":true,"time":["09:30"],"city":[null]}
+→ {"reflections":{"event_logic":"встреча завтра","time_logic":"пол десятого = 09:30, утро подтверждает","geo_logic":"нет"},"event":true,"time":["09:30"],"city":[null],"event_type":["встреча"]}
 
 // Число в контексте = не время (номер подъезда)
 - 12:00 John: "Завтра в 8"
 History: - 11:30 Jane: В каком подъезде устанавливают сервер?
-→ {"reflections":{"event_logic":"Контекст про установку сервера в подъезде","time_logic":"8 — это номер подъезда, не время. Релевантного времени нет.","geo_logic":"нет"},"event":true,"time":[],"city":[]}
+→ {"reflections":{"event_logic":"Контекст про установку сервера в подъезде","time_logic":"8 — это номер подъезда, не время. Релевантного времени нет.","geo_logic":"нет"},"event":true,"time":[],"city":[],"event_type":[]}
 
 // Два события
 - 15:11 John: "Завтра созвон с аналитиками в 16:00, сегодня в полдень заходите в meet"
-→ {"reflections":{"event_logic":"два события","time_logic":"16:00 и полдень=12:00","geo_logic":"нет"},"event":true,"time":["16:00","12:00"],"city":[null,null]}
+→ {"reflections":{"event_logic":"два события","time_logic":"16:00 и полдень=12:00","geo_logic":"нет"},"event":true,"time":["16:00","12:00"],"city":[null,null],"event_type":["созвон", "meet"]}
 
 // Одно время в двух зонах: если автор сам переводит («9am EST, that’s 2pm London») → бери переведённое (второе), это «целевая» зона собеседника
 - 18:30 Jane: "не вечером - утром: в 8 по Парижу это в 11 по Еревану"
-→ {"reflections":{"event_logic":"событие утром","time_logic":"автор сам переводит: 8 Париж → 11 Ереван. Беру переведённое — 11:00 (целевая зона собеседника)","geo_logic":"Ереван"},"event":true,"time":["11:00"],"city":["Erevan"]}
+→ {"reflections":{"event_logic":"событие утром","time_logic":"автор сам переводит: 8 Париж → 11 Ереван. Беру переведённое — 11:00 (целевая зона собеседника)","geo_logic":"Ереван"},"event":true,"time":["11:00"],"city":["Erevan"],"event_type":["событие"]}
 
 // Инференс PM из контекста (timestamp 15:30, значит «до 8» = вечер)
 - 15:30 Антон: "подтвердилось, сегодня до 8 нужно отправить коммюнике"
-→ {"reflections":{"event_logic":"дедлайн отправки","time_logic":"timestamp=15:30, значит 8 — это вечер, PM → 20:00","geo_logic":"нет"},"event":true,"time":["20:00"],"city":[null]}
+→ {"reflections":{"event_logic":"дедлайн отправки","time_logic":"timestamp=15:30, значит 8 — это вечер, PM → 20:00","geo_logic":"нет"},"event":true,"time":["20:00"],"city":[null],"event_type":["дедлайн"]}
 
 // Исправление времени → берём исправленное
 - 09:15 Raj: "meeting is at 7 in evening i mean 7pm not morning lol"
-→ {"reflections":{"event_logic":"встреча сегодня","time_logic":"автор сам исправляет: not morning → 7pm = 19:00","geo_logic":"нет"},"event":true,"time":["19:00"],"city":[null]}
+→ {"reflections":{"event_logic":"встреча сегодня","time_logic":"автор сам исправляет: not morning → 7pm = 19:00","geo_logic":"нет"},"event":true,"time":["19:00"],"city":[null],"event_type":["meeting"]}
 
 // Слэнг + нестандартная запись времени
 - 13:14 Пашок: "гы народ митос завтр в 1500 не проспите лан?"
-→ {"reflections":{"event_logic":"митос=митинг, зовёт всех","time_logic":"1500 = 15:00","geo_logic":"нет"},"event":true,"time":["15:00"],"city":[null]}
+→ {"reflections":{"event_logic":"митос=митинг, зовёт всех","time_logic":"1500 = 15:00","geo_logic":"нет"},"event":true,"time":["15:00"],"city":[null],"event_type":["митинг"]}
 
 // «в 10 утра» ≠ 09:30 (не идиома «пол», обычный AM-модификатор)
 - 09:00 Anton: "Давай завтра в 10 утра созвонимся"
-→ {"reflections":{"event_logic":"созвон завтра","time_logic":"«в 10 утра» — НЕ идиома 'пол', простой AM: 10:00","geo_logic":"нет"},"event":true,"time":["10:00"],"city":[null]}
+→ {"reflections":{"event_logic":"созвон завтра","time_logic":"«в 10 утра» — НЕ идиома 'пол', простой AM: 10:00","geo_logic":"нет"},"event":true,"time":["10:00"],"city":[null],"event_type":["созвон"]}
 
 =========================================
 

@@ -20,33 +20,34 @@ SCHEMA:
   },
   "event": boolean,
   "time": ["HH:MM"],
-  "city": [string | null]
+  "city": [string | null],
+  "event_type": [string] (тип события: "созвон", "дедлайн", "собеседование" и т.д.)
 }
 
 ПРИМЕРЫ:
 
 // Флуд → event: false
 - 21:22 Оля: "ребят вы серьезно? У нас есть чат для флуда"
-→ {"reflections":{"event_logic":"флуд","time_logic":"нет","geo_logic":"нет"},"event":false,"time":[],"city":[]}
+→ {"reflections":{"event_logic":"флуд","time_logic":"нет","geo_logic":"нет"},"event":false,"time":[],"city":[],"event_type":[]}
 
 // Идиома + утро
 - 12:00 John: "Завтра в пол десятого утра собирёмся"
-→ {"reflections":{"event_logic":"встреча завтра","time_logic":"пол десятого = 09:30, утро подтверждает","geo_logic":"нет"},"event":true,"time":["09:30"],"city":[null]}
+→ {"reflections":{"event_logic":"встреча завтра","time_logic":"пол десятого = 09:30, утро подтверждает","geo_logic":"нет"},"event":true,"time":["09:30"],"city":[null],"event_type":["встреча"]}
 
 // Два события
 - 15:11 John: "Завтра созвон с аналитиками в 16:00, сегодня в полдень заходите в meet"
-→ {"reflections":{"event_logic":"два события","time_logic":"16:00 и полдень=12:00","geo_logic":"нет"},"event":true,"time":["16:00","12:00"],"city":[null,null]}
+→ {"reflections":{"event_logic":"два события","time_logic":"16:00 и полдень=12:00","geo_logic":"нет"},"event":true,"time":["16:00","12:00"],"city":[null,null],"event_type":["созвон", "meet"]}
 
 // Одно время в двух зонах
 - 18:30 Jane: "не вечером - утром: в 8 по Парижу это в 11 по Еревану"
-→ {"reflections":{"event_logic":"событие утром","time_logic":"одно время, выбираю Ереван=11:00","geo_logic":"Ереван"},"event":true,"time":["11:00"],"city":["Erevan"]}
+→ {"reflections":{"event_logic":"событие утром","time_logic":"одно время, выбираю Ереван=11:00","geo_logic":"Ереван"},"event":true,"time":["11:00"],"city":["Erevan"],"event_type":["событие"]}
 
 // Инференс из истории
 - 10:47 Антон: "в 9 встретились с заказчиком, два часа общались"
 History:
 - 10:45 Jane: "во сколько?"
 - 10:31 Антон: "вчера встречались с заказчиком по инфраструктурному"
-→ {"reflections":{"event_logic":"встреча с заказчиком вчера","time_logic":"контекст 'поздно позвонили' → 9 вечера = 21:00","geo_logic":"нет"},"event":true,"time":["21:00"],"city":[null]}
+→ {"reflections":{"event_logic":"встреча с заказчиком вчера","time_logic":"контекст 'поздно позвонили' → 9 вечера = 21:00","geo_logic":"нет"},"event":true,"time":["21:00"],"city":[null],"event_type":["встреча с заказчиком"]}
 
 PREVIOUS CHAT CONTEXT:
 {{history}}
