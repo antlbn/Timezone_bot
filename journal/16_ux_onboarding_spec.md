@@ -19,9 +19,9 @@ This document defines the user experience guidelines and implementations for the
 Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM-based onboarding via deep links** to keep the group chat pristine while conducting the full setup dialogue in the bot's private messages.
 
 #### Onboarding Flow
-1. **Trigger:** A new user (not in the database OR lacking a timezone without explicitly declining) sends *any* text in a group chat.
-   - *Note: The bot checks the DB cache first, entirely bypassing the LLM to save latency and costs.*
-2. **Queuing:** The message is instantly saved to an in-memory pending queue (`_frozen_messages`). Further processing (including LLM analysis) is paused.
+1. **Trigger:** A new user (not in the database) sends a message. The LLM evaluates it:
+   - If **no time event** detected → message is silently added to history for context.
+   - If **time event** detected → Onboarding is triggered (Lazy Onboarding).
 3. **Cooldown Check:** The bot checks if a DM invite was already sent within the `dm_onboarding_cooldown_seconds` window (default: 600s). If so, the message is only queued — no new invite is sent.
 4. **Invite:** If cooldown allows, the bot sends a minimal message to the group:
    > "Hi {Name}! Tap the button to quickly set up your timezone 👇"
@@ -36,8 +36,8 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
    - The user types their city.
    - On success: timezone saved, confirmation sent in DM, and **all pending messages from all chats** are processed and sent to their original groups.
 8. **DM — Decline / Ignore:**
-   - If the user declines, they are marked as `onboarding_declined=True`.
-   - If they ignore (timeout), messages in the queue expire after `onboarding_timeout_seconds` (default: 60s) and are processed by the LLM (without timezone context).
+   - If the user declines, they are marked as `onboarding_declined=True` and the **pending queue is discarded**.
+   - If they ignore (timeout), messages in the queue expire after `onboarding_timeout_seconds` (default: 120s) and are **discarded** to prevent stale coordination responses.
 9. **Security:** The deep-link payload is validated. If another user tries to use it, the bot ignores it.
 
 #### ⭐ UX Principles & Cleanup Rules
@@ -51,10 +51,30 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 #### 🛠️ Configurable Timers (`configuration.yaml`)
 | Parameter | Default | Description |
 | :--- | :--- | :--- |
-| `settings_cleanup_timeout_seconds` | 10s | TTL for system/help messages in groups. |
-| `onboarding_timeout_seconds` | 60s | How long to wait for a user to finish setup before "releasing" their messages without a timezone. |
-| `dm_onboarding_cooldown_seconds` | 10m | Cooldown to prevent spamming invitations to the same new user. |
-| `inactive_user_retention_days` | 30d | Automatic deletion of users who haven't interacted with the bot. |
+| `settings_cleanup_timeout_seconds` | 30s | TTL for system/help messages in groups. |
+| `onboarding_timeout_seconds` | 120s | How long to wait for a user before discarding their pending coordination messages. |
+| `dm_onboarding_cooldown_seconds` | 10m | Cooldown to prevent spamming invitations. |
+| `max_message_age_seconds` | 30s | How old a message can be before the bot ignores it (preventing catch-up spam). |
+
+---
+
+## 3. Lazy Onboarding Flow Diagram
+
+```mermaid
+graph TD
+    A[Incoming Message] --> B{User Registered?}
+    B -- YES --> C[Process Immediately]
+    B -- NO --> D[LLM Analysis]
+    
+    D -- No Event --> E[Save to History & Stop]
+    D -- Event Detected --> F[Freeze Message]
+    
+    F --> G[Send DM Invite Url]
+    G --> H{User Action}
+    
+    H -- Completes Setup --> I[Release Message + Conversion]
+    H -- Declines/Timeout --> J[Discard Message]
+```
 
 ---
 

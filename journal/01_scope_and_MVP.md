@@ -100,7 +100,7 @@ Create a stable Telegram / Discord bot that:
 - Clearly defined message schema.
 - Unified time format.
 - **Date Handling**: Marking if time transitions to the next day.
-- **Grouping**: Matching timezones — time once, cities comma-separated.
+- **Vertical Layout**: Each location name and its time is displayed on a new line (maximum 2 per line was abandoned for full vertical list).
 
 ### Algorithm
 1. Every message is forwarded to the **LLM-based Event Detector** (`14_llm_module.md`).

@@ -47,7 +47,7 @@ Bot extension to support Discord servers. Uses **discord.py** — async library 
 
 | Aspect | Telegram | Discord |
 |--------|----------|---------|
-| **Set Timezone UX** | Text-based `/tb_settz` + ForceReply | Button → Modal (form) |
+| **Set Timezone UX** | DM-based URL button | Button → Modal (form) |
 | **Fallback (city not found)** | Text reply with time | Buttons: "Try Again" / "Enter Time" |
 | **Button security** | N/A | Only target user can click |
 | **Stale user removal** | Manual `/tb_remove` | Auto-cleanup on time mention |

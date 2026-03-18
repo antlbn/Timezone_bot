@@ -11,35 +11,21 @@
 ┌────────────────────────────────────────────────────────┐
 │                     BOT CORE                           │
 │                                                        │
-│  ┌───────────────────────────────────────────────┐    │
-│  │  DB Lookup (sender exists?)                   │    │
-│  │    NO → Onboarding Flow → save TZ → requeue   │    │
-│  │    YES → continue                             │    │
-│  └──────────────────────┬────────────────────────┘    │
-│                         │                             │
-│                         ▼                             │
-│              ┌────────────────────┐                   │
-│              │  Event Detector    │                   │
-│              │  (LLM)             │                   │
-│              └─────────┬──────────┘                   │
-│          trigger=false │ trigger=true                 │
-│              ↓         │                              │
-│           (ignore)     ▼                              │
-│              ┌─────────────────┐   ┌──────────────┐  │
-│              │ Transform       │──▶│ Response     │  │
-│              │ (UTC-Pivot)     │   │ (Format)     │  │
-│              └─────────────────┘   └──────────────┘  │
+│  ┌────────────────────┐      ┌────────────────────┐    │
+│  │  Event Detector    │      │ DB Lookup (User)   │    │
+│  │  (LLM)             │─────▶│ YES → Transform    │    │
+│  └─────────┬──────────┘      │ NO  → Onboard      │    │
+│            │                 └─────────┬──────────┘    │
+│            ▼                           ▼               │
+│        trigger=false             ┌──────────────┐      │
+│            │                     │ Response     │      │
+│         (history)                │ (Vertical)   │      │
+│                                  └──────────────┘      │
 │                                                        │
 │  ┌──────────────────────────────────────────────┐    │
 │  │              Storage (SQLite)                 │    │
-│  │  users: timezone, city                        │    │
-│  │  chat_members: who is in which chat           │    │
+│  │  users, chats, members, pending_queue         │    │
 │  └──────────────────────────────────────────────┘    │
-│       │                                               │
-│       ▼ (if user not found)                          │
-│  ┌─────────────┐                                     │
-│  │ City → TZ   │ (Geocoding)                         │
-│  └─────────────┘                                     │
 └────────────────────────────────────────────────────────┘
          │
          ▼ reply
@@ -62,10 +48,11 @@ This ensures reliability and follows standard practices for handling:
 
 ### Trigger
 Bot listens to all messages in group chats. For each message:
-1. **DB lookup**: Check if the sender exists in SQLite.
-   - If **not found** → run Onboarding Flow first (see below), then re-process the message.
-2. **LLM Gate**: Send the message window to the **Event Detector LLM** (`14_llm_module.md`).
-3. **Continues only if** LLM returns `trigger=true`. Otherwise the message is ignored.
+1. **LLM Gate**: Send the message window to the **Event Detector LLM** (`14_llm_module.md`).
+2. **Continues only if** LLM returns `trigger=true`. Otherwise the message is silently saved to history.
+3. **DB lookup**: Check if the sender exists in SQLite.
+   - If **found** → proceed to Conversion.
+   - If **not found** → Trigger **Lazy Onboarding** (Freeze message, send DM invite).
 4. LLM output provides `times[]` (extracted times) and optional `event_location`.
 
 > **Note**: `capture.py` (regex) is no longer used for prefiltering or time extraction. Times are extracted by the LLM.
@@ -84,26 +71,24 @@ Bot listens to all messages in group chats. For each message:
                      use sender's DB timezone → source_tz
 4. [SCAN]        → Get list of other chat members from DB
 5. [TRANSFORM]   → Convert times[] from source_tz → UTC → all member zones
-6. [REPLY]       → Bot replies:
-                   "14:00 New York 🇺🇸 | 20:00 Berlin 🇩🇪 | 22:00 Moscow 🇷🇺"
+6. [REPLY]       → Bot replies in a vertical list format:
+                   "Anton Lubny:
+                    14:00 New York 🇺🇸
+                    20:00 Berlin 🇩🇪
+                    22:00 Moscow 🇷🇺"
 ```
 
 ### Flow: New User (sender not in DB)
 
 ```
-1. [DB LOOKUP]   → sender NOT found in SQLite
-2. [IGNORE TIME] → Original message is added to deque (for future context) but NOT evaluated for time.
-3. [ONBOARDING]  → Run standard onboarding immediately:
-                   Bot asks: "Reply with your city name:"
-   │
-   ├─ [SUCCESS]  → Geocode city → save TZ to SQLite
-   │              → "Set: Berlin 🇩🇪 (Europe/Berlin)"
-   │
-   └─ [FAIL]     → "City not found. Reply with your current time (e.g. 14:30)
-                    or try another city name:"
-                   → [TIME]  → Calculate UTC offset, save UTC+X
-                   → [CITY]  → Repeat geocoding
-4. [DONE]        → User is registered. Future messages will be evaluated by LLM.
+1. [LLM GATE]    → Event Detection LLM called.
+                   - if trigger=false → stop (no reply, no onboarding)
+                   - if trigger=true  → continue
+2. [DB LOOKUP]   → sender NOT found in SQLite.
+3. [FREEZE]      → Message is saved to `_frozen_messages` in `pending.py`.
+4. [ONBOARDING]  → Send DM invite link to group (TTL: 30s).
+5. [SETUP]       → User completes setup in DM (Welcome → City Prompt).
+6. [RELEASE]     → Message is released and processed by Conversion pipeline.
 ```
 
 #### Sequence Diagram: New User Flow
@@ -112,22 +97,26 @@ Bot listens to all messages in group chats. For each message:
 sequenceDiagram
     participant U as User
     participant B as Bot
-    participant LLM as Event Detector LLM
+    participant LLM as LLM
     participant DB as SQLite
     participant G as Geocoding
 
-    U->>B: "Hello team!"
+    U->>B: "Let's meet at 5pm!"
+    B->>LLM: detect(window)
+    LLM-->>B: {trigger:true, times:["17:00"]}
     B->>DB: get_user(user_id)
     DB-->>B: null (not found)
-    Note over B: Message added to deque, LLM skipped
-    B->>U: "Reply with your city:"
-    U->>B: "Berlin"
+    Note over B: Freeze message triggered
+    B->>U: (Group) "Hi! Tap to set timezone [📍]"
+    Note over B: User clicks deep link
+    U->>B: (DM) /start onboard_...
+    B->>U: (DM) Welcome + Instructions
+    U->>B: (DM) "Berlin"
     B->>G: geocode("Berlin")
-    G-->>B: {tz: "Europe/Berlin", flag: "🇩🇪"}
+    G-->>B: {tz: "Europe/Berlin"}
     B->>DB: set_user(user_id, "Berlin", "Europe/Berlin")
-    B->>DB: add_chat_member(chat_id, user_id)
-    B->>U: "Set Anton: Berlin 🇩🇪 (Europe/Berlin)"
-    Note over B: User is registered. Next messages will trigger LLM.
+    Note over B: Release message
+    B->>U: (Group) Reply with Conversion
 ```
 
 #### Sequence Diagram: event_location Override
@@ -151,7 +140,10 @@ sequenceDiagram
     B->>DB: get_chat_members(chat_id)
     DB-->>B: [members with timezones]
     Note over B: Convert 12:00 America/New_York → all zones
-    B->>U: "12:00 New York 🇺🇸 | 18:00 Paris 🇫🇷 | 20:00 Moscow 🇷🇺"
+    B->>U: "Anton Lubny:
+           12:00 New York 🇺🇸
+           18:00 Paris 🇫🇷
+           20:00 Moscow 🇷🇺"
 ```
 
 #### Sequence Diagram: Fallback Flow (City Not Found)

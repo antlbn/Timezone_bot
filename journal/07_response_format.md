@@ -10,13 +10,19 @@ Bot response format for time conversion.
 
 **Default (without usernames):**
 ```
-14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵
+14:00 Berlin 🇩🇪
+08:00 New York 🇺🇸
+22:00 Tokyo 🇯🇵
+
 /tb_help
 ```
 
 **With usernames (optional):**
 ```
-14:00 Berlin 🇩🇪 @john | 08:00 New York 🇺🇸 @alice, @bob | 22:00 Tokyo 🇯🇵 @yuki
+14:00 Berlin 🇩🇪 @john
+08:00 New York 🇺🇸 @alice, @bob
+22:00 Tokyo 🇯🇵 @yuki
+
 /tb_help
 ```
 
@@ -51,7 +57,9 @@ bot:
 If time transitions to another day:
 
 ```
-14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00⁺¹ Tokyo 🇯🇵
+14:00 Berlin 🇩🇪
+08:00 New York 🇺🇸
+22:00⁺¹ Tokyo 🇯🇵
 ```
 
 | Marker | Meaning |
@@ -67,8 +75,13 @@ If a message contains multiple times, the bot aggregates them into a **single, m
 
 **Example:**
 ```
-Alice: 10:30 Sarajevo 🇧🇦 | 09:30 London 🇬🇧
-       15:00 Sarajevo 🇧🇦 | 14:00 London 🇬🇧
+Alice: 
+10:30 Sarajevo 🇧🇦
+09:30 London 🇬🇧
+
+15:00 Sarajevo 🇧🇦
+14:00 London 🇬🇧
+
 /tb_help
 ```
 
@@ -86,7 +99,9 @@ bot:
 
 If more users than limit:
 ```
-14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | ... +5 more
+14:00 Berlin 🇩🇪
+08:00 New York 🇺🇸
+... +5 more
 ```
 
 ---

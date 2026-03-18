@@ -61,7 +61,7 @@ async def test_concurrency_multi_user_flow():
          patch("src.commands.common.get_settings_cleanup_timeout", return_value=0), \
          patch("src.commands.common.delete_message_after", AsyncMock()), \
          patch("src.commands.common.process_message", AsyncMock(return_value={"event": True, "points": [{"time": "12:00"}]})) as mock_process, \
-         patch("src.commands.settings.process_message", side_effect=lambda *args, **kwargs: mock_process(*args, **kwargs)), \
+         patch("src.commands.settings.process_message", new=mock_process), \
          patch("src.commands.settings.get_user_cached", side_effect=get_user_mock):
 
         # --- STEP 1: All users send messages ---

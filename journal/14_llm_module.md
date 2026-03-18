@@ -1,6 +1,6 @@
 # Technical Spec: LLM Module
 
-> **Version**: 2.0 — LLM as Orchestrator (Tool-Calling)
+> **Version**: 2.1 — LLM with JSON Mode (Direct Orchestration)
 
 ---
 
@@ -11,17 +11,13 @@ This module describes the full lifecycle of a message from the moment it arrives
 
 The LLM is now the **orchestrator**, not just a classifier:
 
-1. **Pre-LLM gate** (algorithm): checks that every message author is registered in the DB.
-   Unregistered users → onboarding dialog is started; their message is silently dropped from the
-   LLM pipeline.
-2. **LLM call**: for registered users, the current message + N historical messages from the
-   in-memory cache + sender metadata are sent.
-   The LLM decides whether the message contains a time-coordination event and fills a structured
-   JSON response.
-3. **Tool call** (algorithm triggered by LLM): when the LLM identifies an actionable event
-   (`event == true`, `points` non-empty), it calls the `convert_time` tool — a thin wrapper
-   around the existing Transform module. The module reads participant timezones from DB, converts
-   every time value, and posts a single aggregated formatted result to the chat.
+1. **LLM call**: Current message + Context history + Sender metadata are sent.
+   The LLM decides whether the message contains a time-coordination event and fills a structured JSON response (JSON Mode).
+2. **Post-LLM registration gate**: 
+   - If `event == false` → message is silently added to history for future context.
+   - If `event == true` AND author is **unregistered** → Onboarding is started (Lazy Onboarding).
+   - If `event == true` AND author is **registered** → proceed to Conversion.
+3. **Execution**: The detector parses the JSON and (if event is true) calls `execute_convert_time`.
 
 ### Why this shape?
 
@@ -29,7 +25,7 @@ The LLM is now the **orchestrator**, not just a classifier:
 |---|---|---|
 | Onboarding trigger | Regex detected unknown user | Algorithm checks DB on every message |
 | Time detection | Regex prefilter → LLM classify | LLM does both detection and extraction |
-| Conversion trigger | Bot code reads LLM JSON, calls Transform | LLM calls `convert_time` tool directly |
+| Conversion trigger | LLM calls tool directly | Detector processes JSON output |
 | Context window | Two-pass (pass 1 single, pass 2 with history) | Single pass with configurable history |
 
 ---
@@ -105,24 +101,27 @@ Each item in the window (history + current message) is the same normalized shape
 
 ```mermaid
 graph TD
-    A[Incoming message] --> B{DB: sender registered?}
-    B -- NO --> C[Save to pending queue]
-    C --> D[Start onboarding dialog]
-    B -- YES --> E[Append to history buffer]
-    E --> F[LLM pipeline]
+    A[Incoming Message] --> B[LLM Gate: detect_event]
+    B -- No event --> C[Save to history & Stop]
+    B -- Event Detected --> D{User Registered?}
+    D -- NO --> E[Save to pending queue]
+    E --> F[Start Lazy Onboarding]
+    D -- YES --> G[Transform & Conversion]
     
-    subgraph Onboarding Release
-    G[Onboarding Finish/Timeout] --> H[Release messages from queue]
-    H --> E
+    subgraph Onboarding Lifecycle
+    H[Setup Success] --> I[Release Message from queue]
+    I --> G
+    J[Setup Timeout/Decline] --> K[Discard Message]
     end
 ```
 
 ### Rules
 
-1. **Not registered**: The message is saved to the **pending queue** (`_frozen_messages`) and the onboarding flow is triggered.
-2. **Registered**: proceed to LLM normally.
-3. **Onboarding completion**: Messages are released from the queue and processed by the LLM using the newly saved timezone.
-4. **Onboarding timeout**: Messages are released from the queue and processed by the LLM **without** a timezone (best-effort conversion).
+1. **No Event**: The message is ignored for conversion but stored in history.
+2. **Event + Not registered**: The message is frozen in `pending_queue`. Onboarding is triggered.
+3. **Event + Registered**: Message proceeds to conversion.
+4. **Onboarding completion**: Messages are released and processed.
+5. **Onboarding timeout/decline**: Messages are **discarded** to prevent stale results.
 
 > **Rationale**: We preserve context. No messages are ever "dropped" during onboarding; they are merely delayed until the user is ready or the interaction times out.
 
@@ -203,9 +202,9 @@ The LLM **MUST** output strict JSON only (no prose). Schema stored at
 | Field | Type | Description |
 |---|---|---|
 | `reflections` | `object` | Chain-of-thought: `event_logic`, `time_logic`, `geo_logic` (all strings) |
-| `event` | `bool` | `true` → actionable time event; LLM calls `convert_time` tool |
-| `sender_id` | `str` | Echoed from `SENDER: id=…`; passed directly to tool call |
-| `sender_name` | `str` | Echoed from `SENDER: name=…`; used in formatted reply |
+| `event` | `bool` | `true` → actionable time event identified. |
+| `sender_id` | `str` | Echoed from input; used for logic. |
+| `sender_name` | `str` | Echoed from input; used in formatted reply. |
 | `points` | `object[]` | List of `{"time": "HH:MM", "city": "Name"|null}` objects. |
 
 ### 6.4 Decision Policy
@@ -285,15 +284,10 @@ Both adapters share:
 Adapter (TG/Discord)
         │
         ▼
-[DB: sender registered?]
-   NO ──▶ [Onboarding dialog] → append to history → STOP
-   YES
+[Append to history deque (at start of call)]
         │
         ▼
-[Append to history deque (after snapshot)]
-        │
-        ▼
-[LLM: system prompt + history snapshot + current message + sender metadata]
+[LLM: system prompt + history snapshot + current message + metadata]
         │
         ▼
 [LLM JSON response]
@@ -303,12 +297,17 @@ Adapter (TG/Discord)
    ┌────┴──────┐
    NO          YES
    │            │
-  STOP          [LLM calls convert_time tool]
+  STOP    [DB: sender registered?]
                 │
-                ▼
-         [Resolve source TZ per point]
-         [Transform → all participants]
-         [Formatter → aggregated reply]
+         ┌──────┴──────┐
+         NO            YES
+         │              │
+[Onboarding Invite]  [Execute convert_time]
+                        │
+                        ▼
+                 [Resolve source TZ per point]
+                 [Transform → all participants]
+                 [Formatter → aggregated reply (Vertical)]
 ```
 
 ---
