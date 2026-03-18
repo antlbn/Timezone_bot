@@ -9,15 +9,18 @@ _message_history: dict[tuple[str, str], deque] = {}
 # Locks to ensure only one LLM request fires per chat at a given time
 _chat_locks: dict[tuple[str, str], asyncio.Lock] = {}
 
+
 def _get_history_limit() -> int:
     """Read the context limit from config, defaulting to 5."""
     settings = get_bot_settings()
     return settings.get("event_detection", {}).get("context_messages", 5)
 
+
 def _get_max_chars() -> int:
     """Read max characters per message limit from config, defaulting to 500."""
     settings = get_bot_settings()
     return settings.get("event_detection", {}).get("max_message_length_chars", 500)
+
 
 def append_to_history(platform: str, chat_id: str, message_data: dict) -> list[dict]:
     """
@@ -28,25 +31,26 @@ def append_to_history(platform: str, chat_id: str, message_data: dict) -> list[d
     key = (platform, str(chat_id))
     limit = _get_history_limit()
     max_chars = _get_max_chars()
-    
+
     # Truncate text to protect LLM context windows
     if "text" in message_data and len(message_data["text"]) > max_chars:
         message_data["text"] = message_data["text"][:max_chars] + "...[truncated]"
 
     if key not in _message_history:
         _message_history[key] = deque(maxlen=limit)
-    
+
     dq = _message_history[key]
-    
+
     # Take a frozen snapshot BEFORE mutating the deque.
     # We use this frozen context for Pass 2 so it doesn't jump around
     # while the LLM is running asynchronously.
     snapshot = list(dq)
-    
+
     # Push the new message into the live deque
     dq.append(message_data)
-    
+
     return snapshot
+
 
 def get_chat_lock(platform: str, chat_id: str) -> asyncio.Lock:
     """
@@ -57,6 +61,7 @@ def get_chat_lock(platform: str, chat_id: str) -> asyncio.Lock:
     if key not in _chat_locks:
         _chat_locks[key] = asyncio.Lock()
     return _chat_locks[key]
+
 
 def format_snapshot_for_llm(snapshot: list[dict]) -> str:
     """
@@ -69,8 +74,8 @@ def format_snapshot_for_llm(snapshot: list[dict]) -> str:
         text = msg.get("text", "")
         # The payload contains standard UTC timestamp from the adapters
         lines.append(f"[{author}]: {text}")
-        
+
     if not lines:
         return "No prior conversational context."
-        
+
     return "\n".join(lines)

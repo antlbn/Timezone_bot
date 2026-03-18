@@ -8,6 +8,7 @@ from src.event_detection.detector import detect_event
 
 logger = get_logger()
 
+
 async def process_message(
     message_text: str,
     chat_id: str,
@@ -25,25 +26,33 @@ async def process_message(
     Main entry point for the LLM pipeline with queuing and aging.
     """
     # Create a contextual logger for this message
-    ctx_logger = logging.LoggerAdapter(logger, {"extra_prefix": f"[{platform}:{chat_id}]"})
+    ctx_logger = logging.LoggerAdapter(
+        logger, {"extra_prefix": f"[{platform}:{chat_id}]"}
+    )
 
     ctx_logger.info(f"Processing message from {author_name} ({user_id})")
 
     # 0. Hard skip for excessively long messages (security / cost protection)
     hard_limit = get_max_message_hard_skip()
     if len(message_text) > hard_limit:
-        ctx_logger.warning(f"Message too long ({len(message_text)} chars), hard skipping.")
+        ctx_logger.warning(
+            f"Message too long ({len(message_text)} chars), hard skipping."
+        )
         return {
-            "event": False, "sender_id": user_id, "sender_name": author_name,
-            "time": [], "city": [], "reason": f"Message exceeded hard limit of {hard_limit} chars",
+            "event": False,
+            "sender_id": user_id,
+            "sender_name": author_name,
+            "time": [],
+            "city": [],
+            "reason": f"Message exceeded hard limit of {hard_limit} chars",
         }
 
     msg_data = {
-        "platform":      platform,
-        "chat_id":       chat_id,
-        "author_id":     user_id,
-        "author_name":   author_name,
-        "text":          message_text.strip(),
+        "platform": platform,
+        "chat_id": chat_id,
+        "author_id": user_id,
+        "author_name": author_name,
+        "text": message_text.strip(),
         "timestamp_utc": timestamp_utc,
     }
 
@@ -51,19 +60,29 @@ async def process_message(
     if not skip_aging:
         max_age = get_max_message_age()
         try:
-            msg_time = datetime.datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+            msg_time = datetime.datetime.fromisoformat(
+                timestamp_utc.replace("Z", "+00:00")
+            )
             now = datetime.datetime.now(datetime.timezone.utc)
             diff = (now - msg_time).total_seconds()
-            logger.debug(f"[{platform}:{chat_id}] Message age check: diff={diff:.2f}s, max_age={max_age}s")
+            logger.debug(
+                f"[{platform}:{chat_id}] Message age check: diff={diff:.2f}s, max_age={max_age}s"
+            )
             if diff > max_age:
-                logger.warning(f"[{platform}:{chat_id}] Message too old ({int(diff)}s), skipping.")
+                logger.warning(
+                    f"[{platform}:{chat_id}] Message too old ({int(diff)}s), skipping."
+                )
                 return {
-                    "event": False, "sender_id": user_id, "sender_name": author_name,
-                    "time": [], "city": [], "reason": "Message stale before processing",
+                    "event": False,
+                    "sender_id": user_id,
+                    "sender_name": author_name,
+                    "time": [],
+                    "city": [],
+                    "reason": "Message stale before processing",
                 }
         except Exception as e:
             logger.error(f"[{platform}:{chat_id}] Error checking message age: {e}")
-    
+
     # Pre-parse time for second aging check below
     try:
         msg_time = datetime.datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
@@ -72,13 +91,15 @@ async def process_message(
 
     if skip_history_append:
         snapshot = precomputed_snapshot or []
-        logger.debug(f"[{platform}:{chat_id}] Using precomputed snapshot (size={len(snapshot)})")
+        logger.debug(
+            f"[{platform}:{chat_id}] Using precomputed snapshot (size={len(snapshot)})"
+        )
     else:
         snapshot = append_to_history(platform, chat_id, msg_data)
 
     # 2. Waiting lock - one LLM call at a time per chat
     lock = get_chat_lock(platform, chat_id)
-    
+
     async with lock:
         # Re-check aging after getting the lock (it might have been waiting for a while)
         if not skip_aging:
@@ -91,8 +112,12 @@ async def process_message(
                     f"Age: {int(age)}s (Limit: {max_age}s). Dropping msg from '{author_name}'."
                 )
                 return {
-                    "event": False, "sender_id": user_id, "sender_name": author_name,
-                    "time": [], "city": [], "reason": f"Message stale after queueing ({int(age)}s)",
+                    "event": False,
+                    "sender_id": user_id,
+                    "sender_name": author_name,
+                    "time": [],
+                    "city": [],
+                    "reason": f"Message stale after queueing ({int(age)}s)",
                 }
 
         result = await detect_event(
@@ -106,5 +131,6 @@ async def process_message(
         )
 
     return result
+
 
 __all__ = ["process_message"]

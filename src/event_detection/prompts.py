@@ -13,12 +13,12 @@ EVENT_DETECTION_SCHEMA = {
             "required": ["event_logic", "time_logic", "geo_logic"],
             "properties": {
                 "event_logic": {"type": "string"},
-                "time_logic":  {"type": "string"},
-                "geo_logic":   {"type": "string"},
+                "time_logic": {"type": "string"},
+                "geo_logic": {"type": "string"},
             },
         },
-        "event":       {"type": "boolean"},
-        "sender_id":   {"type": "string"},
+        "event": {"type": "boolean"},
+        "sender_id": {"type": "string"},
         "sender_name": {"type": "string"},
         "points": {
             "type": "array",
@@ -38,7 +38,8 @@ EVENT_DETECTION_SCHEMA = {
 # ─────────────────────────────────────────────────────────────────────────────
 # SYSTEM PROMPT
 # ─────────────────────────────────────────────────────────────────────────────
-SYSTEM_PROMPT = """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
+SYSTEM_PROMPT = (
+    """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
 БЕЗ ЛИШНЕГО ТЕКСТА И ПОЯСНЕНИЙ.
 
 ЗАДАЧА:
@@ -61,7 +62,9 @@ SYSTEM_PROMPT = """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТС
 7. Когда event=false: points=[].
 
 JSON SCHEMA:
-""" + json.dumps(EVENT_DETECTION_SCHEMA, indent=2, ensure_ascii=False) + """
+"""
+    + json.dumps(EVENT_DETECTION_SCHEMA, indent=2, ensure_ascii=False)
+    + """
 
 ПРИМЕРЫ:
 
@@ -91,6 +94,7 @@ CURRENT MESSAGE:
 [Оля]: ребят вы серьезно? у нас есть чат для флуда
 → {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","points":[]}
 """
+)
 
 
 def get_system_prompt() -> str:

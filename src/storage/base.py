@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
 
+
 class Storage(ABC):
     """
     Abstract Interface for Database Storage.
@@ -19,13 +20,13 @@ class Storage(ABC):
 
     @abstractmethod
     async def set_user(
-        self, 
-        user_id: int, 
+        self,
+        user_id: int,
         platform: str,
-        city: str, 
-        timezone: str, 
-        flag: str = "", 
-        username: str = ""
+        city: str,
+        timezone: str,
+        flag: str = "",
+        username: str = "",
     ):
         """Create or update user timezone."""
         pass

@@ -2,6 +2,7 @@
 Main entry point.
 Initializes and runs the Telegram bot.
 """
+
 import asyncio
 
 from aiogram import Bot, Dispatcher
@@ -15,20 +16,17 @@ from src.commands import router, PassiveCollectionMiddleware
 logger = get_logger()
 
 
-
 async def on_startup(bot: Bot):
     """Startup hook."""
     logger.info("Bot starting...")
-    
+
     # Initialize DB
     await storage.init()
     logger.info("Database initialized")
-    
+
     # Start pending cleanup bit
     asyncio.create_task(pending.cleanup_loop(bot))
     logger.info("Pending cleanup loop started")
-    
-
 
 
 async def main():
@@ -38,24 +36,22 @@ async def main():
     if not token:
         logger.warning("TELEGRAM_TOKEN not set, skipping Telegram bot")
         return
-    
+
     # Create bot and dispatcher
     bot = Bot(token=token)
     dp = Dispatcher(storage=MemoryStorage())
-    
+
     # Register startup hook
     dp.startup.register(on_startup)
-    
+
     # Register middleware
     dp.message.middleware(PassiveCollectionMiddleware())
-    
+
     # Register routers
     dp.include_router(router)
-    
 
-    
     logger.info("Bot starting...")
-    
+
     # Start polling
     try:
         await dp.start_polling(bot)
@@ -69,4 +65,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

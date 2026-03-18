@@ -1,7 +1,12 @@
 import asyncio
 
 from aiogram import Router, F
-from aiogram.types import Message, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message,
+    ChatMemberUpdated,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.deep_linking import create_start_link
@@ -9,12 +14,14 @@ from aiogram.utils.deep_linking import create_start_link
 from src.storage import storage
 from src.storage.user_cache import get_user_cached
 from src.storage.pending import (
-    save_pending_message, should_send_dm_invite, mark_dm_invite_sent,
+    save_pending_message,
+    should_send_dm_invite,
+    mark_dm_invite_sent,
 )
 from src.config import get_dm_onboarding_cooldown, get_settings_cleanup_timeout
 from src.logger import get_logger
 from src.event_detection import process_message
-from src.utils import auto_cleanup, delete_message_after
+from src.commands.utils import auto_cleanup, delete_message_after
 
 router = Router()
 logger = get_logger()
@@ -29,7 +36,7 @@ async def cmd_help(message: Message):
     """Show help menu (context-aware: group vs DM)."""
     is_dm = message.chat.type == "private"
     chat_title = message.chat.title or "this chat"
-    
+
     if is_dm:
         help_text = (
             "🤖 *Timezone Bot Help*\n"
@@ -45,13 +52,13 @@ async def cmd_help(message: Message):
             "Just mention a time (e.g., `15:00` or `tomorrow at 3pm`) in any group where I am present, and I'll convert it for everyone!"
         )
         return await message.answer(help_text, parse_mode="Markdown")
-    
+
     # In Group Chat
     link = await create_start_link(message.bot, "help")
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="⚙️ Manage my settings", url=link)
-    ]])
-    
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="⚙️ Manage my settings", url=link)]]
+    )
+
     help_text = (
         f"🤖 *Timezone Bot* in {chat_title}\n"
         "\n"
@@ -72,15 +79,20 @@ async def cmd_me(message: Message):
     """Show user's current timezone setting."""
     user_id = message.from_user.id
     user_record = await get_user_cached(user_id, platform="telegram")
-    
+
     if not user_record or not user_record.get("timezone"):
-        return await message.reply("📍 You haven't set your timezone yet. Use /tb_settz to set it!")
-    
+        return await message.reply(
+            "📍 You haven't set your timezone yet. Use /tb_settz to set it!"
+        )
+
     city = user_record.get("city")
     timezone = user_record.get("timezone")
     flag = user_record.get("flag", "")
-    
-    return await message.reply(f"📍 Your timezone is set to: *{city} {flag}* ({timezone})", parse_mode="Markdown")
+
+    return await message.reply(
+        f"📍 Your timezone is set to: *{city} {flag}* ({timezone})",
+        parse_mode="Markdown",
+    )
 
 
 @router.message(Command("tb_settz"))
@@ -88,29 +100,34 @@ async def cmd_me(message: Message):
 async def cmd_settz(message: Message, state: FSMContext):
     """Start timezone setting flow."""
     is_dm = message.chat.type == "private"
-    
+
     if is_dm:
         # Re-use the DM onboarding/settings logic
         from src.commands.settings import dm_onboarding_start
+
         # We simulate a /start call but without arguments
         return await dm_onboarding_start(message, None, state)
-    
+
     # In Group: Show JIT invite (or trigger the flow if we want, but JIT is preferred)
     # Actually, JIT invite is exactly what handle_time_mention does.
     # We can just manually trigger a fake time mention behavior or just send the link.
-    link = await create_start_link(message.bot, f"onboard_{message.from_user.id}_{message.chat.id}")
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="📍 Set my city", url=link)
-    ]])
-    
+    link = await create_start_link(
+        message.bot, f"onboard_{message.from_user.id}_{message.chat.id}"
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="📍 Set my city", url=link)]]
+    )
+
     return await message.reply(
         "To set your timezone, please tap the button below and I'll help you in DM! 👇",
-        reply_markup=kb
+        reply_markup=kb,
     )
 
 
 @router.message(F.text)
-async def handle_time_mention(message: Message, state: FSMContext, skip_aging: bool = False):
+async def handle_time_mention(
+    message: Message, state: FSMContext, skip_aging: bool = False
+):
     """Handle regular messages — onboarding for new users, LLM event detection for registered ones."""
     if not message.text:
         return
@@ -122,7 +139,9 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
 
     # 1. Check registration status
     sender = await get_user_cached(user_id, platform="telegram")
-    is_registered = bool(sender and sender.get("timezone") and not sender.get("onboarding_declined"))
+    is_registered = bool(
+        sender and sender.get("timezone") and not sender.get("onboarding_declined")
+    )
 
     # 2. Update activity timestamp (for all active users)
     await storage.update_activity(user_id, "telegram")
@@ -155,17 +174,19 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
     if not is_registered and result.get("event"):
         # Check if they already declined — if so, we don't nag them
         if sender and sender.get("onboarding_declined"):
-            logger.debug(f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite")
+            logger.debug(
+                f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite"
+            )
             return
 
         msg_data = {
-            "platform":      "telegram",
-            "chat_id":       str(chat_id),
-            "author_id":     str(user_id),
-            "author_name":   user_name,
-            "text":          message.text,
+            "platform": "telegram",
+            "chat_id": str(chat_id),
+            "author_id": str(user_id),
+            "author_name": user_name,
+            "text": message.text,
             "timestamp_utc": timestamp_utc,
-            "message_id":    message.message_id,
+            "message_id": message.message_id,
         }
 
         # Freeze this actionable message for later processing
@@ -174,14 +195,18 @@ async def handle_time_mention(message: Message, state: FSMContext, skip_aging: b
         # Check cooldown — don't spam user if they recently ignored/abandoned an invite
         cooldown = get_dm_onboarding_cooldown()
         if not await should_send_dm_invite(user_id, "telegram", cooldown):
-            logger.debug(f"[chat:{chat_id}] DM invite on cooldown for user {user_id}, skipping")
+            logger.debug(
+                f"[chat:{chat_id}] DM invite on cooldown for user {user_id}, skipping"
+            )
             return
 
         # Generate deep link to bot's DM with onboarding payload
         link = await create_start_link(message.bot, f"onboard_{user_id}_{chat_id}")
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="📍 Set up timezone", url=link)
-        ]])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="📍 Set up timezone", url=link)]
+            ]
+        )
 
         invite_msg = await message.reply(
             f"Hi {user_name}! Tap the button to quickly set up your timezone 👇",

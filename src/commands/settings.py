@@ -1,20 +1,27 @@
 from aiogram import Router, F
-from aiogram.types import Message, ForceReply, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message,
+    ForceReply,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
 from src.storage.pending import (
-    get_and_delete_pending_messages, clear_dm_invite,
-    set_on_expire_callback
+    get_and_delete_pending_messages,
+    clear_dm_invite,
+    set_on_expire_callback,
 )
 from src.event_detection.history import append_to_history
 from src.event_detection import process_message
 from src import geo
 from src.logger import get_logger
 from src.commands.states import SetTimezone
-from src.utils import auto_cleanup
+from src.commands.utils import auto_cleanup
 
 router = Router()
 logger = get_logger()
@@ -23,9 +30,12 @@ logger = get_logger()
 # DM Onboarding — Deep Link flow
 # ---------------------------------------------------------------------------
 
+
 @router.message(CommandStart(), F.chat.type == "private")
 @auto_cleanup(delete_bot_msg=True, keep_bot_msg_in_dm=True)
-async def dm_onboarding_start(message: Message, command: CommandObject, state: FSMContext):
+async def dm_onboarding_start(
+    message: Message, command: CommandObject, state: FSMContext
+):
     """
     Handle /start in DM.
     If payload is 'onboard_{user_id}_{chat_id}', it's a deep link from a group chat.
@@ -40,7 +50,7 @@ async def dm_onboarding_start(message: Message, command: CommandObject, state: F
             parts = payload.split("_")
             target_user_id = int(parts[1])
             chat_id = int(parts[2])
-            
+
             # Security: only the target user can trigger their own onboarding deep link
             if user_id != target_user_id:
                 await message.answer("This link is not for you! 😊")
@@ -75,11 +85,26 @@ async def dm_onboarding_start(message: Message, command: CommandObject, state: F
         f"Ready? Tap *Set my city* below 👇"
     )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📍 Set my city", callback_data=f"dm_setcity:{user_id}:{chat_id}")],
-        [InlineKeyboardButton(text="✖️ No thanks", callback_data=f"dm_decline:{user_id}:{chat_id}")],
-        [InlineKeyboardButton(text="🔒 Data Privacy", callback_data=f"dm_privacy:{user_id}")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📍 Set my city",
+                    callback_data=f"dm_setcity:{user_id}:{chat_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✖️ No thanks", callback_data=f"dm_decline:{user_id}:{chat_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔒 Data Privacy", callback_data=f"dm_privacy:{user_id}"
+                )
+            ],
+        ]
+    )
 
     # Store chat_id (0 if none) to state
     await state.update_data(user_id=user_id, source_chat_id=chat_id)
@@ -125,11 +150,12 @@ async def dm_setcity_callback(callback: CallbackQuery, state: FSMContext):
 async def dm_privacy_callback(callback: CallbackQuery):
     """Show data privacy information."""
     from src.config import get_data_retention_days
+
     retention_days = get_data_retention_days()
-    
+
     await callback.answer(
         text=f"Data is stored locally and auto-deleted after {retention_days} days of inactivity.",
-        show_alert=True
+        show_alert=True,
     )
     # Alternatively, send as a message if alert is too small
     # but the user said "сделаем кнопкой (там просто будет текст о том как дата храниться)"
@@ -161,7 +187,7 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
         city=None,
         timezone=None,
         username=callback.from_user.username or "",
-        onboarding_declined=True
+        onboarding_declined=True,
     )
     invalidate_user_cache(user_id, platform="telegram")
 
@@ -171,7 +197,7 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
     # Acknowledge in DM and show menu with "Set again" option implicitly
     await callback.message.edit_text(
         "Got it! I won't nag you again. If you change your mind, use the menu below or /tb_settz in any chat.",
-        reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True)
+        reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True),
     )
     await callback.answer()
 
@@ -181,43 +207,78 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
     # Discard pending messages (Experiment: Lazy Onboarding)
     discarded = await get_and_delete_pending_messages(user_id, "telegram")
     if discarded:
-        logger.info(f"User {user_id} ({user_name}) declined onboarding. Discarded {len(discarded)} messages.")
+        logger.info(
+            f"User {user_id} ({user_name}) declined onboarding. Discarded {len(discarded)} messages."
+        )
 
 
 # ---------------------------------------------------------------------------
 # Settings Menu — Registered Users
 # ---------------------------------------------------------------------------
 
-async def get_dm_settings_markup(user_id: int, chat_id: int, is_declined: bool = False) -> InlineKeyboardMarkup:
+
+async def get_dm_settings_markup(
+    user_id: int, chat_id: int, is_declined: bool = False
+) -> InlineKeyboardMarkup:
     """Helper to build the Settings Menu keyboard."""
     buttons = []
-    
+
     if is_declined:
-        buttons.append([InlineKeyboardButton(text="📍 Set timezone", callback_data=f"dm_change_city:{user_id}:{chat_id}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="📍 Set timezone",
+                    callback_data=f"dm_change_city:{user_id}:{chat_id}",
+                )
+            ]
+        )
     else:
-        buttons.append([InlineKeyboardButton(text="🔄 Change timezone", callback_data=f"dm_change_city:{user_id}:{chat_id}")])
-        buttons.append([InlineKeyboardButton(text="🗑️ Remove timezone", callback_data=f"dm_remove_city:{user_id}:{chat_id}")])
-    
-    buttons.append([InlineKeyboardButton(text="ℹ️ More settings", callback_data=f"dm_extra_settings:{user_id}:{chat_id}")])
-    
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="🔄 Change timezone",
+                    callback_data=f"dm_change_city:{user_id}:{chat_id}",
+                )
+            ]
+        )
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="🗑️ Remove timezone",
+                    callback_data=f"dm_remove_city:{user_id}:{chat_id}",
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="ℹ️ More settings",
+                callback_data=f"dm_extra_settings:{user_id}:{chat_id}",
+            )
+        ]
+    )
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-async def show_dm_settings_menu(message: Message, user_record: dict, user_id: int, chat_id: int):
+async def show_dm_settings_menu(
+    message: Message, user_record: dict, user_id: int, chat_id: int
+):
     """Show the Settings Menu in DM."""
     city = user_record.get("city")
     timezone = user_record.get("timezone")
     flag = user_record.get("flag", "")
-    
+
     text = (
         f"✅ Your timezone is set to: *{city} {flag}* ({timezone})\n"
         "\nYou can manage your settings here:"
     )
-    
+
     return await message.answer(
-        text, 
+        text,
         reply_markup=await get_dm_settings_markup(user_id, chat_id),
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
 
@@ -226,18 +287,17 @@ async def dm_change_city_callback(callback: CallbackQuery, state: FSMContext):
     """Callback to trigger city input from the Settings Menu."""
     parts = callback.data.split(":")
     user_id, chat_id = int(parts[1]), int(parts[2])
-    
+
     if callback.from_user.id != user_id:
         await callback.answer("This button is not for you! 😊", show_alert=True)
         return
 
     await state.set_state(SetTimezone.waiting_for_city)
     await state.update_data(user_id=user_id, source_chat_id=chat_id)
-    
+
     await callback.message.edit_text(
-        "Sure! What city are you in now?\n"
-        "💡 Tip: `City, Country` works best.",
-        parse_mode="Markdown"
+        "Sure! What city are you in now?\n💡 Tip: `City, Country` works best.",
+        parse_mode="Markdown",
     )
     await callback.answer()
 
@@ -247,7 +307,7 @@ async def dm_remove_city_callback(callback: CallbackQuery, state: FSMContext):
     """Callback to remove timezone from the Settings Menu."""
     parts = callback.data.split(":")
     user_id, chat_id = int(parts[1]), int(parts[2])
-    
+
     if callback.from_user.id != user_id:
         await callback.answer("This button is not for you! 😊", show_alert=True)
         return
@@ -259,14 +319,14 @@ async def dm_remove_city_callback(callback: CallbackQuery, state: FSMContext):
         city=None,
         timezone=None,
         username=callback.from_user.username or "",
-        onboarding_declined=False  # Reset declined so they can be re-onboarded later if needed
+        onboarding_declined=False,  # Reset declined so they can be re-onboarded later if needed
     )
     invalidate_user_cache(user_id, platform="telegram")
-    
+
     await callback.message.edit_text(
         "🗑️ Your timezone has been removed. I'll no longer convert times for you.\n"
         "If you want to set it again later, tap below.",
-        reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True)
+        reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True),
     )
     await callback.answer("Timezone removed.")
 
@@ -292,11 +352,18 @@ async def dm_extra_settings_callback(callback: CallbackQuery):
         "\n"
         "💡 *Note:* I automatically remove inactive users after 30 days of silence."
     )
-    
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🔙 Back to menu", callback_data=f"dm_back_menu:{user_id}:{chat_id}")
-    ]])
-    
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔙 Back to menu",
+                    callback_data=f"dm_back_menu:{user_id}:{chat_id}",
+                )
+            ]
+        ]
+    )
+
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
 
@@ -306,27 +373,29 @@ async def dm_back_menu_callback(callback: CallbackQuery):
     """Callback to return to the main settings menu."""
     parts = callback.data.split(":")
     user_id, chat_id = int(parts[1]), int(parts[2])
-    
+
     user_record = await get_user_cached(user_id, platform="telegram")
     if not user_record or not user_record.get("timezone"):
         # If they somehow removed it and went back
         await callback.message.edit_text(
             "You haven't set your timezone yet.",
-            reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True)
+            reply_markup=await get_dm_settings_markup(
+                user_id, chat_id, is_declined=True
+            ),
         )
     else:
         city = user_record.get("city")
         timezone = user_record.get("timezone")
         flag = user_record.get("flag", "")
-        
+
         text = (
             f"✅ Your timezone is set to: *{city} {flag}* ({timezone})\n"
             "\nYou can manage your settings here:"
         )
         await callback.message.edit_text(
-            text, 
+            text,
             reply_markup=await get_dm_settings_markup(user_id, chat_id),
-            parse_mode="Markdown"
+            parse_mode="Markdown",
         )
     await callback.answer()
 
@@ -350,7 +419,9 @@ async def process_city(message: Message, state: FSMContext):
 
         try:
             if data.get("prompt_message_id"):
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=data["prompt_message_id"])
+                await message.bot.delete_message(
+                    chat_id=message.chat.id, message_id=data["prompt_message_id"]
+                )
         except Exception as e:
             logger.warning(f"Failed to delete bot's prompt: {e}")
 
@@ -373,7 +444,7 @@ async def process_city(message: Message, state: FSMContext):
             prompt_msg = await message.answer(
                 f"Could not find '{city_name}' (or service error).\n"
                 "Enter your current time (e.g. 14:30) or try another city:",
-                reply_markup=ForceReply(selective=True)
+                reply_markup=ForceReply(selective=True),
             )
         await state.update_data(prompt_message_id=prompt_msg.message_id)
         return
@@ -400,7 +471,9 @@ async def process_fallback_input(message: Message, state: FSMContext):
 
         try:
             if data.get("prompt_message_id"):
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=data["prompt_message_id"])
+                await message.bot.delete_message(
+                    chat_id=message.chat.id, message_id=data["prompt_message_id"]
+                )
         except Exception as e:
             logger.warning(f"Failed to delete bot's prompt: {e}")
 
@@ -423,17 +496,14 @@ async def process_fallback_input(message: Message, state: FSMContext):
         prompt_msg = await message.answer(
             f"Could not find '{user_input}'.\n"
             "Enter your current time (e.g. 14:30) or try another city:",
-            reply_markup=ForceReply(selective=True)
+            reply_markup=ForceReply(selective=True),
         )
     await state.update_data(prompt_message_id=prompt_msg.message_id)
     # Stay in waiting_for_time state for retry
 
 
 async def _save_and_finish(
-    message: Message, 
-    state: FSMContext, 
-    location: dict, 
-    is_retry: bool = False
+    message: Message, state: FSMContext, location: dict, is_retry: bool = False
 ):
     """Helper to save user data, update state, and send confirmation."""
     data = await state.get_data()
@@ -449,7 +519,7 @@ async def _save_and_finish(
         city=location["city"],
         timezone=location["timezone"],
         flag=location["flag"],
-        username=username
+        username=username,
     )
     invalidate_user_cache(user_id, platform="telegram")
 
@@ -467,7 +537,9 @@ async def _save_and_finish(
         await show_dm_settings_menu(message, location, user_id, source_chat_id)
     else:
         # Group chat confirm (standard /tb_settz flow)
-        await message.answer(f"✅ Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
+        await message.answer(
+            f"✅ Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})"
+        )
 
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
@@ -480,7 +552,9 @@ async def _save_and_finish(
 
     log_suffix = " (retry)" if is_retry else ""
     log_chat = source_chat_id if (is_dm and source_chat_id) else message.chat.id
-    logger.info(f"[chat:{log_chat}] User {user_id} -> {location['timezone']}{log_suffix}")
+    logger.info(
+        f"[chat:{log_chat}] User {user_id} -> {location['timezone']}{log_suffix}"
+    )
 
 
 async def _process_pending_queue(message: Message, user_id: int, user_name: str):
@@ -489,21 +563,29 @@ async def _process_pending_queue(message: Message, user_id: int, user_name: str)
     if not pending_list:
         return
 
-    logger.info(f"[chat:{message.chat.id}] Draining {len(pending_list)} pending messages for user {user_id}")
+    logger.info(
+        f"[chat:{message.chat.id}] Draining {len(pending_list)} pending messages for user {user_id}"
+    )
     await _drain_pending_messages(message.bot, user_id, pending_list)
 
 
-async def _process_pending_queue_dm(bot, user_id: int, source_chat_id: int, user_name: str):
+async def _process_pending_queue_dm(
+    bot, user_id: int, source_chat_id: int, user_name: str
+):
     """Helper to drain the pending queue for a user (DM context)."""
     pending_list = await get_and_delete_pending_messages(user_id, "telegram")
     if not pending_list:
         return
 
-    logger.info(f"Draining {len(pending_list)} pending messages for user {user_id} (Success/Decline)")
+    logger.info(
+        f"Draining {len(pending_list)} pending messages for user {user_id} (Success/Decline)"
+    )
     await _drain_pending_messages(bot, user_id, pending_list)
 
 
-async def _handle_expired_messages(bot, user_id: int, platform: str, messages: list[dict]):
+async def _handle_expired_messages(
+    bot, user_id: int, platform: str, messages: list[dict]
+):
     """
     Callback triggered by pending.py cleanup_loop when onboarding expires.
     We process these messages 'as is' without waiting for registration.
@@ -512,7 +594,9 @@ async def _handle_expired_messages(bot, user_id: int, platform: str, messages: l
         return
 
     # Experiment: In Lazy Onboarding, we discard messages if user ignores/declines
-    logger.info(f"Failsafe: User {user_id} ({platform}) ignored onboarding. Discarding {len(messages)} messages.")
+    logger.info(
+        f"Failsafe: User {user_id} ({platform}) ignored onboarding. Discarding {len(messages)} messages."
+    )
     # No action needed - messages are already removed from the pending storage by the cleanup loop
 
 
@@ -527,7 +611,7 @@ async def _drain_pending_messages(bot, user_id: int, messages: list[dict]):
         c_id = int(m.get("chat_id", 0))
         if c_id:
             by_chat.setdefault(c_id, []).append(m)
-    
+
     for c_id, chat_messages in by_chat.items():
         await _drain_to_chat(bot, user_id, c_id, chat_messages)
 
@@ -537,11 +621,12 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
     user_record = await get_user_cached(user_id, platform="telegram")
 
     for pending in messages:
+
         async def send_reply_fn(text: str, _pending=pending) -> None:
             await bot.send_message(
                 chat_id=chat_id,
                 text=text,
-                reply_to_message_id=_pending.get("message_id")
+                reply_to_message_id=_pending.get("message_id"),
             )
 
         snapshot = append_to_history("telegram", str(chat_id), pending)
@@ -556,7 +641,7 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
             sender_db=user_record,
             send_fn=send_reply_fn,
             skip_history_append=True,
-            precomputed_snapshot=snapshot
+            precomputed_snapshot=snapshot,
         )
 
 

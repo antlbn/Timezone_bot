@@ -8,6 +8,7 @@ logger = get_logger()
 # This makes the bot completely vendor-agnostic (local/OpenAI/Grok/etc.)
 _client = None
 
+
 def get_llm_client() -> AsyncOpenAI:
     """
     Returns a configured, singleton AsyncOpenAI client instance.
@@ -17,15 +18,12 @@ def get_llm_client() -> AsyncOpenAI:
     if _client is None:
         base_url = os.getenv("LLM_BASE_URL")
         api_key = os.getenv("GEMINI_API_KEY")
-        
-        _client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=api_key,
-            http_client=None 
-        )
+
+        _client = AsyncOpenAI(base_url=base_url, api_key=api_key, http_client=None)
         logger.info(f"Initialized LLM client with base_url: {base_url}")
-        
+
     return _client
+
 
 def get_llm_model() -> str:
     """Returns the configured model name, e.g. 'llama3' or 'gpt-4o-mini'."""

@@ -4,6 +4,7 @@ Discord Bot Entry Point.
 Usage:
     uv run python -m src.discord_main
 """
+
 import os
 import asyncio
 
@@ -19,26 +20,29 @@ async def main():
     """Start the Discord bot."""
     load_dotenv()
     setup_logging()
-    
+
     # Check for token - if present, start bot
     token = os.getenv("DISCORD_TOKEN")
     if not token:
         logger.warning("DISCORD_TOKEN not set, skipping Discord bot")
         return
-    
+
     # Initialize storage
     await storage.init()
     logger.info("Storage initialized")
-    
+
     # Import bot and register commands/events
     from src.discord import bot
-    import src.discord.commands  # noqa: F401 - registers commands
-    import src.discord.events    # noqa: F401 - registers events
+    from src.discord.commands import register_commands
+    from src.discord.events import register_events
     from src.discord.tasks import start_tasks
-    
+
+    register_commands(bot.tree)
+    register_events(bot)
+
     start_tasks()
     logger.info("Discord background tasks initialized")
-    
+
     logger.info("Starting Discord bot...")
     try:
         await bot.start(token)

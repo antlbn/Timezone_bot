@@ -1,6 +1,7 @@
 """
 Discord Event Handlers — message monitoring and member tracking.
 """
+
 import discord
 
 from src.discord import bot
@@ -12,6 +13,13 @@ from src.event_detection import process_message
 
 logger = get_logger()
 PLATFORM = "discord"
+
+
+def register_events(bot):
+    """Explicitly trigger event registration."""
+    # The decorators already register them to the bot instance,
+    # but we call this to ensure the module is loaded.
+    pass
 
 
 @bot.event
@@ -59,6 +67,7 @@ async def on_message(message: discord.Message):
     # We only prompt for registration if an event was detected AND the user is unknown
     if not is_registered and result.get("event"):
         from src.discord.ui import SetTimezoneView
+
         await message.reply(
             f"{user_name}, set your timezone to convert times!",
             view=SetTimezoneView(message.author.id),
@@ -67,13 +76,13 @@ async def on_message(message: discord.Message):
 
         # 5.1 Save to In-Memory storage for later processing (Frozen)
         msg_data = {
-            "platform":      PLATFORM,
-            "chat_id":       chat_id,
-            "author_id":     str(message.author.id),
-            "author_name":   user_name,
-            "text":          message.content,
+            "platform": PLATFORM,
+            "chat_id": chat_id,
+            "author_id": str(message.author.id),
+            "author_name": user_name,
+            "text": message.content,
             "timestamp_utc": timestamp_utc,
-            "message_id":    message.id,
+            "message_id": message.id,
         }
         # Note: history already appended inside process_message
         await save_pending_message(message.author.id, PLATFORM, msg_data)
@@ -83,10 +92,15 @@ async def on_message(message: discord.Message):
 async def on_member_remove(member: discord.Member):
     """Remove user from storage when they leave the guild."""
     await storage.remove_chat_member(member.guild.id, member.id, platform=PLATFORM)
-    logger.info(f"[guild:{member.guild.id}] Member {member.id} left, removed from storage")
+    logger.info(
+        f"[guild:{member.guild.id}] Member {member.id} left, removed from storage"
+    )
+
 
 @bot.event
 async def on_guild_remove(guild: discord.Guild):
     """Remove all members from research when bot is kicked from guild."""
     await storage.clear_chat_members(guild.id, platform=PLATFORM)
-    logger.info(f"[guild:{guild.id}] Bot removed from guild, cleared all members from storage")
+    logger.info(
+        f"[guild:{guild.id}] Bot removed from guild, cleared all members from storage"
+    )

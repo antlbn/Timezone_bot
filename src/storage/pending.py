@@ -3,6 +3,7 @@ In-Memory Pending Storage (Layer 4 of Working Memory).
 Stores messages for users currently in the onboarding flow.
 Replaces Redis-based storage.
 """
+
 import time
 import asyncio
 from src.config import get_onboarding_timeout
@@ -13,6 +14,7 @@ logger = get_logger()
 # Structure: {(user_id, platform): {"messages": List[dict], "expires": float}}
 _frozen_messages = {}
 
+
 async def save_pending_message(user_id: int, platform: str, message_data: dict):
     """
     Save message data to in-memory 'frozen' storage for onboarding.
@@ -21,18 +23,20 @@ async def save_pending_message(user_id: int, platform: str, message_data: dict):
     key = (user_id, platform)
     timeout = get_onboarding_timeout()
     now = time.time()
-    
+
     if key in _frozen_messages and now < _frozen_messages[key]["expires"]:
         # Entry exists and is fresh — just append
         _frozen_messages[key]["messages"].append(message_data)
-        logger.info(f"Appended pending message for {user_id} ({platform}). Total: {len(_frozen_messages[key]['messages'])}")
+        logger.info(
+            f"Appended pending message for {user_id} ({platform}). Total: {len(_frozen_messages[key]['messages'])}"
+        )
     else:
         # Create new entry or replace expired one
-        _frozen_messages[key] = {
-            "messages": [message_data],
-            "expires": now + timeout
-        }
-        logger.info(f"Started new pending queue for {user_id} ({platform}). TTL: {timeout}s.")
+        _frozen_messages[key] = {"messages": [message_data], "expires": now + timeout}
+        logger.info(
+            f"Started new pending queue for {user_id} ({platform}). TTL: {timeout}s."
+        )
+
 
 async def get_and_delete_pending_messages(user_id: int, platform: str) -> list[dict]:
     """
@@ -42,13 +46,14 @@ async def get_and_delete_pending_messages(user_id: int, platform: str) -> list[d
     key = (user_id, platform)
     if key not in _frozen_messages:
         return []
-    
+
     item = _frozen_messages.pop(key)
     if time.time() > item["expires"]:
         logger.warning(f"Pending messages for {user_id} ({platform}) expired.")
         return []
-    
+
     return item["messages"]
+
 
 async def peek_pending_messages(user_id: int, platform: str) -> list[dict]:
     """
@@ -58,12 +63,13 @@ async def peek_pending_messages(user_id: int, platform: str) -> list[dict]:
     key = (user_id, platform)
     if key not in _frozen_messages:
         return []
-    
+
     item = _frozen_messages[key]
     if time.time() > item["expires"]:
         return []
-    
+
     return item["messages"]
+
 
 # Track when we last sent a DM invite to avoid spamming: {(user_id, platform): timestamp}
 _dm_invite_timestamps: dict[tuple[int, str], float] = {}
@@ -105,22 +111,26 @@ async def cleanup_loop(bot=None):
     while True:
         await asyncio.sleep(60)
         now = time.time()
-        
+
         # 1. Handle expired frozen messages (onboarding timeouts)
         to_process = []
         for k, v in _frozen_messages.items():
             if now > v["expires"]:
                 to_process.append((k, v["messages"]))
-        
+
         for k, messages in to_process:
             _frozen_messages.pop(k, None)
-            logger.info(f"Pending messages for user {k[0]} ({k[1]}) timed out. Unlocking...")
-            
+            logger.info(
+                f"Pending messages for user {k[0]} ({k[1]}) timed out. Unlocking..."
+            )
+
             if _on_expire_callback:
                 try:
                     # Execute callback (should be a non-blocking or task-creating function)
                     if asyncio.iscoroutinefunction(_on_expire_callback):
-                        asyncio.create_task(_on_expire_callback(bot, k[0], k[1], messages))
+                        asyncio.create_task(
+                            _on_expire_callback(bot, k[0], k[1], messages)
+                        )
                     else:
                         _on_expire_callback(bot, k[0], k[1], messages)
                 except Exception as e:
@@ -128,8 +138,7 @@ async def cleanup_loop(bot=None):
 
         # 2. Clean up very old invite timestamps (> 24h)
         stale_invites = [
-            k for k, ts in _dm_invite_timestamps.items()
-            if (now - ts) > 86400
+            k for k, ts in _dm_invite_timestamps.items() if (now - ts) > 86400
         ]
         for k in stale_invites:
             _dm_invite_timestamps.pop(k, None)
