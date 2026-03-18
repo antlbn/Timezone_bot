@@ -1,21 +1,29 @@
 #!/bin/bash
-# Run the timezone bot (Telegram + Discord) as separate processes
-# Ctrl+C stops both
+# run.sh - Simple bot runner with signal propagation
 
 cd "$(dirname "$0")"
 
-# Trap Ctrl+C to kill all background jobs
-trap 'echo "Stopping bots..."; kill $(jobs -p) 2>/dev/null; exit 0' SIGINT SIGTERM
+# Store PIDs
+TG_PID=""
+DISCORD_PID=""
+
+cleanup() {
+    echo ""
+    echo "Received stop signal. Shutting down bots gracefully..."
+    kill -TERM $TG_PID $DISCORD_PID 2>/dev/null
+    wait $TG_PID $DISCORD_PID
+    echo "All bots stopped."
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
 
 echo "Starting bots... (Ctrl+C to stop)"
 
-# Start Telegram bot in background
 uv run python -m src.main &
 TG_PID=$!
 
-# Start Discord bot in background  
 uv run python -m src.discord_main &
 DISCORD_PID=$!
 
-# Wait for any to exit
 wait

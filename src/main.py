@@ -60,7 +60,11 @@ async def main():
     try:
         await dp.start_polling(bot)
     finally:
+        logger.info("Cleaning up Telegram bot...")
         await bot.session.close()
+        logger.info("Closing storage...")
+        await storage.close()
+        logger.info("Telegram bot shutdown complete.")
 
 
 if __name__ == "__main__":

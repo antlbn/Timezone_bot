@@ -40,7 +40,12 @@ async def main():
     logger.info("Discord background tasks initialized")
     
     logger.info("Starting Discord bot...")
-    await bot.start(token)
+    try:
+        await bot.start(token)
+    finally:
+        logger.info("Closing storage for Discord bot...")
+        await storage.close()
+        logger.info("Discord bot shutdown complete.")
 
 
 if __name__ == "__main__":
