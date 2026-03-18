@@ -9,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from src.config import get_telegram_token
 from src.logger import get_logger
-from src.storage import storage
+from src.storage import storage, pending
 from src.commands import router, PassiveCollectionMiddleware
 
 logger = get_logger()
@@ -23,6 +23,10 @@ async def on_startup(bot: Bot):
     # Initialize DB
     await storage.init()
     logger.info("Database initialized")
+    
+    # Start pending cleanup bit
+    asyncio.create_task(pending.cleanup_loop(bot))
+    logger.info("Pending cleanup loop started")
     
 
 

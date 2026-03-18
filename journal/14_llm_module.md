@@ -103,33 +103,28 @@ Each item in the window (history + current message) is the same normalized shape
 
 **Executed by the gateway (adapter), not by the LLM.**
 
-```
-Incoming message
-        │
-        ▼
-[DB lookup: sender registered?]
-        │
-  ┌─────┴──────┐
-  NO            YES
-  │              │
-  ▼              ▼
-[Start          [Append to history buffer]
-  onboarding         │
-  dialog]            ▼
-                [LLM pipeline ──▶ section 6]
+```mermaid
+graph TD
+    A[Incoming message] --> B{DB: sender registered?}
+    B -- NO --> C[Save to pending queue]
+    C --> D[Start onboarding dialog]
+    B -- YES --> E[Append to history buffer]
+    E --> F[LLM pipeline]
+    
+    subgraph Onboarding Release
+    G[Onboarding Finish/Timeout] --> H[Release messages from queue]
+    H --> E
+    end
 ```
 
 ### Rules
 
-1. **Not registered**: trigger the onboarding flow (`08_telegram_commands.md` / Discord equivalent).
-   The original message is **appended to the history buffer** (for future context) but is **not**
-   sent to the LLM.
-2. **Registered**: proceed to LLM.
-3. **Onboarding timeout / incomplete**: the user stays unregistered; subsequent messages from them
-   repeat rule 1 — they are never sent to the LLM until `sender_timezone_iana` is stored in DB.
+1. **Not registered**: The message is saved to the **pending queue** (`_frozen_messages`) and the onboarding flow is triggered.
+2. **Registered**: proceed to LLM normally.
+3. **Onboarding completion**: Messages are released from the queue and processed by the LLM using the newly saved timezone.
+4. **Onboarding timeout**: Messages are released from the queue and processed by the LLM **without** a timezone (best-effort conversion).
 
-> **Rationale**: We never wait — other participants' messages flow through normally while the
-> unregistered user completes onboarding. Silence is the correct behavior for unknown senders.
+> **Rationale**: We preserve context. No messages are ever "dropped" during onboarding; they are merely delayed until the user is ready or the interaction times out.
 
 ---
 

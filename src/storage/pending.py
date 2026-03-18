@@ -86,21 +86,47 @@ async def clear_dm_invite(user_id: int, platform: str):
     _dm_invite_timestamps.pop((user_id, platform), None)
 
 
-async def cleanup_loop():
+# Callback for processing expired messages: func(user_id, platform, messages)
+_on_expire_callback = None
+
+
+def set_on_expire_callback(callback):
+    """Register a callback for processing expired pending messages."""
+    global _on_expire_callback
+    _on_expire_callback = callback
+
+
+async def cleanup_loop(bot=None):
     """
     Background task to clean up expired frozen messages and stale invite timestamps.
+    Expired messages are passed to the global callback for final 'unlocked' processing.
     """
+    logger.info("Pending storage cleanup loop started.")
     while True:
         await asyncio.sleep(60)
         now = time.time()
-        to_delete = [
-            k for k, v in _frozen_messages.items() 
-            if now > v["expires"]
-        ]
-        for k in to_delete:
+        
+        # 1. Handle expired frozen messages (onboarding timeouts)
+        to_process = []
+        for k, v in _frozen_messages.items():
+            if now > v["expires"]:
+                to_process.append((k, v["messages"]))
+        
+        for k, messages in to_process:
             _frozen_messages.pop(k, None)
-            logger.debug(f"Cleaned up expired frozen message for {k}.")
-        # Also clean up very old invite timestamps (> 24h) to prevent unbounded growth
+            logger.info(f"Pending messages for user {k[0]} ({k[1]}) timed out. Unlocking...")
+            
+            if _on_expire_callback:
+                try:
+                    # Execute callback (should be a non-blocking or task-creating function)
+                    if asyncio.iscoroutinefunction(_on_expire_callback):
+                        asyncio.create_task(_on_expire_callback(bot, k[0], k[1], messages))
+                    else:
+                        _on_expire_callback(bot, k[0], k[1], messages)
+                except Exception as e:
+                    logger.error(f"Error in pending expire callback: {e}")
+
+        # 2. Clean up very old invite timestamps (> 24h)
         stale_invites = [
             k for k, ts in _dm_invite_timestamps.items()
             if (now - ts) > 86400

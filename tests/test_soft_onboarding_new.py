@@ -1,9 +1,14 @@
 import pytest
+import asyncio
 import time as time_mod
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from aiogram.types import Message, User, Chat, InlineKeyboardMarkup, CallbackQuery
 from src.commands.common import handle_time_mention
-from src.commands.settings import dm_onboarding_start, dm_decline_callback, process_city
+from src.commands.settings import (
+    dm_onboarding_start, dm_decline_callback, process_city,
+    dm_change_city_callback, dm_remove_city_callback, 
+    dm_extra_settings_callback, dm_back_menu_callback
+)
 from src.storage.pending import (
     _frozen_messages, _dm_invite_timestamps,
     save_pending_message, get_and_delete_pending_messages,
@@ -107,14 +112,55 @@ async def test_dm_onboarding_start_handler():
 
         await dm_onboarding_start(msg, command, state)
 
-        # Verify bot asked for city
+        # Verify bot sent the rich welcome message
         mock_answer.assert_called_once()
-        assert "city" in mock_answer.call_args[0][0].lower()
+        text = mock_answer.call_args[0][0]
+        assert "What I am" in text
+        assert "How to use me" in text
+        assert "Your data" in text
 
-        # Verify FSM state set
-        from src.commands.states import SetTimezone
-        state.set_state.assert_called_once_with(SetTimezone.waiting_for_city)
+        # Verify FSM state is NOT set yet (waits for button)
+        state.set_state.assert_not_called()
+        # But data is saved
         state.update_data.assert_called_once_with(user_id=user_id, source_chat_id=chat_id)
+
+
+# ---------------------------------------------------------------------------
+# 2b. DM "Set my city" button sets FSM state
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_dm_setcity_callback():
+    """Verify that clicking 'Set my city' in DM sets FSM to waiting_for_city."""
+    user_id = 123
+    chat_id = 456
+
+    from src.commands.settings import dm_setcity_callback
+    
+    callback = MagicMock(spec=CallbackQuery)
+    callback.data = f"dm_setcity:{user_id}:{chat_id}"
+    callback.from_user = User(id=user_id, is_bot=False, first_name="TestUser")
+    callback.message = MagicMock(spec=Message)
+    callback.message.answer = AsyncMock()
+    callback.message.edit_reply_markup = AsyncMock()
+    callback.answer = AsyncMock()
+
+    state = MagicMock()
+    state.set_state = AsyncMock()
+    state.update_data = AsyncMock()
+
+    await dm_setcity_callback(callback, state)
+
+    # Verify buttons removed from welcome
+    callback.message.edit_reply_markup.assert_called_once_with(reply_markup=None)
+
+    # Verify bot asked for city
+    callback.message.answer.assert_called_once()
+    assert "what city" in callback.message.answer.call_args[0][0].lower()
+
+    # Verify FSM state set
+    from src.commands.states import SetTimezone
+    state.set_state.assert_called_once_with(SetTimezone.waiting_for_city)
+    state.update_data.assert_called_once_with(user_id=user_id, source_chat_id=chat_id)
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +185,7 @@ async def test_dm_decline_processes_queue():
     state.clear = AsyncMock()
 
     pending_mock = [
-        {"text": "10:00 London", "author_name": user_name, "timestamp_utc": "2026-03-16T12:00:00Z", "message_id": 1},
+        {"text": "10:00 London", "author_name": user_name, "timestamp_utc": "2026-03-16T12:00:00Z", "message_id": 1, "chat_id": str(chat_id)},
     ]
 
     with patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set_user, \
@@ -189,7 +235,7 @@ async def test_dm_city_saves_and_drains():
          patch("src.commands.settings.storage.add_chat_member", AsyncMock()), \
          patch("src.commands.settings.invalidate_user_cache") as mock_invalidate, \
          patch("src.commands.settings.get_and_delete_pending_messages", AsyncMock(return_value=[
-             {"text": "Meeting at 15:00", "author_name": "TestUser", "timestamp_utc": "2026-03-16T12:00:00Z", "message_id": 1}
+             {"text": "Meeting at 15:00", "author_name": "TestUser", "timestamp_utc": "2026-03-16T12:00:00Z", "message_id": 1, "chat_id": str(source_chat_id)}
          ])), \
          patch("src.commands.settings.get_user_cached", AsyncMock(return_value={"user_id": user_id, "timezone": "Europe/Berlin"})), \
          patch("src.commands.settings.process_message", AsyncMock()) as mock_process, \
@@ -296,3 +342,302 @@ async def test_clear_dm_invite():
     assert await should_send_dm_invite(1, "telegram", 600) is False
     await clear_dm_invite(1, "telegram")
     assert await should_send_dm_invite(1, "telegram", 600) is True
+
+
+# ---------------------------------------------------------------------------
+# 8. Settings Menu for Registered Users
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_dm_onboarding_start_registered_shows_menu():
+    """Verify /start from already registered user shows Settings Menu."""
+    user_id = 123
+    chat_id = 456
+    
+    msg = _make_dm_message(user_id=user_id, text="/start onboard_123_456")
+    state = MagicMock()
+    
+    command = MagicMock()
+    command.args = f"onboard_{user_id}_{chat_id}"
+    
+    existing = {"user_id": user_id, "city": "Paris", "timezone": "Europe/Paris", "flag": "🇫🇷"}
+    
+    with patch("src.commands.settings.get_user_cached", AsyncMock(return_value=existing)), \
+         patch.object(Message, "answer", new_callable=AsyncMock) as mock_answer:
+        
+        await dm_onboarding_start(msg, command, state)
+        
+        # Should show current city + "manage settings"
+        mock_answer.assert_called_once()
+        text = mock_answer.call_args[0][0]
+        assert "Europe/Paris" in text
+        assert "manage your settings" in text
+
+
+@pytest.mark.asyncio
+async def test_dm_change_city_callback_sets_state():
+    """Verify 'Change timezone' button triggers waiting_for_city."""
+    user_id = 123
+    chat_id = 456
+    
+    callback = MagicMock(spec=CallbackQuery)
+    callback.data = f"dm_change_city:{user_id}:{chat_id}"
+    callback.from_user = User(id=user_id, is_bot=False, first_name="Test")
+    callback.message = MagicMock(spec=Message)
+    callback.message.edit_text = AsyncMock()
+    callback.answer = AsyncMock()
+    
+    state = MagicMock()
+    state.set_state = AsyncMock()
+    state.update_data = AsyncMock()
+    
+    await dm_change_city_callback(callback, state)
+    
+    # State set
+    from src.commands.states import SetTimezone
+    state.set_state.assert_called_once_with(SetTimezone.waiting_for_city)
+    # Message edited to ask for city
+    callback.message.edit_text.assert_called_once()
+    assert "What city" in callback.message.edit_text.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_dm_remove_city_callback_clears_db():
+    """Verify 'Remove timezone' clears city/tz in storage."""
+    user_id = 777
+    chat_id = 888
+    
+    callback = MagicMock(spec=CallbackQuery)
+    callback.data = f"dm_remove_city:{user_id}:{chat_id}"
+    callback.from_user = User(id=user_id, is_bot=False, first_name="Test")
+    callback.message = MagicMock(spec=Message)
+    callback.message.edit_text = AsyncMock()
+    callback.answer = AsyncMock()
+    
+    with patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set, \
+         patch("src.commands.settings.invalidate_user_cache") as mock_invalidate:
+        
+        await dm_remove_city_callback(callback, MagicMock())
+        
+        # User saved with city=None, timezone=None
+        mock_set.assert_called_once()
+        save_kwargs = mock_set.call_args[1]
+        assert save_kwargs["city"] is None
+        assert save_kwargs["timezone"] is None
+        assert save_kwargs["user_id"] == user_id
+        
+        # Cache invalidated
+        mock_invalidate.assert_called_once_with(user_id, platform="telegram")
+        # Text updated to confirm removal
+        callback.message.edit_text.assert_called_once()
+        assert "removed" in callback.message.edit_text.call_args[0][0].lower()
+
+
+@pytest.mark.asyncio
+async def test_dm_extra_settings_callback():
+    """Verify 'More settings' shows stub info."""
+    user_id = 123
+    chat_id = 456
+    
+    callback = MagicMock(spec=CallbackQuery)
+    callback.data = f"dm_extra_settings:{user_id}:{chat_id}"
+    callback.from_user = User(id=user_id, is_bot=False, first_name="Test")
+    callback.message = MagicMock(spec=Message)
+    callback.message.edit_text = AsyncMock()
+    callback.answer = AsyncMock()
+    
+    await dm_extra_settings_callback(callback)
+    
+    # Text updated to show extra info
+    callback.message.edit_text.assert_called_once()
+    assert "Additional Settings" in callback.message.edit_text.call_args[0][0]
+    # Answer called to dismiss loading
+    callback.answer.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_dm_back_menu_callback():
+    """Verify 'Back to menu' returns to main settings view."""
+    user_id = 123
+    chat_id = 456
+    
+    callback = MagicMock(spec=CallbackQuery)
+    callback.data = f"dm_back_menu:{user_id}:{chat_id}"
+    callback.from_user = User(id=user_id, is_bot=False, first_name="Test")
+    callback.message = MagicMock(spec=Message)
+    callback.message.edit_text = AsyncMock()
+    callback.answer = AsyncMock()
+    
+    existing = {"user_id": user_id, "city": "Berlin", "timezone": "Europe/Berlin"}
+    
+    with patch("src.commands.settings.get_user_cached", AsyncMock(return_value=existing)):
+        await dm_back_menu_callback(callback)
+        
+        # Should return to "Your timezone is set to..."
+        callback.message.edit_text.assert_called_once()
+        assert "timezone is set to" in callback.message.edit_text.call_args[0][0].lower()
+
+
+# ---------------------------------------------------------------------------
+# 9. Plain /start (Without Deep Link)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_dm_start_plain_registered_shows_menu():
+    """Verify /start (no payload) from registered user shows Settings Menu."""
+    user_id = 999
+    
+    msg = _make_dm_message(user_id=user_id, text="/start")
+    state = MagicMock()
+    
+    command = MagicMock()
+    command.args = None # No payload
+    
+    existing = {"user_id": user_id, "city": "London", "timezone": "Europe/London", "flag": "🇬🇧"}
+    
+    with patch("src.commands.settings.get_user_cached", AsyncMock(return_value=existing)), \
+         patch.object(Message, "answer", new_callable=AsyncMock) as mock_answer:
+        
+        await dm_onboarding_start(msg, command, state)
+        
+        # Should show menu even without onboard_ payload
+        mock_answer.assert_called_once()
+        text = mock_answer.call_args[0][0]
+        assert "Europe/London" in text
+        assert "manage your settings" in text
+
+
+@pytest.mark.asyncio
+async def test_dm_start_plain_new_user_shows_welcome():
+    """Verify /start (no payload) from NEW user shows Welcome message."""
+    user_id = 888
+    
+    msg = _make_dm_message(user_id=user_id, text="/start")
+    state = MagicMock()
+    state.update_data = AsyncMock()
+    
+    command = MagicMock()
+    command.args = None
+    
+    with patch("src.commands.settings.get_user_cached", AsyncMock(return_value=None)), \
+         patch.object(Message, "answer", new_callable=AsyncMock) as mock_answer:
+        
+        await dm_onboarding_start(msg, command, state)
+        
+        # Should show Welcome text
+        mock_answer.assert_called_once()
+        text = mock_answer.call_args[0][0]
+        assert "What I am" in text
+        
+        # State should be updated with chat_id = 0
+        state.update_data.assert_called_once()
+        args = state.update_data.call_args[1]
+        assert args["source_chat_id"] == 0
+
+
+# ---------------------------------------------------------------------------
+# 10. Timeout Processing (Phase 4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_cleanup_loop_calls_callback_on_expiration():
+    """Verify that cleanup_loop triggers the expire callback for old messages."""
+    user_id = 555
+    platform = "telegram"
+    msg_data = {"text": "hello", "chat_id": 444}
+    
+    # 1. Setup pending message
+    from src.storage.pending import _frozen_messages, cleanup_loop, set_on_expire_callback
+    _frozen_messages.clear() # Start clean
+    
+    # Manually insert an expired message
+    _frozen_messages[(user_id, platform)] = {
+        "messages": [msg_data],
+        "expires": time_mod.time() - 10 # expired 10s ago
+    }
+    
+    # 2. Setup mock callback
+    mock_cb = AsyncMock()
+    set_on_expire_callback(mock_cb)
+    
+    # 3. Trigger cleanup by running one iteration of the loop logic.
+    # We'll use a side_effect to raise CancelledError after 1 call to stop the loop.
+    with patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]):
+        try:
+            await cleanup_loop(MagicMock())
+        except asyncio.CancelledError:
+            pass
+            
+    # 4. Verify
+    mock_cb.assert_called_once()
+    args = mock_cb.call_args[0]
+    assert args[0] == user_id
+    assert args[1] == platform
+    assert args[2] == [msg_data]
+    assert (user_id, platform) not in _frozen_messages
+
+
+# ---------------------------------------------------------------------------
+# 11. Help Menu Polish (Phase 5)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_group_help_shows_invite_link():
+    """Verify /tb_help in group chat shows management cmds + DM link."""
+    msg = MagicMock(spec=Message)
+    msg.chat = MagicMock()  # Use generic mock for chat
+    msg.chat.type = "group"
+    msg.chat.title = "Test Group"
+    msg.reply = AsyncMock()
+    msg.bot = MagicMock()
+    
+    from src.commands.common import cmd_help
+    with patch("src.commands.common.create_start_link", AsyncMock(return_value="https://t.me/bot?start=help")):
+        await cmd_help(msg)
+        
+        msg.reply.assert_called_once()
+        text = msg.reply.call_args[0][0]
+        assert "/tb_members" in text
+        assert "/tb_remove" in text
+        assert "manage my settings" in msg.reply.call_args[1]["reply_markup"].inline_keyboard[0][0].text.lower()
+
+
+@pytest.mark.asyncio
+async def test_dm_help_shows_all_commands():
+    """Verify /tb_help in DM shows full command list."""
+    msg = MagicMock(spec=Message)
+    msg.chat = MagicMock() # Use generic mock for chat
+    msg.chat.type = "private"
+    msg.chat.title = None
+    msg.answer = AsyncMock()
+    
+    from src.commands.common import cmd_help
+    await cmd_help(msg)
+    
+    msg.answer.assert_called_once()
+    text = msg.answer.call_args[0][0]
+    assert "/tb_me" in text
+    assert "/tb_settz" in text
+    assert "/tb_members" in text
+
+
+@pytest.mark.asyncio
+async def test_dm_extra_settings_documentation():
+    """Verify 'More settings' callback shows real documentation."""
+    user_id = 123
+    chat_id = 456
+    
+    callback = MagicMock(spec=CallbackQuery)
+    callback.data = f"dm_extra_settings:{user_id}:{chat_id}"
+    callback.message = MagicMock(spec=Message)
+    callback.message.edit_text = AsyncMock()
+    callback.answer = AsyncMock()
+    
+    from src.commands.settings import dm_extra_settings_callback
+    await dm_extra_settings_callback(callback)
+    
+    text = callback.message.edit_text.call_args[0][0]
+    assert "/tb_members" in text
+    assert "/tb_remove" in text
+    # Should explain the "30 days" auto-cleanup
+    assert "30 days" in text

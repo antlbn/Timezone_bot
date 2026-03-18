@@ -73,8 +73,9 @@ class TestFormatConversionReply:
             members=[],
             sender_name="Alice"
         )
-        assert "Alice: 14:00 Berlin 🇩🇪" in reply
-        assert "/tb_help" in reply
+        assert "*Alice:*" in reply
+        assert "\n14:00 Berlin 🇩🇪" in reply
+        assert "/tb_help" not in reply
         assert "|" not in reply
 
     def test_multiple_timezones(self):
@@ -94,7 +95,8 @@ class TestFormatConversionReply:
         )
         
         # 14:00 Berlin -> 08:00 NY (or 09:00 depending on DST), 22:00 Tokyo
-        assert "Alice: 14:00 Berlin 🇩🇪" in reply
+        assert "*Alice:*" in reply
+        assert "14:00 Berlin 🇩🇪" in reply
         assert "New York 🇺🇸" in reply
         assert "Tokyo 🇯🇵" in reply
         assert "|" in reply

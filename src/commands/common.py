@@ -28,19 +28,89 @@ _last_reply: dict[int, float] = {}
 
 
 @router.message(Command("tb_help"))
-@auto_cleanup(delete_bot_msg=True)
+@auto_cleanup(delete_bot_msg=True, keep_bot_msg_in_dm=True)
 async def cmd_help(message: Message):
-    """Show help menu."""
+    """Show help menu (context-aware: group vs DM)."""
+    is_dm = message.chat.type == "private"
+    chat_title = message.chat.title or "this chat"
+    
+    if is_dm:
+        help_text = (
+            "🤖 *Timezone Bot Help*\n"
+            "\n"
+            "*Personal Commands (work anywhere):*\n"
+            "• `/tb_me` — Show your current location\n"
+            "• `/tb_settz` — Set or change your city/timezone\n"
+            "\n"
+            "*Chat Management (work in groups):*\n"
+            "• `/tb_members` — List tracked members\n"
+            "• `/tb_remove` — Manually remove a member from the list\n"
+            "\n"
+            "Just mention a time (e.g., `15:00` or `tomorrow at 3pm`) in any group where I am present, and I'll convert it for everyone!"
+        )
+        return await message.answer(help_text, parse_mode="Markdown")
+    
+    # In Group Chat
+    link = await create_start_link(message.bot, "help")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="⚙️ Manage my settings", url=link)
+    ]])
+    
     help_text = (
-        "Timezone Bot\n"
-        "/tb_help - this help\n"
-        "/tb_me    - your location\n"
-        "/tb_settz - set city\n"
-        "/tb_members - chat members\n"
-        "/tb_remove - remove member\n\n"
-        "Mention time (14:00) and I'll convert it!"
+        f"🤖 *Timezone Bot* in {chat_title}\n"
+        "\n"
+        "To set your personal timezone, please message me directly 👇\n"
+        "\n"
+        "*Chat Management:*\n"
+        "• `/tb_members` — List tracked members\n"
+        "• `/tb_remove`  — Remove a member manually\n"
+        "\n"
+        "I automatically convert times mentioned in the chat!"
     )
-    return await message.reply(help_text)
+    return await message.reply(help_text, reply_markup=kb, parse_mode="Markdown")
+
+
+@router.message(Command("tb_me"))
+@auto_cleanup(delete_bot_msg=True, keep_bot_msg_in_dm=True)
+async def cmd_me(message: Message):
+    """Show user's current timezone setting."""
+    user_id = message.from_user.id
+    user_record = await get_user_cached(user_id, platform="telegram")
+    
+    if not user_record or not user_record.get("timezone"):
+        return await message.reply("📍 You haven't set your timezone yet. Use /tb_settz to set it!")
+    
+    city = user_record.get("city")
+    timezone = user_record.get("timezone")
+    flag = user_record.get("flag", "")
+    
+    return await message.reply(f"📍 Your timezone is set to: *{city} {flag}* ({timezone})", parse_mode="Markdown")
+
+
+@router.message(Command("tb_settz"))
+@auto_cleanup(delete_bot_msg=True, keep_bot_msg_in_dm=False)
+async def cmd_settz(message: Message, state: FSMContext):
+    """Start timezone setting flow."""
+    is_dm = message.chat.type == "private"
+    
+    if is_dm:
+        # Re-use the DM onboarding/settings logic
+        from src.commands.settings import dm_onboarding_start
+        # We simulate a /start call but without arguments
+        return await dm_onboarding_start(message, None, state)
+    
+    # In Group: Show JIT invite (or trigger the flow if we want, but JIT is preferred)
+    # Actually, JIT invite is exactly what handle_time_mention does.
+    # We can just manually trigger a fake time mention behavior or just send the link.
+    link = await create_start_link(message.bot, f"onboard_{message.from_user.id}_{message.chat.id}")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📍 Set my city", url=link)
+    ]])
+    
+    return await message.reply(
+        "To set your timezone, please tap the button below and I'll help you in DM! 👇",
+        reply_markup=kb
+    )
 
 
 @router.message(F.text)

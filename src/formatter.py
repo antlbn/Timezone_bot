@@ -136,7 +136,10 @@ def format_multi_conversion(
     """
     lines = []
     
-    for i, conv in enumerate(conversions):
+    if sender_name:
+        lines.append(f"*{sender_name}:*")
+    
+    for conv in conversions:
         point_line = format_single_point_line(
             conv["original_time"],
             conv["source_city"],
@@ -144,21 +147,9 @@ def format_multi_conversion(
             conv["source_flag"],
             members
         )
-        
-        if i == 0 and sender_name:
-            # First line gets the name
-            prefix = f"{sender_name}: "
-            # Calculate indent for subsequent lines based on name length
-            indent = " " * len(prefix)
-            lines.append(f"{prefix}{point_line}")
-        elif sender_name:
-            # Subsequent lines are indented
-            lines.append(f"{indent}{point_line}")
-        else:
-            lines.append(point_line)
+        lines.append(point_line)
             
-    content = "\n".join(lines)
-    return f"{content}\n/tb_help"
+    return "\n".join(lines)
 
 
 def format_conversion_reply(

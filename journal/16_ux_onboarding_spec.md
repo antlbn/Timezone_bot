@@ -19,38 +19,42 @@ This document defines the user experience guidelines and implementations for the
 Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM-based onboarding via deep links** to keep the group chat pristine while conducting the full setup dialogue in the bot's private messages.
 
 #### Onboarding Flow
-1. **Trigger:** A new user (not in the database, OR lacking a timezone without explicitly declining) sends *any* text in a group chat.
+1. **Trigger:** A new user (not in the database OR lacking a timezone without explicitly declining) sends *any* text in a group chat.
    - *Note: The bot checks the DB cache first, entirely bypassing the LLM to save latency and costs.*
-2. **Queuing:** The message is instantly saved to an in-memory pending queue. Further processing (including LLM analysis) is paused.
-3. **Cooldown Check:** The bot checks if a DM invite was already sent within the `dm_onboarding_cooldown_seconds` window (default: 600s = 10 min). If so, the message is only queued — no new invite is sent.
+2. **Queuing:** The message is instantly saved to an in-memory pending queue (`_frozen_messages`). Further processing (including LLM analysis) is paused.
+3. **Cooldown Check:** The bot checks if a DM invite was already sent within the `dm_onboarding_cooldown_seconds` window (default: 600s). If so, the message is only queued — no new invite is sent.
 4. **Invite:** If cooldown allows, the bot sends a minimal message to the group:
    > "Hi {Name}! Tap the button to quickly set up your timezone 👇"
-   > **Button:** `[📍 Set up timezone]` ← This is a **URL button** (deep link to `t.me/bot?start=onboard_{userId}_{chatId}`)
+   > **Button:** `[📍 Set up timezone]` ← URL button to `t.me/bot?start=onboard_{userId}_{chatId}`
 5. **Auto-Cleanup:** The invite message is automatically deleted from the group after `settings_cleanup_timeout_seconds` (default: 10s).
-6. **DM — Accept Path:**
-   - User clicks the URL button → Telegram opens the bot's private chat.
-   - The bot sends: *"Hi {Name}! What city are you in?"* with a `[✖️ No thanks]` inline button.
-   - The user types their city. If invalid, the bot asks for a retry or manual time — all in the DM.
-   - On success: timezone saved, confirmation sent in DM, and all pending messages are processed by the LLM with results sent back to the **original group chat**.
-7. **DM — Decline Path (`[✖️ No thanks]`):**
-   - The user is saved to the DB as `onboarding_declined=True` to prevent future nagging.
-   - Bot responds in DM: *"Got it! If you change your mind, use /tb_settz in any chat."*
-   - Pending messages are processed by the LLM (without timezone context).
-8. **Ignore / Abandon Path:**
-   - If the user doesn't open the DM, or opens it but doesn't complete setup:
-     - Pending messages expire after `onboarding_timeout_seconds` (default: 60s).
-     - The bot won't re-invite until `dm_onboarding_cooldown_seconds` passes (default: 10 min).
-     - On the user's next message (after cooldown), a new invite is sent.
-9. **Security:** The deep-link payload contains the user's ID. If a different user tries to use the link, the bot responds: *"This link is not for you! 😊"*
+6. **DM — Welcome Step:**
+   - User clicks the URL button → Bot opens private chat.
+   - The bot sends a concise greeting: *"What am I"*, *"How to use me"*, and two buttons: `[📍 Set up timezone]` and `[🔒 Data Privacy]`.
+   - **Data Privacy:** Shows information about data storage and the 30-day auto-deletion policy.
+7. **DM — City Prompt:**
+   - On clicking `[📍 Set up timezone]`, the bot sends detailed instructions: *"Tell me your city... e.g. Paris, France or Paris, Texas, USA."*
+   - The user types their city.
+   - On success: timezone saved, confirmation sent in DM, and **all pending messages from all chats** are processed and sent to their original groups.
+8. **DM — Decline / Ignore:**
+   - If the user declines, they are marked as `onboarding_declined=True`.
+   - If they ignore (timeout), messages in the queue expire after `onboarding_timeout_seconds` (default: 60s) and are processed by the LLM (without timezone context).
+9. **Security:** The deep-link payload is validated. If another user tries to use it, the bot ignores it.
 
-#### ⭐ Auto-Cleanup for Settings Dialogs
-To keep chat histories perfectly clean, **all** bot configuration commands use an automated background cleanup system.
+#### ⭐ UX Principles & Cleanup Rules
+- **Non-disruptive**: No intrusive dialogs in the group. All setup happens "behind the scenes" in DM.
+- **Context Preservation**: Messages sent during onboarding are never lost; they are released the moment the user is ready.
+- **Clean Chats**: All system messages have a TTL.
+  - **Group Invites:** 10s (`settings_cleanup_timeout_seconds`)
+  - **Help / Me / Members:** 10s (both command and reply)
+  - **DM Context:** Important info (Welcome, City Prompt) **stays** for reference; transient commands (like `/tb_help` inputs) are cleaned up.
 
-> [!IMPORTANT]
-> **Cleanup Rules:**
-> - **`/tb_help`, `/tb_me`, `/tb_members`:** Both the user's command message and the bot's response are automatically deleted after exactly **10 seconds**.
-> - **`/tb_settz`, `/tb_remove`:** The user's command message is deleted immediately. The bot's interactive prompt is deleted the moment the user finishes or cancels the flow, OR automatically after **10 seconds** if they ignore it.
-> - **Onboarding invite:** Auto-deleted from the group after `settings_cleanup_timeout_seconds`.
+#### 🛠️ Configurable Timers (`configuration.yaml`)
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| `settings_cleanup_timeout_seconds` | 10s | TTL for system/help messages in groups. |
+| `onboarding_timeout_seconds` | 60s | How long to wait for a user to finish setup before "releasing" their messages without a timezone. |
+| `dm_onboarding_cooldown_seconds` | 10m | Cooldown to prevent spamming invitations to the same new user. |
+| `inactive_user_retention_days` | 30d | Automatic deletion of users who haven't interacted with the bot. |
 
 ---
 
@@ -74,8 +78,6 @@ Discord offers native Ephemeral Messages and Modals, allowing for a strictly tar
 ---
 
 ## 3. Future Directions
-*(Ideas for evolving the onboarding experience based on feedback and conceptual design).*
-
 - **Smart re-invite timing:** Instead of a fixed cooldown, track user activity patterns and invite at optimal times.
 - **Multi-chat awareness:** If a user has already set their timezone in one group, skip onboarding in other groups.
 

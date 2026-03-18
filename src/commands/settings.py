@@ -5,7 +5,11 @@ from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
-from src.storage.pending import get_and_delete_pending_messages, clear_dm_invite
+from src.storage.pending import (
+    get_and_delete_pending_messages, clear_dm_invite,
+    set_on_expire_callback
+)
+from src.config import get_inactive_user_retention_days
 from src.event_detection.history import append_to_history
 from src.event_detection import process_message
 from src import geo, formatter
@@ -16,75 +20,133 @@ from src.utils import auto_cleanup
 router = Router()
 logger = get_logger()
 
-@router.message(Command("tb_me"))
-@auto_cleanup(delete_bot_msg=True)
-async def cmd_me(message: Message):
-    """Show user's current timezone."""
-    existing_user = await get_user_cached(message.from_user.id, platform="telegram")
-    
-    if not existing_user:
-        return await message.reply("Not set. Use /tb_settz")
-    
-    return await message.reply(f"{existing_user['city']} {existing_user['flag']} ({existing_user['timezone']})")
-
-
-@router.message(Command("tb_settz"))
-@auto_cleanup(delete_bot_msg=True)
-async def cmd_settz(message: Message, state: FSMContext):
-    """Start timezone setting flow."""
-    await state.update_data(user_id=message.from_user.id)
-    await state.set_state(SetTimezone.waiting_for_city)
-    return await message.reply("What city are you in?", reply_markup=ForceReply(selective=True))
-
-
 # ---------------------------------------------------------------------------
 # DM Onboarding — Deep Link flow
 # ---------------------------------------------------------------------------
 
-@router.message(CommandStart(deep_link=True), F.chat.type == "private")
+@router.message(CommandStart(), F.chat.type == "private")
+@auto_cleanup(delete_bot_msg=True, keep_bot_msg_in_dm=True)
 async def dm_onboarding_start(message: Message, command: CommandObject, state: FSMContext):
     """
-    Handle deep link from group chat — start onboarding in DM.
-    Payload format: onboard_{user_id}_{chat_id}
+    Handle /start in DM.
+    If payload is 'onboard_{user_id}_{chat_id}', it's a deep link from a group chat.
+    Otherwise, it's a direct user interaction.
     """
+    user_id = message.from_user.id
     payload = command.args
-    if not payload or not payload.startswith("onboard_"):
-        return
+    chat_id = 0  # Default to 0 (no source chat)
 
-    try:
-        parts = payload.split("_")
-        user_id = int(parts[1])
-        chat_id = int(parts[2])
-    except (IndexError, ValueError):
-        logger.warning(f"Invalid onboarding deep link payload: {payload}")
-        return
-
-    # Security: only the target user can trigger their own onboarding
-    if message.from_user.id != user_id:
-        await message.answer("This link is not for you! 😊")
-        return
+    if payload and payload.startswith("onboard_"):
+        try:
+            parts = payload.split("_")
+            target_user_id = int(parts[1])
+            chat_id = int(parts[2])
+            
+            # Security: only the target user can trigger their own onboarding deep link
+            if user_id != target_user_id:
+                await message.answer("This link is not for you! 😊")
+                return
+        except (IndexError, ValueError):
+            logger.warning(f"Invalid onboarding deep link payload: {payload}")
 
     user_name = message.from_user.first_name or "User"
 
-    # Check if user already has a timezone (e.g. they clicked an old link)
+    # If user already has a timezone, show the Settings Menu immediately
     existing = await get_user_cached(user_id, platform="telegram")
     if existing and existing.get("timezone"):
-        await message.answer(
-            f"You're already set up: {existing['city']} {existing['flag']} ({existing['timezone']})\n"
-            "Use /tb_settz to change."
-        )
+        return await show_dm_settings_menu(message, existing, user_id, chat_id)
+
+    retention_days = get_inactive_user_retention_days()
+
+    welcome_text = (
+        f"👋 Hi {user_name}!\n"
+        f"\n"
+        f"🤖 *What I am*\n"
+        f"I'm a bot that converts times for chat members across "
+        f"different cities and time zones. When someone mentions a time, "
+        f"I show what it is for everyone else.\n"
+        f"\n"
+        f"💬 *How to use me*\n"
+        f"You don't need to do anything special — just chat as usual. "
+        f"I'll detect when someone talks about events and times, and "
+        f"reply with the converted time automatically.\n"
+        f"\n"
+        f"⚙️ *Set up your location*\n"
+        f"To get started, I need to know your city. You can always change this "
+        f"later or remove your data by coming back here or using `/tb_help` in any chat.\n"
+        f"\n"
+        f"Ready? Tap *Set my city* below 👇"
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📍 Set my city", callback_data=f"dm_setcity:{user_id}:{chat_id}")],
+        [InlineKeyboardButton(text="✖️ No thanks", callback_data=f"dm_decline:{user_id}:{chat_id}")],
+        [InlineKeyboardButton(text="🔒 Data Privacy", callback_data=f"dm_privacy:{user_id}")],
+    ])
+
+    # Store chat_id (0 if none) to state
+    await state.update_data(user_id=user_id, source_chat_id=chat_id)
+    return await message.answer(welcome_text, reply_markup=kb, parse_mode="Markdown")
+
+
+@router.callback_query(F.data.startswith("dm_setcity:"))
+async def dm_setcity_callback(callback: CallbackQuery, state: FSMContext):
+    """Handle 'Set my city' button click in DM — transition to city input."""
+    parts = callback.data.split(":")
+    try:
+        user_id = int(parts[1])
+        chat_id = int(parts[2])
+    except (IndexError, ValueError):
+        await callback.answer("Error processing request.")
         return
 
-    # Show city prompt with decline option
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✖️ No thanks", callback_data=f"dm_decline:{user_id}:{chat_id}")
-    ]])
-    await message.answer(
-        f"Hi {user_name}! What city are you in?",
-        reply_markup=kb,
+    if callback.from_user.id != user_id:
+        await callback.answer("This button is not for you! 😊", show_alert=True)
+        return
+
+    user_name = callback.from_user.first_name or "User"
+
+    # Remove buttons from the welcome message
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception as e:
+        logger.warning(f"Failed to remove welcome buttons: {e}")
+
+    await callback.message.answer(
+        f"Great {user_name}! Tell me your city so I can show your local time to others.\n"
+        f"\n"
+        f"💡 For best results, write it as: `City, Country` \n"
+        f"e.g. `Paris, France` or `Paris, Texas, USA`.",
+        parse_mode="Markdown",
     )
     await state.set_state(SetTimezone.waiting_for_city)
     await state.update_data(user_id=user_id, source_chat_id=chat_id)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("dm_privacy:"))
+async def dm_privacy_callback(callback: CallbackQuery):
+    """Show data privacy information."""
+    from src.config import get_data_retention_days
+    retention_days = get_data_retention_days()
+    
+    privacy_text = (
+        "🔒 *Data Privacy*\n"
+        "\n"
+        "I store your city, timezone, and platform identifiers in a local database "
+        "to enable time conversions.\n"
+        "\n"
+        f"If you are inactive for more than {retention_days} days, your data is "
+        "automatically deleted from my systems.\n"
+    )
+    
+    await callback.answer(
+        text=f"Data is stored locally and auto-deleted after {retention_days} days of inactivity.",
+        show_alert=True
+    )
+    # Alternatively, send as a message if alert is too small
+    # but the user said "сделаем кнопкой (там просто будет текст о том как дата храниться)"
+    # A pop-up alert is usually best for this.
 
 
 @router.callback_query(F.data.startswith("dm_decline:"))
@@ -119,8 +181,11 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
     # Clear FSM state
     await state.clear()
 
-    # Acknowledge in DM
-    await callback.message.edit_text("Got it! If you change your mind, use /tb_settz in any chat.")
+    # Acknowledge in DM and show menu with "Set again" option implicitly
+    await callback.message.edit_text(
+        "Got it! I won't nag you again. If you change your mind, use the menu below or /tb_settz in any chat.",
+        reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True)
+    )
     await callback.answer()
 
     # Clear the DM invite cooldown
@@ -128,6 +193,153 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
 
     # Process pending messages (LLM will handle missing TZ)
     await _process_pending_queue_dm(callback.message.bot, user_id, chat_id, user_name)
+
+
+# ---------------------------------------------------------------------------
+# Settings Menu — Registered Users
+# ---------------------------------------------------------------------------
+
+async def get_dm_settings_markup(user_id: int, chat_id: int, is_declined: bool = False) -> InlineKeyboardMarkup:
+    """Helper to build the Settings Menu keyboard."""
+    buttons = []
+    
+    if is_declined:
+        buttons.append([InlineKeyboardButton(text="📍 Set timezone", callback_data=f"dm_change_city:{user_id}:{chat_id}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="🔄 Change timezone", callback_data=f"dm_change_city:{user_id}:{chat_id}")])
+        buttons.append([InlineKeyboardButton(text="🗑️ Remove timezone", callback_data=f"dm_remove_city:{user_id}:{chat_id}")])
+    
+    buttons.append([InlineKeyboardButton(text="ℹ️ More settings", callback_data=f"dm_extra_settings:{user_id}:{chat_id}")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def show_dm_settings_menu(message: Message, user_record: dict, user_id: int, chat_id: int):
+    """Show the Settings Menu in DM."""
+    city = user_record.get("city")
+    timezone = user_record.get("timezone")
+    flag = user_record.get("flag", "")
+    
+    text = (
+        f"✅ Your timezone is set to: *{city} {flag}* ({timezone})\n"
+        "\nYou can manage your settings here:"
+    )
+    
+    return await message.answer(
+        text, 
+        reply_markup=await get_dm_settings_markup(user_id, chat_id),
+        parse_mode="Markdown"
+    )
+
+
+@router.callback_query(F.data.startswith("dm_change_city:"))
+async def dm_change_city_callback(callback: CallbackQuery, state: FSMContext):
+    """Callback to trigger city input from the Settings Menu."""
+    parts = callback.data.split(":")
+    user_id, chat_id = int(parts[1]), int(parts[2])
+    
+    if callback.from_user.id != user_id:
+        await callback.answer("This button is not for you! 😊", show_alert=True)
+        return
+
+    await state.set_state(SetTimezone.waiting_for_city)
+    await state.update_data(user_id=user_id, source_chat_id=chat_id)
+    
+    await callback.message.edit_text(
+        "Sure! What city are you in now?\n"
+        "💡 Tip: `City, Country` works best.",
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("dm_remove_city:"))
+async def dm_remove_city_callback(callback: CallbackQuery, state: FSMContext):
+    """Callback to remove timezone from the Settings Menu."""
+    parts = callback.data.split(":")
+    user_id, chat_id = int(parts[1]), int(parts[2])
+    
+    if callback.from_user.id != user_id:
+        await callback.answer("This button is not for you! 😊", show_alert=True)
+        return
+
+    # Clear city/timezone in DB
+    await storage.set_user(
+        user_id=user_id,
+        platform="telegram",
+        city=None,
+        timezone=None,
+        username=callback.from_user.username or "",
+        onboarding_declined=False  # Reset declined so they can be re-onboarded later if needed
+    )
+    invalidate_user_cache(user_id, platform="telegram")
+    
+    await callback.message.edit_text(
+        "🗑️ Your timezone has been removed. I'll no longer convert times for you.\n"
+        "If you want to set it again later, tap below.",
+        reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True)
+    )
+    await callback.answer("Timezone removed.")
+
+
+@router.callback_query(F.data.startswith("dm_extra_settings:"))
+async def dm_extra_settings_callback(callback: CallbackQuery):
+    """Show additional settings / commands info."""
+    parts = callback.data.split(":")
+    user_id, chat_id = int(parts[1]), int(parts[2])
+
+    text = (
+        "⚙️ *Additional Settings & Commands*\n"
+        "\n"
+        "These commands work in **group chats** where I am present:\n"
+        "\n"
+        "👥 `/tb_members` — Lists all members I am currently tracking in that chat.\n"
+        "\n"
+        "🗑 `/tb_remove` — Manually remove a member from the list. Use this if someone left the group.\n"
+        "\n"
+        "📋 *Chat members*: I only track members who send messages. "
+        "I don't have access to the full member list. "
+        "Use the commands above to manage tracked members.\n"
+        "\n"
+        "💡 *Note:* I automatically remove inactive users after 30 days of silence."
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🔙 Back to menu", callback_data=f"dm_back_menu:{user_id}:{chat_id}")
+    ]])
+    
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("dm_back_menu:"))
+async def dm_back_menu_callback(callback: CallbackQuery):
+    """Callback to return to the main settings menu."""
+    parts = callback.data.split(":")
+    user_id, chat_id = int(parts[1]), int(parts[2])
+    
+    user_record = await get_user_cached(user_id, platform="telegram")
+    if not user_record or not user_record.get("timezone"):
+        # If they somehow removed it and went back
+        await callback.message.edit_text(
+            "You haven't set your timezone yet.",
+            reply_markup=await get_dm_settings_markup(user_id, chat_id, is_declined=True)
+        )
+    else:
+        city = user_record.get("city")
+        timezone = user_record.get("timezone")
+        flag = user_record.get("flag", "")
+        
+        text = (
+            f"✅ Your timezone is set to: *{city} {flag}* ({timezone})\n"
+            "\nYou can manage your settings here:"
+        )
+        await callback.message.edit_text(
+            text, 
+            reply_markup=await get_dm_settings_markup(user_id, chat_id),
+            parse_mode="Markdown"
+        )
+    await callback.answer()
 
 
 @router.message(SetTimezone.waiting_for_city)
@@ -260,8 +472,14 @@ async def _save_and_finish(
 
     await state.clear()
 
-    # Confirm in the current chat (DM or group)
-    await message.answer(f"✅ Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
+    # Confirm and show management menu in DM
+    if is_dm:
+        # If we have a prompt message (Welcome message), we can edit it or just send a new one
+        # To avoid confusion, let's send a new "Success" message that acts as the menu
+        await show_dm_settings_menu(message, location, user_id, source_chat_id)
+    else:
+        # Group chat confirm (standard /tb_settz flow)
+        await message.answer(f"✅ Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})")
 
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
@@ -284,47 +502,57 @@ async def _process_pending_queue(message: Message, user_id: int, user_name: str)
         return
 
     logger.info(f"[chat:{message.chat.id}] Draining {len(pending_list)} pending messages for user {user_id}")
-    
-    # We re-fetch user record from CACHE
-    user_record = await get_user_cached(user_id, platform="telegram")
-
-    for pending in pending_list:
-        # Build send_fn for each message
-        async def send_reply_fn(text: str) -> None:
-            await message.bot.send_message(
-                chat_id=message.chat.id,
-                text=text,
-                reply_to_message_id=pending.get("message_id")
-            )
-            
-        # Add to history for context (since we skipped it in common)
-        snapshot = append_to_history("telegram", str(message.chat.id), pending)
-
-        await process_message(
-            message_text=pending["text"],
-            chat_id=str(message.chat.id),
-            user_id=str(user_id),
-            platform="telegram",
-            author_name=pending["author_name"],
-            timestamp_utc=pending["timestamp_utc"],
-            sender_db=user_record,
-            send_fn=send_reply_fn,
-            skip_history_append=True,
-            precomputed_snapshot=snapshot
-        )
+    await _drain_pending_messages(message.bot, user_id, pending_list)
 
 
-async def _process_pending_queue_dm(bot, user_id: int, chat_id: int, user_name: str):
-    """Helper to drain the pending queue for a user (DM context — sends to source group chat)."""
+async def _process_pending_queue_dm(bot, user_id: int, source_chat_id: int, user_name: str):
+    """Helper to drain the pending queue for a user (DM context)."""
     pending_list = await get_and_delete_pending_messages(user_id, "telegram")
     if not pending_list:
         return
 
-    logger.info(f"[chat:{chat_id}] Draining {len(pending_list)} pending messages for user {user_id} (from DM)")
+    logger.info(f"Draining {len(pending_list)} pending messages for user {user_id} (Success/Decline)")
+    await _drain_pending_messages(bot, user_id, pending_list)
 
+
+async def _handle_expired_messages(bot, user_id: int, platform: str, messages: list[dict]):
+    """
+    Callback triggered by pending.py cleanup_loop when onboarding expires.
+    We process these messages 'as is' without waiting for registration.
+    """
+    if platform != "telegram" or not messages:
+        return
+
+    logger.info(f"Failsafe: Processing {len(messages)} expired messages for user {user_id}")
+    
+    if not bot:
+        logger.error("No bot instance provided for expired messages processing.")
+        return
+
+    await _drain_pending_messages(bot, user_id, messages)
+
+
+async def _drain_pending_messages(bot, user_id: int, messages: list[dict]):
+    """Internal helper to group messages by chat_id and process them group by group."""
+    if not messages:
+        return
+
+    # Group messages by chat_id to drain efficiently
+    by_chat = {}
+    for m in messages:
+        c_id = int(m.get("chat_id", 0))
+        if c_id:
+            by_chat.setdefault(c_id, []).append(m)
+    
+    for c_id, chat_messages in by_chat.items():
+        await _drain_to_chat(bot, user_id, c_id, chat_messages)
+
+
+async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
+    """Internal helper to process a list of messages and send results to a specific chat."""
     user_record = await get_user_cached(user_id, platform="telegram")
 
-    for pending in pending_list:
+    for pending in messages:
         async def send_reply_fn(text: str, _pending=pending) -> None:
             await bot.send_message(
                 chat_id=chat_id,
@@ -339,10 +567,14 @@ async def _process_pending_queue_dm(bot, user_id: int, chat_id: int, user_name: 
             chat_id=str(chat_id),
             user_id=str(user_id),
             platform="telegram",
-            author_name=pending["author_name"],
-            timestamp_utc=pending["timestamp_utc"],
+            author_name=pending.get("author_name", "User"),
+            timestamp_utc=pending.get("timestamp_utc", ""),
             sender_db=user_record,
             send_fn=send_reply_fn,
             skip_history_append=True,
             precomputed_snapshot=snapshot
         )
+
+
+# Register the exploration callback for pending storage
+set_on_expire_callback(_handle_expired_messages)

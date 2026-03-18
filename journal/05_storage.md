@@ -161,24 +161,24 @@ sequenceDiagram
 **What is deleted:**
 - Only `chat_members` records for the given `chat_id`
 
-### aiogram Handler
+### aiogram Middleware & Handlers
+
+The system uses `PassiveCollectionMiddleware` to update the database on every message, and specific handlers for exit events.
 
 ```python
-from aiogram import Router
-from aiogram.types import Message, ChatMemberUpdated
-
-router = Router()
-
-# Passive collection: record user on any message
-@router.message()
-async def on_any_message(message: Message):
-    await add_user_to_chat(message.chat.id, message.from_user.id)
+# Passively update activity and chat membership
+class PassiveCollectionMiddleware(BaseMiddleware):
+    async def __call__(self, handler, event, data):
+        user_id = event.from_user.id
+        chat_id = event.chat.id
+        await storage.add_chat_member(chat_id, user_id, platform="telegram")
+        await storage.update_activity(user_id, platform="telegram")
+        return await handler(event, data)
 
 # Exit listening: remove on exit
-@router.chat_member()
-async def on_member_update(event: ChatMemberUpdated):
-    if event.new_chat_member.status in ('left', 'kicked'):
-        await remove_user_from_chat(event.chat.id, event.new_chat_member.user.id)
+@router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER))
+async def on_bot_kicked(event: ChatMemberUpdated):
+    await storage.clear_chat_members(event.chat.id, platform="telegram")
 ```
 
 ### Limitations:
@@ -350,10 +350,10 @@ Starting from the "Onboarding Capture" feature (2026-03-15), the bot implements 
 - **Source of Truth**: SQLite always holds the persistent user state.
 
 ### 10.1 Key Layers
-- **Users Cache:** Read-through snapshots of user data from SQLite.
-- **Chat Context:** Rolling buffer of recent history.
-- **LLM Queue:** Async locking mechanism with message aging (20s timeout).
-- **Onboarding Buffer:** Temporary storage for messages pending registration (60s TTL).
+- **Users Cache:** Read-through snapshots of user data using `@lru_cache` (or custom implementation).
+- **Chat Context:** Rolling buffer of recent history (managed by `EventDetector`).
+- **LLM Queue:** Async locking mechanism with message aging (`max_message_age_seconds`).
+- **Onboarding Buffer:** Temporary storage for messages pending registration (`_frozen_messages` in `pending.py`).
 
 For technical details, see `15_onboarding_capture.md`.
 

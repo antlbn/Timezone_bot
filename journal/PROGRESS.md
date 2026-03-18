@@ -1,3 +1,13 @@
+## 2026-03-18 (session) - DM-Based Onboarding & Multi-user Verif
+- **Feature**: Implemented **DM-based Onboarding via Deep Links** in Telegram.
+- **UX**: Group chat stays clean: only a minimal, auto-deleting invite is shown in groups.
+- **UX**: Full setup flow (Welcome, City Prompt, Data Privacy) moved to DM.
+- **Logic**: Implemented **Pending Message Queue** (`_frozen_messages`) with automatic release upon registration or timeout.
+- **Stability**: Fixed critical `Bot.get_current()` bug in `aiogram` 3.x for cleanup loops.
+- **Security**: Added deep-link payload validation to prevent cross-user interactions.
+- **Verification**: Created `test_concurrency_multi_user.py` simulating 4 users with mixed onboarding states (completed, ignored, partial, registered).
+- **Docs**: Updated all technical specs (`05`, `14`, `15`, `16`) to reflect the new asynchronous context-preserving architecture.
+
 ## 2026-03-16 (session 1) - Changing logic of onboarding
 - **Feature**: changing onboarding logic
 
