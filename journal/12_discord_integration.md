@@ -77,12 +77,9 @@ In Discord, interactive elements are used instead of text responses:
 | `/tb_help` | Help message |
 
 > [!NOTE]
-> `/tb_remove` is **absent** in Discord — not needed thanks to auto-cleanup.
-
-### Auto-Cleanup of Stale Members
-
-On each time mention, bot checks if users from DB are still on the server:
-- If user left the server (while bot was offline) — they are automatically removed from the list.
+> `/tb_remove` is- **Passive Collection**: `on_message` captures metadata (ID, Nickname, Platform) and updates records before LLM analysis.
+- **Auto-Cleanup**: Instead of per-mention loops, Discord relies on a **24h Background Task** (sync_and_cleanup) that verifies if users are still in the guild and prunes historical data for those who left.
+- **DM Integration**: Not used for onboarding in Discord due to better native support for Ephemeral Modals.
 - This solves the problem of "stuck" users without manual intervention.
 
 ```python

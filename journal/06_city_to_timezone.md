@@ -50,23 +50,19 @@ Fallback Save Inline buttons
 
 ---
 
-## 4. Disambiguation (Inline Buttons)
-
-If multiple cities with the same name are found:
-
-```
-🌍 Found multiple options for "Paris":
-
-[Paris, France 🇫🇷]  [Paris, Texas, USA 🇺🇸]
-```
-
-
-- User clicks button → save selected timezone
-- Callback data format: `tz:Europe/Moscow`
+## 4. Disambiguation (Multiple Cities)
+If a search returns multiple locations (e.g. «Paris»), the system currently selects the **first result** provided by Nominatim. Support for disambiguation via inline buttons is planned for future releases.
 
 ---
 
-## 5. Fallback: System Time
+## 5. Implementation Notes
+
+### Rate Limiting (L87)
+Nominatim requires an identification header (User-Agent) and recommends limited RPS. The current implementation uses a single-request pattern with a **5s timeout**. High-load deployments should consider `geopy.RateLimiter`.
+
+---
+
+## 6. Fallback: System Time
 
 If city is not found:
 

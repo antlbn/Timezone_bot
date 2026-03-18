@@ -13,8 +13,6 @@ Bot response format for time conversion.
 14:00 Berlin 🇩🇪
 08:00 New York 🇺🇸
 22:00 Tokyo 🇯🇵
-
-/tb_help
 ```
 
 **With usernames (optional):**
@@ -22,8 +20,6 @@ Bot response format for time conversion.
 14:00 Berlin 🇩🇪 @john
 08:00 New York 🇺🇸 @alice, @bob
 22:00 Tokyo 🇯🇵 @yuki
-
-/tb_help
 ```
 
 

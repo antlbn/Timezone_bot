@@ -64,60 +64,56 @@ Bot listens to all messages in group chats. For each message:
 2. [LLM GATE]    → Event Detection LLM called with full message window:
                    - if trigger=false → stop (no reply)
                    - if trigger=true  → continue
-                     LLM returns: times[], event_location
-3. [SOURCE TZ]   → if event_location != null:
-                     geocode(event_location) → source_tz
-                   else:
-                     use sender's DB timezone → source_tz
-4. [SCAN]        → Get list of other chat members from DB
-5. [TRANSFORM]   → Convert times[] from source_tz → UTC → all member zones
-6. [REPLY]       → Bot replies in a vertical list format:
-                   "Anton Lubny:
-                    14:00 New York 🇺🇸
-                    20:00 Berlin 🇩🇪
-                    22:00 Moscow 🇷🇺"
-```
+### Key Principles
+- **Passive Discovery**: Registration of chat members is passive (captured from regular messages).
+- **DM for Personal Setup**: Setup and settings dialogues are moved to private messages (Telegram) or Modals (Discord) to prevent group spam.
+- **LLM-First Architecture**: Every message is analyzed by the LLM orchestrator; no regular expression pre-filtering is used.
 
-### Flow: New User (sender not in DB)
+---
 
-```
-1. [LLM GATE]    → Event Detection LLM called.
-                   - if trigger=false → stop (no reply, no onboarding)
-                   - if trigger=true  → continue
-2. [DB LOOKUP]   → sender NOT found in SQLite.
-3. [FREEZE]      → Message is saved to `_frozen_messages` in `pending.py`.
-4. [ONBOARDING]  → Send DM invite link to group (TTL: 30s).
-5. [SETUP]       → User completes setup in DM (Welcome → City Prompt).
-6. [RELEASE]     → Message is released and processed by Conversion pipeline.
-```
+## 2. Platform Nuances
 
-#### Sequence Diagram: New User Flow
+### 2.1 Telegram
+Uses `aiogram`'s middleware for passive collection. Onboarding is triggered via a DM invite message in the group with an auto-cleanup TTL.
+
+### 2.2 Discord
+Uses `discord.py`'s `on_message` for passive collection. Onboarding is triggered via ephemeral buttons and Modals.
+
+---
+
+## 3. Core Message Processing Lifecycle
 
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant B as Bot
-    participant LLM as LLM
-    participant DB as SQLite
-    participant G as Geocoding
+    participant User
+    participant Bot as Platform Adapter
+    participant LLM as Event Detector
+    participant DB as SQLite Storage
 
-    U->>B: "Let's meet at 5pm!"
-    B->>LLM: detect(window)
-    LLM-->>B: {trigger:true, times:["17:00"]}
-    B->>DB: get_user(user_id)
-    DB-->>B: null (not found)
-    Note over B: Freeze message triggered
-    B->>U: (Group) "Hi! Tap to set timezone [📍]"
-    Note over B: User clicks deep link
-    U->>B: (DM) /start onboard_...
-    B->>U: (DM) Welcome + Instructions
-    U->>B: (DM) "Berlin"
-    B->>G: geocode("Berlin")
-    G-->>B: {tz: "Europe/Berlin"}
-    B->>DB: set_user(user_id, "Berlin", "Europe/Berlin")
-    Note over B: Release message
-    B->>U: (Group) Reply with Conversion
+    User->>Bot: "Sync at 18:00 tomorrow"
+    Bot->>DB: Update last_active_at (Passive Collection)
+    Bot->>LLM: process_message(history + current)
+    LLM-->>Bot: JSON {event: true, points: [...]}
+    
+    Bot->>DB: get_user(sender_id)
+    alt User NOT set up
+        Bot->>User: Invite to DM / Open Modal
+        Note over Bot: Message added to Onboarding Buffer (Frozen)
+    else User IS set up
+        Bot->>Bot: execute_convert_time(points)
+        Bot->>User: Formatted conversion reply
+    end
 ```
+
+### 3.1 Onboarding Buffer (The "Frozen" Message)
+If a user is not registered, their current coordination message is "frozen" in memory (`pending.py`). Once they complete their setup in DM/Modal, the bot automatically releases this message and performs the conversion in the original group chat.
+
+---
+
+## 4. Configuration Timers
+- `settings_cleanup_timeout_seconds`: 30s (Default)
+- `onboarding_timeout_seconds`: 120s (Default)
+- `dm_onboarding_cooldown_seconds`: 600s (Default)
 
 #### Sequence Diagram: event_location Override
 

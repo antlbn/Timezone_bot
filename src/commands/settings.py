@@ -641,6 +641,7 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
             sender_db=user_record,
             send_fn=send_reply_fn,
             skip_history_append=True,
+            skip_aging=True,
             precomputed_snapshot=snapshot,
         )
 

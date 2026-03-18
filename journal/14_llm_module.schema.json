@@ -32,10 +32,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["time", "city"],
+        "required": ["time", "city", "event_type"],
         "properties": {
           "time": { "type": "string", "description": "24h format HH:MM" },
-          "city": { "type": ["string", "null"], "description": "City name OR null" }
+          "city": { "type": ["string", "null"], "description": "City name OR null" },
+          "event_type": { "type": "string", "description": "Type of event, e.g. 'meeting', 'call', 'deadline'" }
         }
       },
       "description": "List of extracted time points with their respective locations."

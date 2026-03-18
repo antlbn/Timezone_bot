@@ -19,12 +19,12 @@
 4.  **`onboarding_frozen`** (Заморозка онбординга):
     - Временное хранилище `_frozen_messages` (`dict`) в `pending.py`.
     - Хранит метаданные сообщения в течение `onboarding_timeout_seconds` (60 сек).
+    - Хранит метаданные сообщения в течение `onboarding_timeout_seconds` (120 сек).
     - Сразу после завершения онбординга сообщения группируются по `chat_id` и отправляются на стандартную обработку в `process_message`.
 
-## Визуальная связь (Reply)
-После успешного онбординга бот отвечает на исходное (замороженное) сообщение пользователя с помощью соответствующего механизма платформы (Reply в Telegram, Reference в Discord).
-
 ## Компоненты
+- **Timeout**: Each `frozen` message has a TTL defined by `onboarding_timeout_seconds` (Default: 120s). After this, the message is discarded to prevent stale conversions.
+- **Visual Connection**: When released, the bot uses a precise **Reply** to the original message to maintain visual context.
 - **Storage:** `src/storage/pending.py` (In-memory dict).
 - **Cache:** `src/storage/user_cache.py`.
 - **Core logic:** `src/event_detection/__init__.py` (Логика очередей и проверки возраста сообщения).

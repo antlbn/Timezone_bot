@@ -11,24 +11,22 @@
 
 | Spec | Code File | Responsibility |
 |------|-----------|----------------|
-| `02_capture_logic.md` | `src/capture.py` | ⚠️ Legacy module — no longer used in main flow. May be repurposed for utilities or removed. |
-| `03_transformation_specs.md` | `src/transform.py` | UTC-pivot conversion (now accepts optional `source_tz` override for `event_location`) |
-| `05_storage.md` | `src/storage/` | **Package**: SQLite operations (Abstract + Impl) |
-| `06_city_to_timezone.md` | `src/geo.py` | Nominatim + TimezoneFinder (also used for `event_location` geocoding) |
-| `07_response_format.md` | `src/formatter.py` | Build reply string |
-| `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram adapter |
-| `09_logging.md` | `src/logger.py` | Logging setup |
-| `14_llm_module.md` | `src/event_detection/` | LLM-based event detector: trigger + times[] + event_location |
-| `12_discord_integration.md` | `src/discord/` | Discord adapter |
-| — | `src/config.py` | Load yaml + .env |
-| — | `src/main.py` | Telegram entry point |
-| — | `src/discord_main.py` | Discord entry point |
+| — | `src/capture.py` | ❌ **REMOVED** — legacy prefilter no longer used. |
+| `03_transformation_specs.md` | `src/transform.py` | UTC-pivot conversion logic. |
+| `05_storage.md` | `src/storage/` | **Package**: SQLite operations. Added `pending.py` (Memory layer) and `user_cache.py`. |
+| `06_city_to_timezone.md` | `src/geo.py` | Nominatim + TimezoneFinder mapping. |
+| `07_response_format.md` | `src/formatter.py` | String formatting and timezone grouping. |
+| `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram-side adapter. |
+| `09_logging.md` | `src/logger.py` | Project-wide logging setup. |
+| `14_llm_module.md` | `src/event_detection/` | **Package**: LLM orchestration. Includes `client.py`, `history.py`, `prompts.py`, and `tools.py`. |
+| `12_discord_integration.md` | `src/discord/` | **Package**: Discord-side adapter. |
+| — | `src/services/` | **Package**: Shared service layer (e.g., `user_service.py`). |
 
 ---
 
 ## Build Order (Dependencies First)
 ```
-config.py → logger.py → src/storage/ → src/event_detection/ → transform.py → geo.py → formatter.py → src/commands/states.py → src/commands/*.py → main.py
+config.py → logger.py → src/storage/ → src/event_detection/ → src/services/ → transform.py → geo.py → formatter.py → main.py
 ```
 
 > `capture.py` is removed from the build order — no longer part of the main message flow.
@@ -40,31 +38,39 @@ config.py → logger.py → src/storage/ → src/event_detection/ → transform.
 Timezone_bot/
 ├── src/
 │   ├── commands/        # TELEGRAM ADAPTER
-│   │   ├── __init__.py  # Exposes the main router
-│   │   ├── common.py    # /tb_help, Mentions, Kick event
+│   │   ├── __init__.py  
+│   │   ├── common.py    # Help, Text Mentions
 │   │   ├── members.py   # /tb_members, /tb_remove
-│   │   ├── settings.py  # /tb_settz, /tb_me
-│   │   ├── states.py    # FSM Classes (SetTimezone, RemoveMember)
-│   │   └── middleware.py
+│   │   ├── settings.py  # /tb_settz, /tb_me, DM Onboarding
+│   │   ├── states.py    # FSM
+│   │   ├── utils.py     # TG-specific UI utils
+│   │   └── middleware.py # User registration
 │   ├── discord/         # DISCORD ADAPTER
-│   │   ├── __init__.py  # Bot instance, intents
-│   │   ├── commands.py  # Slash command handlers
-│   │   ├── ui.py        # Views, Modals (UI components)
-│   │   └── events.py    # Message & member events
-│   ├── event_detection/ # LLM EVENT DETECTOR
+│   │   ├── __init__.py  
+│   │   ├── commands.py  # Slash commands
+│   │   ├── ui.py        # Views, Modals
+│   │   ├── events.py    # on_message, auto-cleanup
+│   │   └── tasks.py     # Background sync & prune
+│   ├── event_detection/ # LLM PIPELINE
 │   │   ├── __init__.py
-│   │   ├── detector.py  # LLM call + output parsing
-│   │   └── models.py    # Pydantic models for LLM output schema
-│   ├── main.py          # Telegram entry
+│   │   ├── detector.py  
+│   │   ├── history.py   # Context buffer
+│   │   ├── client.py    # API logic
+│   │   ├── prompts.py   # System prompts
+│   │   └── tools.py     # Action dispatch
+│   ├── storage/         # DATA LAYER
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── sqlite.py    # Migrations & SQL
+│   │   ├── pending.py   # Frozen messages (Memory)
+│   │   └── user_cache.py # LRU caching
+│   ├── services/        # BUSINESS LAYER
+│   │   └── user_service.py # Multi-platform logic
+│   ├── main.py          # TG entry
 │   ├── discord_main.py  # Discord entry
 │   ├── config.py
 │   ├── logger.py
-│   ├── capture.py       # ⚠️ LEGACY — not used in main flow
 │   ├── transform.py
-│   ├── storage/
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   └── sqlite.py
 │   ├── geo.py
 │   └── formatter.py
 ├── tests/

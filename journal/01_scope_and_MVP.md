@@ -99,26 +99,39 @@ Create a stable Telegram / Discord bot that:
 ### Response Structure
 - Clearly defined message schema.
 - Unified time format.
-- **Date Handling**: Marking if time transitions to the next day.
-- **Vertical Layout**: Each location name and its time is displayed on a new line (maximum 2 per line was abandoned for full vertical list).
-
-### Algorithm
-1. Every message is forwarded to the **LLM-based Event Detector** (`14_llm_module.md`).
-2. If `trigger=true`: use `times[]` and optional `event_location` from LLM output.
-3. If `event_location` is set: geocode it → use as source timezone pivot.
-4. Any conversion goes through UTC (direct Local→Local is prohibited).
+- **Dat| Key | Telegram | Discord |
+|---|---|---|
+| **Bot ID** | `@Timezone_Bot` | `TimezoneBot#0000` |
+| **Logic** | Python 3.12 (standard) | Python 3.12 (standard) |
+| **Storage** | SQLite + In-Memory Cache | SQLite + In-Memory Cache |
+| **Platform** | `aiogram 3.x` | `discord.py 2.x` |
 
 ---
 
-## Out of Scope (Beyond Current MVP)
-- WhatsApp support
-- Fuzzy matching for time detection (e.g. `rapidfuzz`)
-- Combining multiple times into one message
+## 4. Technical Core & Principles
+
+1.  **UTC-Pivot**: Transformations go through UTC. No numeric offsets in DB.
+2.  **Zero-Friction Onboarding**: New users set their timezone in DMs (Telegram) or via Modals (Discord) to keep group chat pristine.
+3.  **Passive Collection**: The bot grows its database only by active members who write messages.
+4.  **LLM as Orchestrator**: LLM (OpenAI/Ollama) is the primary engine for event detection, time extraction, and intent classification.
+5.  **Clean Chat Registry**: All setup and configuration messages have a short TTL (Auto-cleanup).
 
 ---
 
-## Constraints (What Not To Do)
-- **No Hardcode**: No hardcoding of cities and timezones.
-- **Limited LLM Usage**: LLM is used only as a trigger + extraction layer (binary decision + times + event_location). It does not replace geocoding or time conversion logic.
-- **No Private Chats**: Bot works only in group chats/servers.
+## 5. Scope (v2.0)
+
+### In-Scope:
+- **Zero-Friction Onboarding**: Users are invited to set their location via private messages when they first interact with a time coordination event.
+- **Support for Private Chats**: DMs and personal chats are used for onboarding, settings management, and 1-on-1 HELP.
+- **Passive Membership Tracking**: Automatic registration of users in the chat database when they send messages.
+- **Multi-Platform Support**: Unified logic for Telegram groups and Discord servers.
+- **Handling Multiple Times**: Support for various time formats and multiple time points in a single message.
+- **Vertical Layout**: Results are displayed as a vertical list of timezone groups for optimal mobile readability.
+
+### Out of Scope (Current):
+- **Recurring Meetings**: "Every Tuesday at 10:00".
+- **External Integration**: No Google Calendar / Outlook sync.
+- **Participant Selection**: LLM doesn't yet extract specific lists of attendees (it shows the time for all known chat members).
+- **History persistence**: History buffer is cleared on bot restart.
+ in group chats/servers.
 - **No DB Updates from event_location**: `event_location` is a one-time pivot; it never overwrites the sender's stored timezone.

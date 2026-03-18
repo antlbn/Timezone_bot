@@ -155,8 +155,13 @@ sequenceDiagram
 ```
 
 **What is preserved:**
-- Table `users` (each user's timezone)
-- User connections to other chats
+- `username` (Text)
+- `city` (Text, nullable)
+- `timezone` (Text, nullable)
+- `flag` (Text, nullable)
+- `onboarding_declined` (Integer, default 0) — 1 if user explicitly declined setup.
+- `created_at` (Timestamp, UTC)
+- `last_active_at` (Timestamp, UTC) — updated on every message/command.
 
 **What is deleted:**
 - Only `chat_members` records for the given `chat_id`

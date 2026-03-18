@@ -151,6 +151,7 @@ async def _process_discord_pending(interaction: discord.Interaction):
             sender_db=user_record,
             send_fn=send_reply_fn,
             skip_history_append=True,
+            skip_aging=True,
             precomputed_snapshot=pending.get("snapshot"),
         )
 

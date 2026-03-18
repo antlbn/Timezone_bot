@@ -69,7 +69,9 @@ User: /tb_settz
 
 Bot: "What city are you in?"
 
-→ Standard flow from 06_city_to_timezone.md
+User: /Wait for user to click button/type city name.
+    - **Step 2:** Resolved timezone saved.
+    - **Step 3:** Bot sends confirmation: "Set: Berlin 🇩🇪 (Europe/Berlin)".
 ```
 
 ### /tb_members
@@ -88,22 +90,20 @@ Chat members:
 /tb_remove
 ```
 
-### /tb_remove
+---
 
-```
-User: /tb_remove
+### 4. /tb_remove (Remove Member)
+If someone left the group but the bot hasn't noticed yet, they can be removed manually from the list.
 
-Bot: "Enter member number to remove:"
-
-User: 3
-
-Bot: "Removed @bob from chat list"
-```
+1.  **Command:** `/tb_remove`
+2.  **State:** `RemoveMember`
+3.  **Prompt:** "Select a member to remove from this group:" (Shows inline buttons/list).
+4.  **Confirm:** "Removed member #123456."
 
 ---
 
-## 5. Technical Organization
-
+## 5. Metadata & Response Format
+All commands that provide information (members, me, help) trigger the conversion-style formatting (Vertical groups) where applicable, but **no longer include the `/tb_help` footer** to keep the chat clean.
 
 For code clarity and separation of concerns, helper modules are introduced:
 - **src/middleware.py**: Contains logic affecting all incoming messages (member collection).
