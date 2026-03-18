@@ -93,7 +93,7 @@ async def test_llm_json_dispatch(monkeypatch):
         "event": True,
         "sender_id": "888",
         "sender_name": "Boss",
-        "points": [{"time": "20:00", "city": "London"}]
+        "points": [{"time": "20:00", "city": "London", "event_type": "созвон"}]
     })
     mock_choice.message.tool_calls = None
 
@@ -119,11 +119,12 @@ async def test_llm_json_dispatch(monkeypatch):
     mock_execute.assert_called_once()
     kwargs = mock_execute.call_args.kwargs
     assert kwargs["sender_id"] == "888"
-    assert kwargs["points"] == [{"time": "20:00", "city": "London"}]
+    assert kwargs["points"] == [{"time": "20:00", "city": "London", "event_type": "созвон"}]
     
     assert result["event"] is True
     assert result["time"] == ["20:00"]
-    assert result["points"] == [{"time": "20:00", "city": "London"}]
+    assert result["event_type"] == ["созвон"]
+    assert result["points"] == [{"time": "20:00", "city": "London", "event_type": "созвон"}]
 
 @pytest.mark.asyncio
 async def test_message_age_limit():

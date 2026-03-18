@@ -74,7 +74,8 @@ async def execute_convert_time(
             "original_time": time_str,
             "source_city": source_city,
             "source_tz": source_tz,
-            "source_flag": source_flag
+            "source_flag": source_flag,
+            "event_type": point.get("event_type", "событие")
         })
 
     # Use a new multi-point formatter to build a single message

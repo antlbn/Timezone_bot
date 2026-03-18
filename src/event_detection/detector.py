@@ -77,9 +77,10 @@ def _parse_llm_json(raw_json: str, ctx_logger: Any) -> dict:
         reflections = data.get("reflections", {})
         points = data.get("points", [])
         
-        # Backward compatibility for internal code that still expects separate lists
+        # Backward compatibility / internal formatting
         times = [p["time"] for p in points] if isinstance(points, list) else []
         cities = [p["city"] for p in points] if isinstance(points, list) else []
+        event_types = [p.get("event_type", "событие") for p in points] if isinstance(points, list) else []
         
         return {
             "reflections": {
@@ -92,6 +93,7 @@ def _parse_llm_json(raw_json: str, ctx_logger: Any) -> dict:
             "sender_name": str(data.get("sender_name", "")),
             "time":        times,
             "city":        cities,
+            "event_type":  event_types,
             "points":      points,
         }
     except Exception as exc:
@@ -139,6 +141,7 @@ async def detect_event(
     raw = ""
     if hasattr(choice, "message") and choice.message:
         raw = choice.message.content or ""
+    
     
     result = _parse_llm_json(raw, ctx_logger=ctx_logger)
 

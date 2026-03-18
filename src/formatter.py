@@ -88,6 +88,7 @@ def format_single_point_line(
     sender_tz: str,
     sender_flag: str,
     members: list[dict],
+    event_type: str = "",
     show_sender_info: bool = True
 ) -> str:
     """Format a single line of conversions for one time point."""
@@ -103,19 +104,19 @@ def format_single_point_line(
     # Format sender part
     sender_part = _format_sender_part(original_time, sender_city, sender_flag, name="")
     
-    if not other_members:
-        return sender_part
-    
-    # Group members by timezone and sort by UTC offset
-    sorted_groups = _group_and_sort_members(other_members, display_limit)
-    
-    parts = []
-    for tz, group in sorted_groups:
-        part = _format_tz_group(original_time, sender_tz, tz, group, show_usernames)
-        parts.append(part)
-    
     # Combine sender and other parts
-    all_parts = [sender_part] + parts
+    all_parts = [sender_part]
+    
+    if other_members:
+        # Group members by timezone and sort by UTC offset
+        sorted_groups = _group_and_sort_members(other_members, display_limit)
+        for tz, group in sorted_groups:
+            part = _format_tz_group(original_time, sender_tz, tz, group, show_usernames)
+            all_parts.append(part)
+    
+    if event_type:
+        all_parts.insert(0, event_type)
+    
     if len(other_members) > display_limit:
         all_parts.append(f"... +{len(other_members) - display_limit} more")
     
@@ -140,7 +141,8 @@ def format_multi_conversion(
             conv["source_city"],
             conv["source_tz"],
             conv["source_flag"],
-            members
+            members,
+            event_type=conv.get("event_type", "")
         )
         point_lines.append(point_text)
             

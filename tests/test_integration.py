@@ -37,8 +37,8 @@ async def test_full_pipeline_integration(monkeypatch):
         "sender_id": user_id,
         "sender_name": sender_name,
         "points": [
-            {"time": "10:30", "city": None},
-            {"time": "15:00", "city": None}
+            {"time": "10:30", "city": None, "event_type": "event 1"},
+            {"time": "15:00", "city": None, "event_type": "event 2"}
         ]
     })
     mock_choice.message.tool_calls = None
@@ -80,10 +80,11 @@ async def test_full_pipeline_integration(monkeypatch):
     assert "10:30 Sarajevo 🇧🇦" in reply
     assert "15:00 Sarajevo 🇧🇦" in reply
     # Check formatting
-    lines = reply.split("\n")
+    lines = [l for l in reply.split("\n") if l.strip()]
     assert lines[0] == "Anton:"
-    assert "10:30 Sarajevo 🇧🇦" in lines[1]
-    assert "09:30 London 🇬🇧" in lines[2]
-    assert lines[3] == ""
-    assert "15:00 Sarajevo 🇧🇦" in lines[4]
-    assert "14:00 London 🇬🇧" in lines[5]
+    assert lines[1] == "event 1"
+    assert "10:30 Sarajevo 🇧🇦" in lines[2]
+    assert "09:30 London 🇬🇧" in lines[3]
+    assert lines[4] == "event 2"
+    assert "15:00 Sarajevo 🇧🇦" in lines[5]
+    assert "14:00 London 🇬🇧" in lines[6]
