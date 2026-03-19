@@ -72,9 +72,18 @@ async def handle_settz(interaction: discord.Interaction, city: str):
 
     if not location or "error" in location:
         # Show fallback UI with buttons
+        embed = discord.Embed(
+            title="📍 City Not Found",
+            description=(
+                f"Could not find **'{city}'**.\n\n"
+                "Try another name or enter your current time manually to help me find your timezone."
+            ),
+            color=discord.Color.red(),
+        )
         await interaction.followup.send(
-            f"Could not find '{city}'.\nTry another name or enter your time manually:",
+            embed=embed,
             view=FallbackView(interaction.user.id),
+            ephemeral=True,
         )
         return
 
@@ -96,9 +105,12 @@ async def handle_settz(interaction: discord.Interaction, city: str):
             interaction.guild.id, interaction.user.id, platform=PLATFORM
         )
 
-    await interaction.followup.send(
-        f"Set: {location['city']} {location['flag']} ({location['timezone']})"
+    embed = discord.Embed(
+        title="✅ Timezone Set!",
+        description=f"Your location is now **{location['city']} {location['flag']}**\nTimezone: `{location['timezone']}`",
+        color=discord.Color.green(),
     )
+    await interaction.followup.send(embed=embed, ephemeral=True)
     logger.info(
         f"[guild:{interaction.guild_id}] User {interaction.user.id} -> {location['timezone']}"
     )
@@ -135,7 +147,11 @@ async def _process_discord_pending(interaction: discord.Interaction):
                     channel_id=int(pending["chat_id"]),
                     guild_id=interaction.guild_id,
                 )
-                await channel.send(text, reference=message_ref)
+                embed = discord.Embed(
+                    description=text,
+                    color=discord.Color.green(),
+                )
+                await channel.send(embed=embed, reference=message_ref)
             else:
                 logger.error(
                     f"Could not find channel {pending['chat_id']} to send pending reply"
@@ -173,10 +189,18 @@ async def handle_manual_time(interaction: discord.Interaction, time_str: str):
 
     if not location:
         # Still invalid time - ask to try again
+        embed = discord.Embed(
+            title="⏰ Invalid Time Format",
+            description=(
+                f"Could not understand time **'{time_str}'**.\n\n"
+                "Please enter time in **HH:MM** format (e.g., `15:30` or `09:15`)."
+            ),
+            color=discord.Color.red(),
+        )
         await interaction.followup.send(
-            f"Could not understand time '{time_str}'.\n"
-            "Please enter format HH:MM (e.g. 15:30).",
+            embed=embed,
             view=FallbackView(interaction.user.id),
+            ephemeral=True,
         )
         return
 
@@ -197,9 +221,12 @@ async def handle_manual_time(interaction: discord.Interaction, time_str: str):
             interaction.guild.id, interaction.user.id, platform=PLATFORM
         )
 
-    await interaction.followup.send(
-        f"Set: {location['city']} {location['flag']} ({location['timezone']})"
+    embed = discord.Embed(
+        title="✅ Timezone Set!",
+        description=f"Your location is now **{location['city']} {location['flag']}**\nTimezone: `{location['timezone']}`",
+        color=discord.Color.green(),
     )
+    await interaction.followup.send(embed=embed, ephemeral=True)
     logger.info(
         f"[guild:{interaction.guild_id}] User {interaction.user.id} -> {location['timezone']} (manual)"
     )

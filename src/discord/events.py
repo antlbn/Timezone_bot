@@ -40,13 +40,16 @@ async def on_message(message: discord.Message):
 
     # 2. Build send_fn so tools.py can reply to this channel
     async def send_fn(text: str) -> None:
-        await message.reply(text)
+        embed = discord.Embed(
+            description=text,
+            color=discord.Color.blue(),
+        )
+        await message.reply(embed=embed)
 
     # 3. Check registration status
     is_registered = bool(sender and sender.get("timezone"))
 
     # 4. LLM pipeline — detection + tool dispatch
-    # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion
     result = await process_message(
         message_text=message.content,
         chat_id=chat_id,
@@ -64,14 +67,24 @@ async def on_message(message: discord.Message):
     )
 
     # 5. Lazy Onboarding Trigger
-    # We only prompt for registration if an event was detected AND the user is unknown
     if not is_registered and result.get("event"):
         from src.discord.ui import SetTimezoneView
+        from src.config import get_settings_cleanup_timeout
 
-        await message.reply(
-            f"{user_name}, set your timezone to convert times!",
+        embed = discord.Embed(
+            title="👋 Welcome to Timezone Bot!",
+            description=(
+                f"Hi {user_name}! I've detected a time mention, but I don't know your timezone yet.\n\n"
+                "Tap the button below to quickly set it up! (Only you will see the next steps)"
+            ),
+            color=discord.Color.gold(),
+        )
+
+        invite_msg = await message.reply(
+            embed=embed,
             view=SetTimezoneView(message.author.id),
             mention_author=True,
+            delete_after=get_settings_cleanup_timeout() or 60,
         )
 
         # 5.1 Save to In-Memory storage for later processing (Frozen)
@@ -84,7 +97,6 @@ async def on_message(message: discord.Message):
             "timestamp_utc": timestamp_utc,
             "message_id": message.id,
         }
-        # Note: history already appended inside process_message
         await save_pending_message(message.author.id, PLATFORM, msg_data)
 
 

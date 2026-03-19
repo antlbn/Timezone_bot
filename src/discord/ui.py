@@ -32,9 +32,12 @@ class TimezoneModal(ui.Modal, title="Set Your Timezone"):
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
-        await interaction.response.send_message(
-            "Oops! Something went wrong.", ephemeral=True
+        embed = discord.Embed(
+            title="⚠️ Error",
+            description="Oops! Something went wrong while processing your request.",
+            color=discord.Color.red(),
         )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         logger.error(f"Modal error: {error}", exc_info=error)
 
 
@@ -58,9 +61,12 @@ class TimeInputModal(ui.Modal, title="Enter Time Manually"):
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
-        await interaction.response.send_message(
-            "Oops! Something went wrong.", ephemeral=True
+        embed = discord.Embed(
+            title="⚠️ Error",
+            description="Oops! Something went wrong while processing your manual time input.",
+            color=discord.Color.red(),
         )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         logger.error(f"TimeModal error: {error}", exc_info=error)
 
 
@@ -81,9 +87,11 @@ class SetTimezoneView(ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user_id:
-            await interaction.response.send_message(
-                "This button is not for you!", ephemeral=True
+            embed = discord.Embed(
+                description="❌ This button is not for you!",
+                color=discord.Color.red(),
             )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return False
         return True
 
@@ -105,8 +113,10 @@ class FallbackView(ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user_id:
-            await interaction.response.send_message(
-                "This button is not for you!", ephemeral=True
+            embed = discord.Embed(
+                description="❌ This button is not for you!",
+                color=discord.Color.red(),
             )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return False
         return True
