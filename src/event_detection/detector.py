@@ -141,7 +141,15 @@ async def detect_event(
         {"role": "user", "content": user_content},
     ]
 
-    ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
+    from src.config import get_log_llm_prompts
+
+    if get_log_llm_prompts():
+        ctx_logger.info(
+            f"\n🚀 [LLM PROMPT LOG MODE] 🚀\n{user_content}\n"
+            f"------------------------------------------"
+        )
+    else:
+        ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
 
     choice = await call_llm(messages)
     raw = ""

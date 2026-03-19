@@ -5,7 +5,7 @@ version: 0.1.0
 # Logging Configuration
 logging:
   # Levels: DEBUG, INFO, WARNING, ERROR
-  level: DEBUG
+  level: INFO
   # Format: json or text (default: text)
   format: text
 
@@ -27,6 +27,9 @@ bot:
 event_detection:
   # Master switch for the LLM-based scheduling detector
   enabled: true
+
+  # Dedicated logging mode for LLM contexts (true = show full prompt in console)
+  log_prompts: true
 
   # LLM Temperature (0.0 = deterministic, 1.0 = creative)
   temperature: 0.1

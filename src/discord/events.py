@@ -100,7 +100,6 @@ async def on_message(message: discord.Message):
         }
         await save_pending_message(message.author.id, PLATFORM, msg_data)
 
-
 @bot.event
 async def on_member_remove(member: discord.Member):
     """Remove user from storage when they leave the guild."""

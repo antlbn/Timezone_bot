@@ -20,6 +20,7 @@ async def main():
     """Start the Discord bot."""
     load_dotenv()
     setup_logging()
+    logger.warning("❤️❤️❤️ DISCORD BOT STARTING FROM LIVE SOURCE ❤️❤️❤️")
 
     # Check for token - if present, start bot
     token = os.getenv("DISCORD_TOKEN")

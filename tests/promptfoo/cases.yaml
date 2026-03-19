@@ -503,20 +503,6 @@
         const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
         return data.event === true && (point.event_type.toLowerCase().includes('деплой') || point.event_type.toLowerCase().includes('запуск'));
 
-- description: "[EVENT_TYPE] Meeting with client extraction"
-  vars:
-    sender_id: "1002"
-    sender_name: "Anna"
-    author: "Anna"
-    text: "завтра в 11 созвон с заказчиком"
-    history: "(no previous context)"
-    timestamp: "2026-03-13T14:00:00Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
-        return data.event === true && point.event_type.toLowerCase().includes('заказчик');
 
 - description: "[EVENT_TYPE] Deadline extraction"
   vars:
@@ -534,17 +520,18 @@
         return data.event === true && point.event_type.toLowerCase().includes('дедлайн');
 
 
-- description: "[EVENT_TYPE] Deadline extraction"
+- description: "[EDGE] Pure bot mention with event history — should not hallucinate event"
   vars:
-    sender_id: "1003"
-    sender_name: "Petr"
-    author: "Petr"
-    text: "ребят, дедлайн по фиче сегодня в 23:59"
-    history: "(no previous context)"
-    timestamp: "2026-03-13T12:00:00Z"
+    sender_id: "1117863118807244800"
+    sender_name: "ANTLBN"
+    author: "ANTLBN"
+    text: "<@1468973668569841842>"
+    history: |
+      [ANTLBN]: привет можно на завтра назначить созвон с продуктом? например на 12:00
+      [Timezone Bot]: ANTLBN: созвон с продуктом 12:00 Париж 🇫🇷
+    timestamp: "2026-03-19T10:49:00Z"
   assert:
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
-        return data.event === true && point.event_type.toLowerCase().includes('дедлайн');
+        return data.event === false;

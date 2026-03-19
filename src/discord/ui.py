@@ -116,7 +116,7 @@ class SetTimezoneView(ui.View):
         self.target_user_id = target_user_id
 
     @ui.button(
-        label="Start Setup",
+        label="⚙️ Settings",
         style=discord.ButtonStyle.primary,
         custom_id="settz_button",
     )

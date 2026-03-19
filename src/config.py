@@ -84,3 +84,8 @@ def get_dm_onboarding_cooldown() -> int:
         .get("event_detection", {})
         .get("dm_onboarding_cooldown_seconds", 600)
     )
+
+
+def get_log_llm_prompts() -> bool:
+    """Whether to log the full LLM prompts (including history) for debugging."""
+    return get_config().get("event_detection", {}).get("log_prompts", False)
