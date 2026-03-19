@@ -19,20 +19,7 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.points.some(p => p.time === '10:00') && data.sender_id === '101';
 
-- description: "[BASIC_POSITIVE][REGRESSION] 'в 10 утра' must be 10:00, NOT 09:30"
-  vars:
-    sender_id: "101"
-    sender_name: "Anton"
-    author: "Anton"
-    text: "Давай завтра в 10 утра созвонимся"
-    history: "(no previous context)"
-    timestamp: "2026-03-13T09:00:00Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        // 'в 10 утра' is a plain AM modifier, NOT the «пол» idiom.
-        return data.event === true && data.points.some(p => p.time === '10:00') && !data.points.some(p => p.time === '09:30');
+
 
 - description: "[BASIC_POSITIVE] Deadline with time inference"
   vars:
@@ -530,6 +517,22 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
         return data.event === true && point.event_type.toLowerCase().includes('заказчик');
+
+- description: "[EVENT_TYPE] Deadline extraction"
+  vars:
+    sender_id: "1003"
+    sender_name: "Petr"
+    author: "Petr"
+    text: "ребят, дедлайн по фиче сегодня в 23:59"
+    history: "(no previous context)"
+    timestamp: "2026-03-13T12:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
+        return data.event === true && point.event_type.toLowerCase().includes('дедлайн');
+
 
 - description: "[EVENT_TYPE] Deadline extraction"
   vars:

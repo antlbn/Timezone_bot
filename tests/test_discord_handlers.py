@@ -70,9 +70,10 @@ class TestHandleSettz:
 
         # Verify success message
         mock_interaction.followup.send.assert_called()
-        msg = mock_interaction.followup.send.call_args[0][0]
-        assert "Berlin" in msg
-        assert "🇩🇪" in msg
+        embed = mock_interaction.followup.send.call_args[1].get("embed")
+        assert embed is not None
+        assert "Berlin" in embed.description
+        assert "🇩🇪" in embed.description
 
     @pytest.mark.asyncio
     async def test_city_not_found_shows_fallback(
@@ -92,8 +93,10 @@ class TestHandleSettz:
         mock_interaction.followup.send.assert_called_once()
         call_args = mock_interaction.followup.send.call_args
 
-        assert "Could not find" in call_args[0][0]
         assert "view" in call_args[1]  # FallbackView passed
+        embed = call_args[1].get("embed")
+        assert embed is not None
+        assert "Could not find" in embed.description
 
     @pytest.mark.asyncio
     async def test_geocoder_error_shows_fallback(
@@ -143,8 +146,9 @@ class TestHandleManualTime:
 
         # Verify success message
         mock_interaction.followup.send.assert_called()
-        msg = mock_interaction.followup.send.call_args[0][0]
-        assert "Set:" in msg
+        embed = mock_interaction.followup.send.call_args[1].get("embed")
+        assert embed is not None
+        assert "Set" in embed.title
 
     @pytest.mark.asyncio
     async def test_invalid_time_shows_fallback(
@@ -164,8 +168,10 @@ class TestHandleManualTime:
         mock_interaction.followup.send.assert_called_once()
         call_args = mock_interaction.followup.send.call_args
 
-        assert "Could not understand" in call_args[0][0]
         assert "view" in call_args[1]
+        embed = call_args[1].get("embed")
+        assert embed is not None
+        assert "Could not understand" in embed.description
 
 
 class TestUIComponents:

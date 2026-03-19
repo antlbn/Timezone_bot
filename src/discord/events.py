@@ -91,6 +91,7 @@ async def on_message(message: discord.Message):
         msg_data = {
             "platform": PLATFORM,
             "chat_id": chat_id,
+            "channel_id": str(message.channel.id),
             "author_id": str(message.author.id),
             "author_name": user_name,
             "text": message.content,

@@ -62,11 +62,24 @@ async def cmd_me(interaction: discord.Interaction):
     )
 
 
-async def handle_settz(interaction: discord.Interaction, city: str):
+async def handle_settz(interaction: discord.Interaction, city: str, origin_interaction: discord.Interaction = None):
     """Shared logic for setting timezone via command or modal."""
     # Check if interaction was already deferred (slash command) or not (modal)
     if not interaction.response.is_done():
         await interaction.response.defer()
+
+    # If this interaction came from a component (like an inline button opening a modal),
+    # clean up the original ephemeral message that housed the button.
+    if origin_interaction:
+        try:
+            await origin_interaction.delete_original_response()
+        except Exception as e:
+            logger.debug(f"Could not delete origin ephemeral message: {e}")
+    elif interaction.message:
+        try:
+            await interaction.message.delete()
+        except Exception as e:
+            logger.debug(f"Could not delete message: {e}")
 
     location = geo.get_timezone_by_city(city)
 
@@ -135,16 +148,23 @@ async def _process_discord_pending(interaction: discord.Interaction):
     for pending in pending_list:
         # Build send_reply_fn using MessageReference
         async def send_reply_fn(text: str) -> None:
-            # We need the channel to send a message to it
-            channel = interaction.channel
+            # IMPORTANT: Releasing from queue must use the original channel
+            # to allow replying to the original message.
+            original_channel_id = int(pending.get("channel_id") or pending["chat_id"])
+            channel = bot.get_channel(original_channel_id)
+
             if not channel:
-                # Fallback to fetching it if possible
-                channel = bot.get_channel(int(pending["chat_id"]))
+                # If bot doesn't "see" it in cache, try fetching it
+                try:
+                    channel = await bot.fetch_channel(original_channel_id)
+                except Exception:
+                    logger.error(f"Could not fetch channel {original_channel_id}")
+                    return
 
             if channel:
                 message_ref = discord.MessageReference(
                     message_id=int(pending["message_id"]),
-                    channel_id=int(pending["chat_id"]),
+                    channel_id=original_channel_id,
                     guild_id=interaction.guild_id,
                 )
                 embed = discord.Embed(
@@ -179,11 +199,22 @@ async def cmd_settz(interaction: discord.Interaction, city: str):
     await handle_settz(interaction, city)
 
 
-async def handle_manual_time(interaction: discord.Interaction, time_str: str):
+async def handle_manual_time(interaction: discord.Interaction, time_str: str, origin_interaction: discord.Interaction = None):
     """Handle manual time input from modal."""
     # Defer since this might take a moment (though usually fast)
     if not interaction.response.is_done():
         await interaction.response.defer()
+
+    if origin_interaction:
+        try:
+            await origin_interaction.delete_original_response()
+        except Exception as e:
+            logger.debug(f"Could not delete origin ephemeral message: {e}")
+    elif interaction.message:
+        try:
+            await interaction.message.delete()
+        except Exception as e:
+            logger.debug(f"Could not delete origin ephemeral message: {e}")
 
     location = geo.resolve_timezone_from_input(time_str)
 
