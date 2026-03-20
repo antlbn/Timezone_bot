@@ -33,13 +33,11 @@ async def main():
     logger.info("Storage initialized")
 
     # Import bot and register commands/events
-    from src.discord import bot
-    from src.discord.commands import register_commands
-    from src.discord.events import register_events
+    # Importing these modules triggers @bot.tree.command and @bot.event decorators
+    from src.discord import bot  # noqa: F401
+    import src.discord.commands  # noqa: F401
+    import src.discord.events  # noqa: F401
     from src.discord.tasks import start_tasks
-
-    register_commands(bot.tree)
-    register_events(bot)
 
     start_tasks()
     logger.info("Discord background tasks initialized")

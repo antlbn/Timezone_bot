@@ -4,7 +4,7 @@ Discord UI Components (Modals and Views).
 
 import discord
 from discord import ui
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional
 from src.logger import get_logger
 
 logger = get_logger()
@@ -87,21 +87,21 @@ def get_welcome_embed(user_name: str) -> discord.Embed:
     embed = discord.Embed(
         title=f"👋 Hi {user_name}!",
         description=(
-            f"🤖 **What I am**\n"
-            f"I'm a bot that converts times for chat members across "
-            f"different cities and time zones. When someone mentions a time, "
-            f"I show what it is for everyone else.\n"
-            f"\n"
-            f"💬 **How to use me**\n"
-            f"You don't need to do anything special — just chat as usual. "
-            f"I'll detect when someone talks about events and times, and "
-            f"reply with the converted time automatically.\n"
-            f"\n"
-            f"⚙️ **Set up your location**\n"
-            f"To get started, I need to know your city. You can always change this "
-            f"later or remove your data by coming back here or using `/tb_settz` in any chat.\n"
-            f"\n"
-            f"Ready? Tap **📍 Set City** below 👇"
+            "🤖 **What I am**\n"
+            "I'm a bot that converts times for chat members across "
+            "different cities and time zones. When someone mentions a time, "
+            "I show what it is for everyone else.\n"
+            "\n"
+            "💬 **How to use me**\n"
+            "You don't need to do anything special — just chat as usual. "
+            "I'll detect when someone talks about events and times, and "
+            "reply with the converted time automatically.\n"
+            "\n"
+            "⚙️ **Set up your location**\n"
+            "To get started, I need to know your city. You can always change this "
+            "later or remove your data by coming back here or using `/tb_settz` in any chat.\n"
+            "\n"
+            "Ready? Tap **📍 Set City** below 👇"
         ),
         color=discord.Color.blue(),
     )
@@ -163,11 +163,11 @@ class OnboardingMenuView(ui.View):
 
     @ui.button(label="👥 Members", style=discord.ButtonStyle.secondary)
     async def show_members(self, interaction: discord.Interaction, button: ui.Button):
-        from src.storage import storage
+        from src.services.user_service import get_sorted_chat_members
         if not self.guild_id:
             return await interaction.response.send_message("This command only works in servers.", ephemeral=True)
-            
-        members = await storage.get_chat_members(self.guild_id, platform="discord")
+
+        members = await get_sorted_chat_members(self.guild_id, platform="discord")
         if not members:
             description = "No members are currently being tracked in this server."
         else:
@@ -177,7 +177,7 @@ class OnboardingMenuView(ui.View):
             ])
 
         embed = discord.Embed(
-            title=f"👥 Tracked Members",
+            title="👥 Tracked Members",
             description=description,
             color=discord.Color.blue(),
         )

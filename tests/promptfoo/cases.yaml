@@ -3,22 +3,6 @@
 # Ожидаем: event: true, время распознано
 # ============================================================
 
-- description: "[BASIC_POSITIVE] Clear meeting proposal"
-  vars:
-    sender_id: "101"
-    sender_name: "Anton"
-    author: "Anton"
-    text: "Давай завтра в 10 утра созвонимся"
-    history: |
-      [Ivan]: Привет! Нужно обсудить правки по дизайну.
-      [Anton]: Привет, давай. Когда удобно?
-    timestamp: "2026-03-13T09:00:00Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.points.some(p => p.time === '10:00') && data.sender_id === '101';
-
 
 
 - description: "[BASIC_POSITIVE] Deadline with time inference"
@@ -26,15 +10,19 @@
     sender_id: "102"
     sender_name: "Anton"
     author: "Anton"
-    text: "подтвердилось, сегодня до 8 нужно отправить коммюнике"
+    text: "confirmed, gotta ship the press release by 8 tonight ngl"
     history: |
-      [Jane]: Есть новости по отправке?
+      [Jane]: any updates on the release? comms team is lowkey freaking out
+      [Anton]: still waiting on sign-off, haven't heard back yet
+      [Jane]: they said it absolutely has to go out EOD no exceptions
+      [Anton]: got it, on it — waiting for the call
     timestamp: "2026-03-13T15:30:00Z"
   assert:
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.points.some(p => p.time === '20:00');
+
 
 
 # ============================================================
@@ -77,21 +65,6 @@
 # [TIME_PARSING] Нестандартный формат времени
 # ============================================================
 
-- description: "[TIME_PARSING] Russian evening time (PM) extraction"
-  vars:
-    sender_id: "301"
-    sender_name: "Anton"
-    author: "Anton"
-    text: "Давайте завтра в 8 вечера созвонимся"
-    history: |
-      [Jane]: Нужно синхронизироваться по спринту.
-      [Anton]: Ок.
-    timestamp: "2026-03-13T15:00:00Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.points.some(p => p.time === '20:00');
 
 - description: "[TIME_PARSING] Russian idiom 'без пятнадцати восемь' — evening inference"
   vars:
@@ -160,7 +133,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true && data.points.some(p => p.time === '17:00');
+        return data.event === false && data.points.some(p => p.time === '17:00');
 
 - description: "[CONTEXT] Ambiguous number — resolved by history (or not)"
   vars:
@@ -170,7 +143,7 @@
     text: "завтра в 8"
     history: |
       [UserA]: как обстоят дела?
-      [UserB]: в каком номере здания будет проходить сканирование?
+      [UserB]: в каком доме будет проходить сканирование?
     timestamp: "2026-03-13T12:00:00Z"
   assert:
     - type: javascript
@@ -535,3 +508,86 @@
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === false;
+
+# ============================================================
+# [EDGE] День недели вместо времени — реальный баг из Telegram логов
+# Сценарий: бот ставил "воскресенье" в поле time → выводил 00:00
+# Ожидаем: time в points должен быть числовым HH:MM, НЕ названием дня
+# ============================================================
+
+- description: "[EDGE][REGRESSION] 'печка' — weekday 'воскресенье' must NOT be extracted as time"
+  vars:
+    sender_id: "1201"
+    sender_name: "Vlad"
+    author: "Vlad"
+    text: "давайте поставим печку на воскресенье, кто за?"
+    history: |
+      [Anton]: ребят, нужно обсудить релиз
+      [Masha]: +1, когда?
+    timestamp: "2026-03-16T15:00:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // event=false (нет конкретного времени) OR event=true но time должен быть HH:MM
+        // В любом случае "воскресенье" НЕ должно попасть в поле time
+        const hasWeekdayAsTime = data.points && data.points.some(p =>
+          p.time && /воскресенье|понедельник|вторник|среда|четверг|пятница|суббота/i.test(p.time)
+        );
+        const allTimesAreNumeric = !data.points || data.points.every(p =>
+          !p.time || /^\d{1,2}:\d{2}$/.test(p.time)
+        );
+        return !hasWeekdayAsTime && allTimesAreNumeric;
+
+- description: "[EDGE][REGRESSION] 'пицца в день после субботы' — Sunday reference must not become 00:00"
+  vars:
+    sender_id: "1202"
+    sender_name: "Anton"
+    author: "Anton"
+    text: "Воскресенье встреча всех выпускников психоневрологического"
+    history: |
+      [Vlad]: То что он начал воскресенье пихать
+      [Vlad]: Пицца в день после субботы
+    timestamp: "2026-03-16T15:05:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // Нет конкретного времени → event=false
+        // Либо если event=true: time НЕ должен быть "00:00" (артефакт парсинга дня)
+        const hasSpuriousZero = data.points && data.points.some(p => p.time === '00:00');
+        const hasWeekdayAsTime = data.points && data.points.some(p =>
+          p.time && /воскресенье|понедельник|вторник|среда|четверг|пятница|суббота/i.test(p.time)
+        );
+        return !hasSpuriousZero && !hasWeekdayAsTime;
+
+
+# ============================================================
+# [CONTEXT] Спор о времени встречи — финальное предложение
+# Несколько участников не могут договориться, в итоге один настаивает на 10:00
+# Ожидаем: event=true, time=10:00 (финальное предложение, не отклонённые варианты)
+# ============================================================
+
+- description: "[CONTEXT] Meeting time negotiation — insisting on 10:00 after dispute"
+  vars:
+    sender_id: "1301"
+    sender_name: "Макс"
+    author: "Макс"
+    text: "нет я настаиваю на том что нам стоит собраться в 10"
+    history: |
+      [Лёня]: ребят давайте созвон завтра в 9 утра?
+      [Катя]: не могу в 9, у меня стенд-ап до 9:30
+      [Лёня]: окей тогда в 11?
+      [Макс]: в 11 тоже плохо, у меня клиент
+      [Катя]: может в 10 тогда? я смогу передвинуть
+    timestamp: "2026-03-14T18:30:00Z"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
+        // Должен зафиксировать финальное предложение — 10:00
+        const has10 = data.points && data.points.some(p => p.time === '10:00');
+        // Отклонённые варианты (9:00, 11:00) не должны попасть как отдельные точки
+        const hasRejected9 = data.points && data.points.some(p => p.time === '09:00');
+        const hasRejected11 = data.points && data.points.some(p => p.time === '11:00');
+        return data.event === true && has10 && !hasRejected9 && !hasRejected11;

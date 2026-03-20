@@ -8,6 +8,24 @@ from src.config import get_bot_settings
 logger = get_logger()
 
 
+def _format_relative_time(msg_ts: str, anchor_ts: str) -> str:
+    """Return a human-readable relative time label, e.g. '5m ago', '2h ago'."""
+    try:
+        import datetime
+        msg_time = datetime.datetime.fromisoformat(msg_ts.replace("Z", "+00:00"))
+        anchor_time = datetime.datetime.fromisoformat(anchor_ts.replace("Z", "+00:00"))
+        delta_secs = int((anchor_time - msg_time).total_seconds())
+        if delta_secs < 0:
+            return "just now"
+        if delta_secs < 60:
+            return f"{delta_secs}s ago"
+        if delta_secs < 3600:
+            return f"{delta_secs // 60}m ago"
+        return f"{delta_secs // 3600}h ago"
+    except Exception:
+        return ""
+
+
 def _build_user_content(
     current_msg: dict,
     snapshot: list[dict],
@@ -21,7 +39,7 @@ def _build_user_content(
         ANCHOR: <timestamp_utc>
 
         HISTORY:
-        [Author]: text
+        [Author, 5m ago]: text
         ...
 
         CURRENT MESSAGE:
@@ -40,9 +58,11 @@ def _build_user_content(
 
     if snapshot:
         for msg in snapshot:
-            lines.append(
-                f"[{msg.get('author_name', 'Unknown')}]: {msg.get('text', '')}"
-            )
+            author = msg.get("author_name", "Unknown")
+            text = msg.get("text", "")
+            rel_time = _format_relative_time(msg.get("timestamp_utc", ""), anchor)
+            label = f"{author}, {rel_time}" if rel_time else author
+            lines.append(f"[{label}]: {text}")
     else:
         lines.append("(no prior messages)")
 
@@ -53,6 +73,7 @@ def _build_user_content(
     ]
 
     return "\n".join(lines)
+
 
 
 async def call_llm(messages: list[dict]) -> object:

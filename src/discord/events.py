@@ -15,12 +15,6 @@ logger = get_logger()
 PLATFORM = "discord"
 
 
-def register_events(bot):
-    """Explicitly trigger event registration."""
-    # The decorators already register them to the bot instance,
-    # but we call this to ensure the module is loaded.
-    pass
-
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -49,17 +43,24 @@ async def on_message(message: discord.Message):
     # 3. Check registration status
     is_registered = bool(sender and sender.get("timezone"))
 
-    # 4. LLM pipeline — detection + tool dispatch
-    result = await process_message(
-        message_text=message.content,
-        chat_id=chat_id,
-        user_id=str(message.author.id),
-        platform=PLATFORM,
-        author_name=user_name,
-        timestamp_utc=timestamp_utc,
-        sender_db=sender,
-        send_fn=send_fn if is_registered else None,
-    )
+    try:
+        # 4. LLM pipeline — detection + tool dispatch
+        result = await process_message(
+            message_text=message.content,
+            chat_id=chat_id,
+            user_id=str(message.author.id),
+            platform=PLATFORM,
+            author_name=user_name,
+            timestamp_utc=timestamp_utc,
+            sender_db=sender,
+            send_fn=send_fn if is_registered else None,
+        )
+    except Exception as e:
+        logger.error(
+            f"[guild:{chat_id}] Error processing message from {user_name}: {e}",
+            exc_info=True,
+        )
+        return
 
     logger.info(
         f"[guild:{chat_id}] LLM result for {user_name}: event={result.get('event')} "
@@ -80,7 +81,7 @@ async def on_message(message: discord.Message):
             color=discord.Color.gold(),
         )
 
-        invite_msg = await message.reply(
+        await message.reply(
             embed=embed,
             view=SetTimezoneView(message.author.id),
             mention_author=True,
@@ -100,19 +101,32 @@ async def on_message(message: discord.Message):
         }
         await save_pending_message(message.author.id, PLATFORM, msg_data)
 
+
 @bot.event
 async def on_member_remove(member: discord.Member):
     """Remove user from storage when they leave the guild."""
-    await storage.remove_chat_member(member.guild.id, member.id, platform=PLATFORM)
-    logger.info(
-        f"[guild:{member.guild.id}] Member {member.id} left, removed from storage"
-    )
+    try:
+        await storage.remove_chat_member(member.guild.id, member.id, platform=PLATFORM)
+        logger.info(
+            f"[guild:{member.guild.id}] Member {member.id} left, removed from storage"
+        )
+    except Exception as e:
+        logger.error(
+            f"[guild:{member.guild.id}] Failed to remove member {member.id}: {e}",
+            exc_info=True,
+        )
 
 
 @bot.event
 async def on_guild_remove(guild: discord.Guild):
-    """Remove all members from research when bot is kicked from guild."""
-    await storage.clear_chat_members(guild.id, platform=PLATFORM)
-    logger.info(
-        f"[guild:{guild.id}] Bot removed from guild, cleared all members from storage"
-    )
+    """Remove all members from storage when bot is kicked from guild."""
+    try:
+        await storage.clear_chat_members(guild.id, platform=PLATFORM)
+        logger.info(
+            f"[guild:{guild.id}] Bot removed from guild, cleared all members from storage"
+        )
+    except Exception as e:
+        logger.error(
+            f"[guild:{guild.id}] Failed to clear members on guild remove: {e}",
+            exc_info=True,
+        )

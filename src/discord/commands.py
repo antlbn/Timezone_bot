@@ -19,12 +19,6 @@ logger = get_logger()
 PLATFORM = "discord"
 
 
-def register_commands(tree):
-    """Explicitly trigger command registration."""
-    # The decorators already register them to the bot instance,
-    # but we call this to ensure the module is loaded.
-    pass
-
 
 # =============================================================================
 # Slash Commands
@@ -146,11 +140,16 @@ async def _process_discord_pending(interaction: discord.Interaction):
     user_record = await get_user_cached(interaction.user.id, platform=PLATFORM)
 
     for pending in pending_list:
-        # Build send_reply_fn using MessageReference
-        async def send_reply_fn(text: str) -> None:
+        # Build send_reply_fn using MessageReference.
+        # NOTE: Default argument `_pending=pending` is intentional — it captures
+        # the current loop variable by value, avoiding the classic Python
+        # closure-in-loop bug where all closures would share the last `pending`.
+        async def send_reply_fn(text: str, _pending: dict = pending) -> None:
             # IMPORTANT: Releasing from queue must use the original channel
             # to allow replying to the original message.
-            original_channel_id = int(pending.get("channel_id") or pending["chat_id"])
+            original_channel_id = int(
+                _pending.get("channel_id") or _pending["chat_id"]
+            )
             channel = bot.get_channel(original_channel_id)
 
             if not channel:
@@ -163,7 +162,7 @@ async def _process_discord_pending(interaction: discord.Interaction):
 
             if channel:
                 message_ref = discord.MessageReference(
-                    message_id=int(pending["message_id"]),
+                    message_id=int(_pending["message_id"]),
                     channel_id=original_channel_id,
                     guild_id=interaction.guild_id,
                 )
@@ -174,22 +173,29 @@ async def _process_discord_pending(interaction: discord.Interaction):
                 await channel.send(embed=embed, reference=message_ref)
             else:
                 logger.error(
-                    f"Could not find channel {pending['chat_id']} to send pending reply"
+                    f"Could not find channel {_pending['chat_id']} to send pending reply"
                 )
 
-        await process_message(
-            message_text=pending["text"],
-            chat_id=str(pending["chat_id"]),
-            user_id=str(interaction.user.id),
-            platform=PLATFORM,
-            author_name=pending["author_name"],
-            timestamp_utc=pending["timestamp_utc"],
-            sender_db=user_record,
-            send_fn=send_reply_fn,
-            skip_history_append=True,
-            skip_aging=True,
-            precomputed_snapshot=pending.get("snapshot"),
-        )
+        try:
+            await process_message(
+                message_text=pending["text"],
+                chat_id=str(pending["chat_id"]),
+                user_id=str(interaction.user.id),
+                platform=PLATFORM,
+                author_name=pending["author_name"],
+                timestamp_utc=pending["timestamp_utc"],
+                sender_db=user_record,
+                send_fn=send_reply_fn,
+                skip_history_append=True,
+                skip_aging=True,
+                precomputed_snapshot=pending.get("snapshot"),
+            )
+        except Exception as e:
+            logger.error(
+                f"[guild:{interaction.guild_id}] Failed to process pending message "
+                f"{pending.get('message_id')}: {e}",
+                exc_info=True,
+            )
 
 
 @bot.tree.command(name="tb_settz", description="Set your timezone")

@@ -8,6 +8,8 @@ RULES:
 - "points": list of objects {time: "HH:MM", city: string | null, event_type: string}.
 - "event_type": short descriptive name of the event (e.g., "созвон", "дедлайн", "пицца", "встреча с заказчиком").
 - DEDUPLICATION: If one event is mentioned in multiple timezones (e.g., "9am EST / 2pm London"), PICK ONLY ONE entry. Favor the one with an explicit city.
+- for time window: create two events with shedding light names: for insance 'something from:' 'to:'
+- if event is clearly comunicated in history and no new info in current message - just skip
 
 SCHEMA:
 {
