@@ -170,11 +170,26 @@ async def _process_discord_pending(interaction: discord.Interaction):
                     description=text,
                     color=discord.Color.green(),
                 )
-                await channel.send(embed=embed, reference=message_ref)
+                sent = await channel.send(embed=embed, reference=message_ref)
+                return str(sent.id)
             else:
                 logger.error(
                     f"Could not find channel {_pending['chat_id']} to send pending reply"
                 )
+                return None
+
+        async def edit_reply_fn(message_id: str, new_text: str) -> None:
+            if channel:
+                try:
+                    prev = await channel.fetch_message(int(message_id))
+                    new_embed = discord.Embed(
+                        description=new_text,
+                        color=discord.Color.green(),
+                    )
+                    await prev.edit(embed=new_embed)
+                except Exception as e:
+                    logger.warning(f"edit_reply_fn failed for msg {message_id}: {e}")
+                    raise
 
         try:
             await process_message(
@@ -186,10 +201,12 @@ async def _process_discord_pending(interaction: discord.Interaction):
                 timestamp_utc=pending["timestamp_utc"],
                 sender_db=user_record,
                 send_fn=send_reply_fn,
+                edit_fn=edit_reply_fn,
                 skip_history_append=True,
                 skip_aging=True,
                 precomputed_snapshot=pending.get("snapshot"),
             )
+
         except Exception as e:
             logger.error(
                 f"[guild:{interaction.guild_id}] Failed to process pending message "

@@ -1,14 +1,17 @@
 import pytest
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from src.event_detection import process_message
 
 
 @pytest.mark.asyncio
-async def test_full_pipeline_integration(monkeypatch):
+async def test_full_pipeline_integration():
     """
-    Simulates: Message -> process_message -> detect_event -> tool_call -> execute_convert_time -> formatter -> send_fn
-    Ensures that multiple time points from the LLM result in a single aggregated message.
+    Simulates: Message → process_message → detect_event (LangChain agent)
+               → publish_event tool call → _build_reply → send_fn
+
+    Ensures that multiple time points from the LLM result in a single
+    aggregated message via the publish_event tool.
     """
 
     # 1. Mock Data
@@ -36,58 +39,54 @@ async def test_full_pipeline_integration(monkeypatch):
         },
     ]
 
-    # 2. Mock LLM Response (JSON with 2 points)
-    mock_choice = MagicMock()
-    mock_choice.finish_reason = "stop"
-    mock_choice.message.content = json.dumps(
+    # 2. LangChain mock: agent returns a tool_call for publish_event
+    points_payload = [
+        {"time": "10:30", "city": None, "event_type": "event 1"},
+        {"time": "15:00", "city": None, "event_type": "event 2"},
+    ]
+
+    mock_response = MagicMock()
+    mock_response.tool_calls = [
         {
-            "reflections": {
-                "event_logic": "test",
-                "time_logic": "test",
-                "geo_logic": "test",
-            },
-            "event": True,
-            "sender_id": user_id,
-            "sender_name": sender_name,
-            "points": [
-                {"time": "10:30", "city": None, "event_type": "event 1"},
-                {"time": "15:00", "city": None, "event_type": "event 2"},
-            ],
+            "name": "publish_event",
+            "args": {"points": points_payload},
+            "id": "call_abc",
         }
-    )
-    mock_choice.message.tool_calls = None
+    ]
+    mock_response.content = ""
 
-    # 3. Apply Mocks
-    # Mock LLM call
-    mock_call_llm = AsyncMock(return_value=mock_choice)
-    monkeypatch.setattr("src.event_detection.detector.call_llm", mock_call_llm)
+    # Patch ChatOpenAI class-level in detector to bypass API key check
+    mock_llm_with_tools = MagicMock()
+    mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_response)
+    mock_llm_instance = MagicMock()
+    mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_with_tools)
+    mock_llm_cls = MagicMock(return_value=mock_llm_instance)
 
-    # Mock Storage
-    monkeypatch.setattr(
-        "src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)
-    )
-
-    # Mock send_fn to capture output
+    # 3. Capture sent messages
     sent_messages = []
 
     async def mock_send(text):
         sent_messages.append(text)
+        return "msg_999"
 
     # 4. Execute Pipeline
-    await process_message(
-        message_text=text,
-        chat_id=chat_id,
-        user_id=user_id,
-        platform="discord",
-        author_name=sender_name,
-        timestamp_utc="2026-03-14T20:00:00Z",
-        sender_db=sender_db,
-        send_fn=mock_send,
-        skip_aging=True,
-    )
+    with (
+        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
+    ):
+        await process_message(
+            message_text=text,
+            chat_id=chat_id,
+            user_id=user_id,
+            platform="discord",
+            author_name=sender_name,
+            timestamp_utc="2026-03-14T20:00:00Z",
+            sender_db=sender_db,
+            send_fn=mock_send,
+            skip_aging=True,
+        )
 
-    # 5. Assertions
-    # We expect exactly ONE message because of our new aggregation logic
+    # 5. Assertions — exactly ONE aggregated message
     assert len(sent_messages) == 1, f"Expected 1 message, got {len(sent_messages)}"
 
     reply = sent_messages[0]

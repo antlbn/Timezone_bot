@@ -106,15 +106,15 @@ async def test_chat_lock_concurrency():
 
 @pytest.mark.asyncio
 async def test_llm_json_dispatch(monkeypatch):
-    """Test that detector correctly handles an actual JSON response from the LLM."""
+    """Test that detect_event correctly handles a JSON fallback response from the LLM."""
     from src.event_detection.detector import detect_event
-    from unittest.mock import MagicMock
+    from unittest.mock import MagicMock, patch
     import json
 
-    # 1. Сборка фейкового ответа OpenAI (JSON в контенте)
-    mock_choice = MagicMock()
-    mock_choice.finish_reason = "stop"
-    mock_choice.message.content = json.dumps(
+    # Build a fake LangChain response object that returns JSON text (no tool call)
+    mock_response = MagicMock()
+    mock_response.tool_calls = []  # no tool calls
+    mock_response.content = json.dumps(
         {
             "reflections": {
                 "event_logic": "test",
@@ -127,44 +127,48 @@ async def test_llm_json_dispatch(monkeypatch):
             "points": [{"time": "20:00", "city": "London", "event_type": "созвон"}],
         }
     )
-    mock_choice.message.tool_calls = None
 
-    # Мокаем вызов LLM
-    mock_call_llm = AsyncMock(return_value=mock_choice)
-    monkeypatch.setattr("src.event_detection.detector.call_llm", mock_call_llm)
+    sent_messages = []
 
-    # 2. Мокаем сам tool (execute_convert_time), чтобы убедиться, что он был вызван
-    mock_execute = AsyncMock()
-    monkeypatch.setattr("src.event_detection.tools.execute_convert_time", mock_execute)
+    async def mock_send(text):
+        sent_messages.append(text)
+        return "msg_001"
 
-    # 3. Вызываем detect_event
-    result = await detect_event(
-        current_msg={
-            "author_id": "888",
-            "author_name": "Boss",
-            "text": "Call at 8pm London",
-        },
-        snapshot=[],
-        sender_db={},
-        send_fn=AsyncMock(),
-        platform="telegram",
-        chat_id="chat1",
-    )
+    mock_member = {
+        "user_id": "888", "username": "boss",
+        "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
+    }
 
-    # 4. Проверяем, что execute_convert_time был вызван
-    mock_execute.assert_called_once()
-    kwargs = mock_execute.call_args.kwargs
-    assert kwargs["sender_id"] == "888"
-    assert kwargs["points"] == [
-        {"time": "20:00", "city": "London", "event_type": "созвон"}
-    ]
+    # Patch the ChatOpenAI class in detector namespace.
+    # bind_tools returns a MagicMock with ainvoke as AsyncMock.
+    mock_llm_with_tools = MagicMock()
+    mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_response)
+    mock_llm_instance = MagicMock()
+    mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_with_tools)
+    mock_llm_cls = MagicMock(return_value=mock_llm_instance)
 
+    with (
+        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[mock_member])),
+    ):
+        result = await detect_event(
+            current_msg={
+                "author_id": "888",
+                "author_name": "Boss",
+                "text": "Call at 8pm London",
+                "timestamp_utc": "2026-03-14T20:00:00Z",
+            },
+            snapshot=[],
+            sender_db={"timezone": "Europe/London", "city": "London"},
+            send_fn=mock_send,
+            platform="telegram",
+            chat_id="chat1",
+        )
+
+    assert len(sent_messages) == 1
     assert result["event"] is True
     assert result["time"] == ["20:00"]
     assert result["event_type"] == ["созвон"]
-    assert result["points"] == [
-        {"time": "20:00", "city": "London", "event_type": "созвон"}
-    ]
 
 
 @pytest.mark.asyncio

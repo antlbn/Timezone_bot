@@ -52,6 +52,22 @@ def append_to_history(platform: str, chat_id: str, message_data: dict) -> list[d
     return snapshot
 
 
+def get_last_bot_message_id(platform: str, chat_id: str) -> str | None:
+    """
+    Scan the history deque (newest first) and return the message_id
+    of the most recent BOT record, or None if none exists.
+    Used by the update_previous_event tool to find the message to edit.
+    """
+    key = (platform, str(chat_id))
+    dq = _message_history.get(key)
+    if not dq:
+        return None
+    for msg in reversed(list(dq)):
+        if msg.get("author_id") == "BOT" and msg.get("message_id"):
+            return msg["message_id"]
+    return None
+
+
 def get_chat_lock(platform: str, chat_id: str) -> asyncio.Lock:
     """
     Retrieves the unique asyncio lock for the specified chat.
@@ -79,3 +95,4 @@ def format_snapshot_for_llm(snapshot: list[dict]) -> str:
         return "No prior conversational context."
 
     return "\n".join(lines)
+

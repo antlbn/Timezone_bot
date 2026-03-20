@@ -17,7 +17,8 @@ async def process_message(
     author_name: str,
     timestamp_utc: str,
     sender_db: Dict | None = None,
-    send_fn: Callable | None = None,  # async callable(text: str) → None
+    send_fn: Callable | None = None,  # async callable(text: str) → str | None (message_id)
+    edit_fn: Callable | None = None,  # async callable(message_id: str, text: str) → None
     skip_history_append: bool = False,
     skip_aging: bool = False,
     precomputed_snapshot: List[Dict] | None = None,
@@ -125,12 +126,35 @@ async def process_message(
             snapshot=snapshot,
             sender_db=sender_db or {},
             send_fn=send_fn,
+            edit_fn=edit_fn,
             platform=platform,
             chat_id=chat_id,
             ctx_logger=ctx_logger,
         )
 
+        # If an event was detected, record a compact bot summary in history.
+        # Includes message_id so the edit tool can find it later.
+        if result.get("event") and result.get("points"):
+            points = result["points"]
+            summary_parts = [
+                f"{p.get('event_type', 'event')} \u2192 {p['time']}"
+                + (f" ({p['city']})" if p.get("city") else "")
+                for p in points
+            ]
+            bot_msg = {
+                "platform": platform,
+                "chat_id": chat_id,
+                "author_id": "BOT",
+                "author_name": "BOT",
+                "text": "detected: " + ", ".join(summary_parts),
+                "timestamp_utc": timestamp_utc,
+                "message_id": result.get("message_id"),  # ← stored for edit tool
+            }
+            append_to_history(platform, chat_id, bot_msg)
+            ctx_logger.debug(f"Bot detection appended to history: {bot_msg['text']}")
+
     return result
+
 
 
 __all__ = ["process_message"]
