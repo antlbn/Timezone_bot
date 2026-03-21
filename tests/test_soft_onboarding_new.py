@@ -2,6 +2,7 @@ import pytest
 import asyncio
 import time as time_mod
 from unittest.mock import AsyncMock, MagicMock, patch
+from langchain_core.messages import AIMessage
 from aiogram.types import Message, User, Chat, InlineKeyboardMarkup, CallbackQuery
 from src.commands.common import handle_time_mention
 from src.commands.settings import (
@@ -72,11 +73,10 @@ async def test_dm_onboarding_deep_link_generated():
     state = MagicMock()
 
     # Mock LLM to return event=True (publish_event tool call) so the onboarding flow triggers
-    mock_llm_response = MagicMock()
-    mock_llm_response.tool_calls = [
-        {"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "созвон"}]}, "id": "c1"}
-    ]
-    mock_llm_response.content = ""
+    mock_llm_response = AIMessage(
+        content="",
+        tool_calls=[{"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "созвон"}]}, "id": "c1", "type": "tool_call"}]
+    )
     mock_llm_with_tools = MagicMock()
     mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_llm_response)
     mock_llm_instance = MagicMock()
@@ -92,7 +92,7 @@ async def test_dm_onboarding_deep_link_generated():
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
         patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600),
         patch("src.commands.common.get_settings_cleanup_timeout", return_value=10),
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
     ):
         await handle_time_mention(msg, state)
 
@@ -331,11 +331,10 @@ async def test_dm_invite_cooldown():
     state = MagicMock()
 
     # Mock LLM to return event=True (publish_event tool call) so the onboarding flow triggers
-    mock_llm_response = MagicMock()
-    mock_llm_response.tool_calls = [
-        {"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "созвон"}]}, "id": "c1"}
-    ]
-    mock_llm_response.content = ""
+    mock_llm_response = AIMessage(
+        content="",
+        tool_calls=[{"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "созвон"}]}, "id": "c1", "type": "tool_call"}]
+    )
     mock_llm_with_tools = MagicMock()
     mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_llm_response)
     mock_llm_instance = MagicMock()
@@ -351,7 +350,7 @@ async def test_dm_invite_cooldown():
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
         patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600),
         patch("src.commands.common.get_settings_cleanup_timeout", return_value=10),
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
     ):
         # First message — invite sent
         await handle_time_mention(msg1, state)

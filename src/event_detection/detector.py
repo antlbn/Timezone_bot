@@ -195,7 +195,8 @@ async def detect_event(
             "build_reply_fn": build_reply_wrapper,
             "chat_id": chat_id,
             "platform": platform,
-        }
+        },
+        "recursion_limit": 5, # Limits error loops to 1 retry (llm -> action -> llm -> action -> END)
     }
 
     try:
@@ -220,16 +221,21 @@ async def detect_event(
             result_points = []
             tool_used = ""
             message_id = None
+            reasoning = ""
             
             if last_msg and isinstance(last_msg, ToolMessage):
                 tool_used = last_msg.name
                 
-                # Retrieve the tool call arguments from the previous AIMessage
+                # Retrieve the tool call arguments and reasoning from the previous AIMessage
                 for i in range(len(messages) - 2, -1, -1):
                     if isinstance(messages[i], AIMessage) and messages[i].tool_calls:
                         tc = messages[i].tool_calls[0]
                         if tc["id"] == last_msg.tool_call_id:
                             result_points = tc["args"].get("points", [])
+                            # Reasoning: prefer structured arg, fallback to AIMessage.content
+                            reasoning = tc["args"].get("reasoning", "") or messages[i].content or ""
+                            # event_ref specific to update_previous_event
+                            event_ref = tc["args"].get("event_ref", None)
                             tool_used = tc["name"]
                             break
                             
@@ -237,17 +243,28 @@ async def detect_event(
             elif last_msg and isinstance(last_msg, AIMessage) and last_msg.content:
                 # LLM outputted JSON string instead of calling tool (fallback scenario)
                 raw = last_msg.content
-                if raw.strip().startswith("{"):
-                    parsed = _parse_llm_json(raw, ctx_logger)
-                    if parsed.get("event") and send_fn:
-                        result_points = parsed.get("points", [])
-                        tool_used = "publish_event"
-                        message_id = await send_fn(await build_reply_wrapper(result_points))
-                    return parsed
+                # Use regex or simple check to see if there's text before JSON
+                json_start = raw.find("{")
+                if json_start != -1:
+                    reasoning = raw[:json_start].strip()
+                    json_str = raw[json_start:]
+                    parsed = _parse_llm_json(json_str, ctx_logger)
+                else:
+                    reasoning = raw.strip()
+                    parsed = {"event": False, "points": []} # Failsafe
+                
+                if parsed.get("event") and send_fn:
+                    result_points = parsed.get("points", [])
+                    tool_used = "publish_event"
+                    message_id = await send_fn(await build_reply_wrapper(result_points))
+                
+                parsed["reasoning"] = reasoning
+                return parsed
 
             event_detected = bool(result_points and tool_used)
             return {
                 "reflections": {},
+                "reasoning": reasoning,
                 "event": event_detected,
                 "sender_id": sender_id,
                 "sender_name": sender_name,

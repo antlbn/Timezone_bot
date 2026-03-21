@@ -2,6 +2,7 @@ import pytest
 import asyncio
 import datetime
 from unittest.mock import AsyncMock, patch
+from langchain_core.messages import AIMessage
 from src.event_detection import process_message
 from src.event_detection.history import _message_history, _chat_locks
 from src.config import get_max_message_age
@@ -111,21 +112,22 @@ async def test_llm_json_dispatch(monkeypatch):
     from unittest.mock import MagicMock, patch
     import json
 
-    # Build a fake LangChain response object that returns JSON text (no tool call)
-    mock_response = MagicMock()
-    mock_response.tool_calls = []  # no tool calls
-    mock_response.content = json.dumps(
-        {
-            "reflections": {
-                "event_logic": "test",
-                "time_logic": "test",
-                "geo_logic": "test",
-            },
-            "event": True,
-            "sender_id": "888",
-            "sender_name": "Boss",
-            "points": [{"time": "20:00", "city": "London", "event_type": "созвон"}],
-        }
+    # Build a real AIMessage that returns JSON text (no tool call)
+    mock_response = AIMessage(
+        content=json.dumps(
+            {
+                "reflections": {
+                    "event_logic": "test",
+                    "time_logic": "test",
+                    "geo_logic": "test",
+                },
+                "event": True,
+                "sender_id": "888",
+                "sender_name": "Boss",
+                "points": [{"time": "20:00", "city": "London", "event_type": "созвон"}],
+            }
+        ),
+        tool_calls=[]
     )
 
     sent_messages = []
@@ -148,7 +150,7 @@ async def test_llm_json_dispatch(monkeypatch):
     mock_llm_cls = MagicMock(return_value=mock_llm_instance)
 
     with (
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[mock_member])),
     ):
         result = await detect_event(

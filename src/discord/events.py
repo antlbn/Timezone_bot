@@ -50,6 +50,10 @@ async def on_message(message: discord.Message):
                 color=discord.Color.blue(),
             )
             await prev_msg.edit(embed=new_embed)
+            try:
+                await prev_msg.add_reaction("✍️")
+            except Exception as react_err:
+                logger.debug(f"Failed to add edit reaction: {react_err}")
         except Exception as e:
             logger.warning(f"[guild:{chat_id}] edit_fn failed for msg {message_id}: {e}")
             raise

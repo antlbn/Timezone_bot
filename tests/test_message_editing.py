@@ -12,6 +12,7 @@ Platforms tested: Telegram, Discord (logical layer, not live bot)
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+from langchain_core.messages import AIMessage
 
 from src.event_detection import process_message
 from src.event_detection.history import _message_history, _chat_locks
@@ -45,16 +46,17 @@ def _make_llm_cls(*responses):
 
 def _make_tool_call(name: str, time: str, event_type: str = "встреча"):
     """Build a fake LangChain tool_call response for publish/update tool."""
-    resp = MagicMock()
-    resp.tool_calls = [
+    tool_calls_data = [
         {
             "name": name,
             "args": {"points": [{"time": time, "city": None, "event_type": event_type}]},
             "id": f"call_{name}_{time}",
+            "type": "tool_call",
         }
     ]
-    resp.content = ""
-    return resp
+    if name == "update_previous_event":
+        tool_calls_data[0]["args"]["event_ref"] = 1
+    return AIMessage(content="", tool_calls=tool_calls_data)
 
 
 MOCK_MEMBERS = [
@@ -97,7 +99,7 @@ async def test_edit_message_flow_telegram():
         edited_calls.append((msg_id, new_text))
 
     with (
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
     ):
         # ── Message 1: schedule ───────────────────────────────────────────────
@@ -181,7 +183,7 @@ async def test_edit_message_flow_discord():
         edited_calls.append((msg_id, new_text))
 
     with (
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
     ):
         # ── Message 1: schedule ───────────────────────────────────────────────
@@ -255,7 +257,7 @@ async def test_update_falls_back_to_publish_when_no_history():
         edited_calls.append((msg_id, text))
 
     with (
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
     ):
         await process_message(

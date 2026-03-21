@@ -34,31 +34,90 @@ class GraphState(TypedDict):
 # ── 2. Define Tools Schema ──────────────────────────────────────────────────
 
 @tool
-def publish_event(points: list[dict]) -> str:
+def publish_event(reasoning: str, points: list[dict]) -> str:
     """
     Call this tool when the current message contains a NEW time event
     that has not been published yet. Or if there is no previous bot message
     about this event to update.
 
     Args:
+        reasoning: Brief explanation: why is this an event? How did you
+                   interpret the time? Any geo/timezone notes?
         points: List of event points, each with 'time' (HH:MM), optional 'city',
                 and 'event_type' (e.g. 'созвон', 'дедлайн').
     """
     pass
 
 @tool
-def update_previous_event(points: list[dict]) -> str:
+def update_previous_event(reasoning: str, event_ref: int, points: list[dict]) -> str:
     """
     Call this tool when the current message OVERRIDES or REFINES a time that
     the bot already published in HISTORY.
     This edits the previous bot message in-place instead of flooding the chat.
 
     Args:
+        reasoning: Brief explanation: what changed? How did you re-interpret
+                   the time or event?
+        event_ref: The event number to update (from "Published event #N" in history).
         points: Updated event points with corrected time/city/event_type.
     """
     pass
 
 tools_list = [publish_event, update_previous_event]
+
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+def _format_event_summary(points: list[dict]) -> str:
+    """Build a short summary string from points for ToolMessage content."""
+    parts = []
+    for p in points:
+        et = p.get("event_type", "event")
+        t = p.get("time", "?")
+        c = p.get("city")
+        parts.append(f"{et} → {t}" + (f" ({c})" if c else ""))
+    return ", ".join(parts)
+
+
+import re
+
+def _count_published_events(messages: list) -> int:
+    """Find the highest event number assigned so far by parsing ToolMessages."""
+    max_num = 0
+    pattern = re.compile(r"(?:Published|Updated) event #(\d+)")
+    for m in messages:
+        if isinstance(m, ToolMessage) and m.content:
+            match = pattern.search(m.content)
+            if match:
+                num = int(match.group(1))
+                if num > max_num:
+                    max_num = num
+    return max_num
+
+
+def _find_event_by_ref(messages: list, event_ref: int) -> tuple[int, int] | None:
+    """Find the (ai_idx, tool_idx) pair for a specific event_ref.
+    
+    Looks for a ToolMessage with 'Published/Updated event #N' and then
+    finds its corresponding AIMessage.
+    Returns indices into the messages list, or None if not found.
+    """
+    pattern = re.compile(rf"(?:Published|Updated) event #{event_ref}\b")
+    
+    # Search backwards to find the latest tool message for this event_ref
+    for j in range(len(messages) - 1, -1, -1):
+        m = messages[j]
+        if isinstance(m, ToolMessage) and m.content and pattern.search(m.content):
+            tc_id = m.tool_call_id
+            # Now find the AIMessage that generated this tool call
+            for i in range(j - 1, -1, -1):
+                ai_m = messages[i]
+                if isinstance(ai_m, AIMessage) and ai_m.tool_calls:
+                    for tc in ai_m.tool_calls:
+                        if tc["id"] == tc_id:
+                            return (i, j)
+            return (-1, j)  # Found tool but not AI (shouldn't happen in normal state)
+    return None
 
 
 # ── 3. Define Nodes ────────────────────────────────────────────────────────
@@ -115,10 +174,16 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     response = await llm_with_tools.ainvoke(trimmed_messages)
     return {"messages": [response]}
 
+
 async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     """
     Executes the chosen tool and handles the side effects (sending/editing msgs).
     Uses callback functions injected via config.
+
+    Key design:
+    - publish_event: sends new message, records "✅ Published event #N: ..."
+    - update_previous_event: finds event by event_ref, edits/replaces in chat,
+      REMOVES old AI+Tool pair from state so only the updated version remains.
     """
     callbacks = config.get("configurable", {})
     send_fn = callbacks.get("send_fn")
@@ -132,78 +197,121 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     last_msg = messages[-1]
     
     if not isinstance(last_msg, AIMessage) or not last_msg.tool_calls:
-        # Should not happen if routing is correct
         return {}
         
     tc = last_msg.tool_calls[0]
     tool_name = tc["name"]
     points = tc["args"].get("points", [])
     
-    tool_output_str = "Side-effect executed"
-    message_id = None
+    # ── VALIDATION ───────────────────────────────────────────────────────
+    import re
+    time_pattern = re.compile(r"^\d{1,2}:\d{2}$")
+    invalid_points = []
+    for p in points:
+        t = p.get("time")
+        if not isinstance(t, str) or not time_pattern.match(t.strip()):
+            invalid_points.append(p)
+            
+    if invalid_points:
+        logger.warning(f"[chat:{chat_id}] Invalid time format from LLM: {invalid_points}")
+        err_msg = (
+            f"Error: Invalid time format in points {invalid_points}. "
+            f"The 'time' field MUST strictly match 'HH:MM' (e.g. '14:00'). "
+            f"Do NOT output 'None', do NOT append timezones."
+        )
+        return {"messages": [ToolMessage(content=err_msg, tool_call_id=tc["id"])]}
+        
+    summary = _format_event_summary(points)
     
-    # ── Execute Side Effects ──
-    if build_reply_fn:
-        reply = await build_reply_fn(points)
-        if reply:
-            if tool_name == "publish_event" and send_fn:
+    message_id = None
+    result_messages: list = []  # messages to return (ToolMessage + optional RemoveMessages)
+    
+    # ── PUBLISH ──────────────────────────────────────────────────────────
+    if tool_name == "publish_event":
+        event_num = _count_published_events(messages) + 1
+        
+        if build_reply_fn and send_fn:
+            reply = await build_reply_fn(points)
+            if reply:
                 message_id = await send_fn(reply)
-                
-            elif tool_name == "update_previous_event":
-                # The >8 messages logic!
-                # 1. Find the last AIMessage generated BEFORE this current run
-                # 2. Count HumanMessages after it
-                prev_ai_idx = -1
-                for i in range(len(messages) - 2, -1, -1):
-                    # We look for the last AIMessage that was from the BOT (has a message_id)
-                    m = messages[i]
-                    if isinstance(m, AIMessage) and m.additional_kwargs.get("message_id"):
-                        prev_ai_idx = i
-                        break
-                        
-                if prev_ai_idx != -1:
-                    prev_ai_msg = messages[prev_ai_idx]
-                    prev_id = prev_ai_msg.additional_kwargs.get("message_id")
+        
+        tool_output = f"✅ Published event #{event_num}: {summary}"
+        result_messages.append(ToolMessage(
+            content=tool_output,
+            tool_call_id=tc["id"],
+            additional_kwargs={"message_id": message_id} if message_id else {},
+        ))
+    
+    # ── UPDATE ───────────────────────────────────────────────────────────
+    elif tool_name == "update_previous_event":
+        event_ref = tc["args"].get("event_ref", 0)
+        ref_result = _find_event_by_ref(messages, event_ref)
+        
+        if ref_result is None:
+            logger.warning(f"[chat:{chat_id}] event_ref #{event_ref} not found. Falling back to publish.")
+            # Fallback: treat as new publish
+            if build_reply_fn and send_fn:
+                reply = await build_reply_fn(points)
+                if reply:
+                    message_id = await send_fn(reply)
+            event_num = _count_published_events(messages) + 1
+            tool_output = f"✅ Published event #{event_num} (fallback): {summary}"
+            result_messages.append(ToolMessage(
+                content=tool_output,
+                tool_call_id=tc["id"],
+                additional_kwargs={"message_id": message_id} if message_id else {},
+            ))
+        else:
+            old_ai_idx, old_tool_idx = ref_result
+            # Get the message_id of the old published message (stored in ToolMessage)
+            prev_msg_id = None
+            if old_tool_idx >= 0:
+                prev_msg_id = messages[old_tool_idx].additional_kwargs.get("message_id")
+            
+            # Execute side effect: edit or delete+republish in chat
+            if build_reply_fn:
+                reply = await build_reply_fn(points)
+                if reply:
+                    # Count HumanMessages since the old event to decide edit vs delete+republish
+                    from src.config import get_republish_edited_message_after_distance
+                    distance = sum(1 for m in messages[old_ai_idx:] if isinstance(m, HumanMessage))
+                    limit = get_republish_edited_message_after_distance()
                     
-                    # Count HumanMessages since then
-                    distance = sum(1 for m in messages[prev_ai_idx:] if isinstance(m, HumanMessage))
-                    
-                    if distance > 8:
-                        # Too far up! Delete old, send new.
-                        logger.info(f"[chat:{chat_id}] update > 8 messages away ({distance}). Deleting old and republishing.")
-                        if delete_fn and prev_id:
-                            await delete_fn(prev_id)
+                    if distance > limit:
+                        logger.info(f"[chat:{chat_id}] update event #{event_ref} > {limit} msgs away ({distance}). Delete+republish.")
+                        if delete_fn and prev_msg_id:
+                            await delete_fn(prev_msg_id)
                         if send_fn:
                             message_id = await send_fn(reply)
                     else:
-                        # Close enough, edit in place
-                        logger.info(f"[chat:{chat_id}] update {distance} messages away. Editing in place.")
-                        if edit_fn and prev_id:
+                        logger.info(f"[chat:{chat_id}] update event #{event_ref} {distance} msgs away. Editing in place.")
+                        if edit_fn and prev_msg_id:
                             try:
-                                await edit_fn(prev_id, reply)
-                                message_id = prev_id
+                                await edit_fn(prev_msg_id, reply)
+                                message_id = prev_msg_id
                             except Exception as e:
                                 logger.warning(f"Edit failed: {e}. Falling back to publish.")
                                 if send_fn:
                                     message_id = await send_fn(reply)
-                else:
-                    # No previous AI message found, fallback to publish
-                    if send_fn:
-                        message_id = await send_fn(reply)
-                        
-    # End Side Effects
-
-    # Record the tool output correctly in LangGraph state
-    tool_msg = ToolMessage(
-        content=tool_output_str,
-        tool_call_id=tc["id"],
-        # Save our new message_id into the tool message so we can trace it next time!
-        # Wait, the best place to save the message_id is usually on the AIMessage, but we can't mutate the AIMessage after creation.
-        # We can just put it in the ToolMessage additional_kwargs.
-        additional_kwargs={"message_id": message_id} if message_id else {}
-    )
+                        elif send_fn:
+                            message_id = await send_fn(reply)
+            
+            # Remove old AI+Tool pair from state so the model sees only the updated version
+            old_ai_msg = messages[old_ai_idx]
+            if old_ai_msg.id is not None:
+                result_messages.append(RemoveMessage(id=old_ai_msg.id))
+            if old_tool_idx >= 0 and messages[old_tool_idx].id is not None:
+                result_messages.append(RemoveMessage(id=messages[old_tool_idx].id))
+            
+            # Record the updated event with the SAME event_ref number
+            tool_output = f"✅ Published event #{event_ref} (updated): {summary}"
+            result_messages.append(ToolMessage(
+                content=tool_output,
+                tool_call_id=tc["id"],
+                additional_kwargs={"message_id": message_id} if message_id else {},
+            ))
     
-    return {"messages": [tool_msg]}
+    return {"messages": result_messages}
 
 
 # ── 4. Build Graph ─────────────────────────────────────────────────────────
@@ -216,6 +324,14 @@ def should_continue(state: GraphState) -> str:
         return "action"
     return END
 
+def action_router(state: GraphState) -> str:
+    """Routes back to LLM if the tool produced a validation error, else ends."""
+    messages = state["messages"]
+    last_message = messages[-1]
+    if isinstance(last_message, ToolMessage) and last_message.content.startswith("Error:"):
+        return "llm"
+    return END
+
 def build_agent_graph() -> StateGraph:
     workflow = StateGraph(GraphState)
     
@@ -226,7 +342,7 @@ def build_agent_graph() -> StateGraph:
     workflow.add_edge(START, "pre_process")
     workflow.add_edge("pre_process", "llm")
     workflow.add_conditional_edges("llm", should_continue, {"action": "action", END: END})
-    workflow.add_edge("action", END)
+    workflow.add_conditional_edges("action", action_router, {"llm": "llm", END: END})
 
     return workflow
 

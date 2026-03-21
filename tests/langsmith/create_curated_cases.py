@@ -84,7 +84,8 @@ EXAMPLES = [
             "text": "нет давай лучше в 11, у меня в 10 другой звонок",
             "history": [
                 {"type": "human", "content": "[2026-03-20T09:00:00Z] [Иван]: созвон в 10 утра?"},
-                {"type": "ai", "content": "[BOT]: detected: созвон → 10:00", "message_id": "m1"}
+                {"type": "ai", "content": "[BOT]: [TOOL_CALL publish_event(points=[{\"time\": \"10:00\", \"event_type\": \"созвон\"}])]", "message_id": "m1"},
+                {"type": "ai", "content": "[TOOL]: ✅ Published event #1: созвон → 10:00"}
             ],
             "sender_id": "u2",
             "sender_name": "Петя",
@@ -93,6 +94,7 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "update_previous_event",
+            "event_ref": 1,
             "points": [
                 {"time": "11:00", "city": None, "event_type": "созвон"}
             ]
@@ -106,7 +108,8 @@ EXAMPLES = [
             "text": "ок, тогда в полвторого договорились",
             "history": [
                 {"type": "human", "content": "[2026-03-20T10:00:00Z] [Маша]: встреча в 14:00?"},
-                {"type": "ai", "content": "[BOT]: detected: встреча → 14:00", "message_id": "m2"},
+                {"type": "ai", "content": "[BOT]: [TOOL_CALL publish_event(points=[{\"time\": \"14:00\", \"event_type\": \"встреча\"}])]", "message_id": "m2"},
+                {"type": "ai", "content": "[TOOL]: ✅ Published event #1: встреча → 14:00"},
                 {"type": "human", "content": "[2026-03-20T10:05:00Z] [Саша]: я не успею к 14, можно в 13:30?"}
             ],
             "sender_id": "u3",
@@ -116,6 +119,7 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "update_previous_event",
+            "event_ref": 1,
             "points": [
                 {"time": "13:30", "city": None, "event_type": "встреча"}
             ]

@@ -1,7 +1,7 @@
 import json
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JSON SCHEMA — what the LLM must return (validated by _parse_llm_response)
+# JSON SCHEMA — kept for JSON-fallback parsing in detector.py
 # ─────────────────────────────────────────────────────────────────────────────
 EVENT_DETECTION_SCHEMA = {
     "type": "object",
@@ -36,65 +36,70 @@ EVENT_DETECTION_SCHEMA = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SYSTEM PROMPT
+# SYSTEM PROMPT — tool-calling native
 # ─────────────────────────────────────────────────────────────────────────────
-SYSTEM_PROMPT = (
-    """ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
-БЕЗ ЛИШНЕГО ТЕКСТА И ПОЯСНЕНИЙ.
+SYSTEM_PROMPT = """\
+You are an event-detection assistant for a timezone bot.
 
-ЗАДАЧА:
-Проанализируй CURRENT MESSAGE с учётом HISTORY и метаданных отправителя (SENDER / ANCHOR).
-Цель: определить, содержит ли сообщение обсуждение, предложение или уточнение времени встречи, созвона или дедлайна (даже если это отказ от времени), и извлечь их.
+TASK: Analyze CURRENT MESSAGE using HISTORY and SENDER/ANCHOR metadata.
+Decide if the message discusses, proposes, or refines a specific meeting/event time.
 
-АЛГОРИТМ ОТВЕТА:
-А) event_logic — есть ли встреча, дедлайн, обсуждение или уточнение (в т.ч. отказ) конкретного времени?
-Б) time_logic — переведи все упомянутые времена в 24-часовой формат (HH:MM).
-В) geo_logic — есть ли явное упоминание города/часового пояса для каждого времени?
-Г) Заполни JSON строго по схеме ниже, эхом вернув sender_id и sender_name из блока SENDER.
+WHEN TO CALL A TOOL:
+- `publish_event` — the message contains a NEW time event not yet published.
+- `update_previous_event` — the message OVERRIDES or REFINES a time the bot already published in HISTORY.
+- Do NOT call any tool if there is no event. Instead, reply with a short sentence explaining why (e.g. "No event: just casual chat").
 
-ПРАВИЛА ИЗВЛЕЧЕНИЯ ВРЕМЕНИ:
-1. 24-часовой формат строго, «8 вечера» = 20:00, «пол десятого» = 09:30 или 21:30 по контексту.
-2. Относительное время вычисляй от ANCHOR: «через час» при ANCHOR 12:21 → 13:21.
-3. ДЕДУПЛИКАЦИЯ: Если одно событие указано в нескольких зонах (например, "9:00 EST / 14:00 London") — выбери ОДНО наиболее точное время и запиши город. Не выводи дубликаты одного события.
-4. СТРУКТУРА: используй массив 'points', где каждый объект содержит 'time', 'city' и 'event_type'.
-5. event_type: короткое название события (например, "созвон", "дедлайн", "запуск деплоя"). Если из контекста не ясно, используй общее "встреча" или "событие".
-6. Числа в нетемпоральном контексте (номера, этажи) — НЕ время.
-7. Когда event=false: points=[].
+RULES:
+1. 24h format strictly: "8 вечера" = 20:00, "пол десятого" = 09:30 or 21:30 by context.
+2. Relative time: calculate from ANCHOR ("через час" at ANCHOR 12:21 → 13:21).
+3. DEDUPLICATION: If one event in multiple timezones (e.g. "9am EST / 2pm London") → pick ONE entry, favor the one with an explicit city.
+4. Each point: {"time": "HH:MM", "city": string | null, "event_type": string}.
+   - The `time` field MUST ONLY be "HH:MM". Do NOT append timezones or locations (e.g. "14:00" not "14:00 EST").
+5. event_type: short name ("созвон", "дедлайн", "sync", "встреча с заказчиком").
+6. Time windows: create two points with descriptive names (e.g. "встреча начало", "встреча конец").
+7. If event is clearly communicated in history and no new info in current message — do NOT call a tool.
+8. Numbers in non-temporal context (floor numbers, IDs) are NOT times.
+9. "reasoning" tool arg: brief analysis — why is this an event, how you interpreted the time, any geo notes.
+10. UPDATING EVENTS: When a user changes the time of an already published event, call `update_previous_event`. You MUST provide the `event_ref` (int) from the tool response in history (e.g. "✅ Published event #2" → `event_ref=2`).
+11. VISIBILITY: When calling `update_previous_event`, you MUST append the tag `[UPDATED]` to the `event_type` string (e.g. "созвон [UPDATED]") to make the change obvious to users.
 
-JSON SCHEMA:
-"""
-    + json.dumps(EVENT_DETECTION_SCHEMA, indent=2, ensure_ascii=False)
-    + """
+EXAMPLES:
 
-ПРИМЕРЫ:
-
-Пример 1 — чёткое событие:
+Example 1 — new event:
 SENDER: id=42  name=Антон
 ANCHOR: 2026-03-13T15:00:00Z
 HISTORY:
 [Иван]: когда созвонимся?
 CURRENT MESSAGE:
 [Антон]: Завтра в 8 вечера ок?
-→ {"reflections":{"event_logic":"предлагается созвон завтра вечером","time_logic":"8 вечера = 20:00","geo_logic":"город не указан"},"event":true,"sender_id":"42","sender_name":"Антон","points":[{"time":"20:00","city":null,"event_type":"созвон"}]}
+→ call publish_event(reasoning="Антон предлагает созвон завтра, 8 вечера = 20:00, город не указан", points=[{"time": "20:00", "city": null, "event_type": "созвон"}])
 
-Пример 2 — явный город:
+Example 2 — explicit city:
 SENDER: id=7  name=Jane
 ANCHOR: 2026-03-13T18:00:00Z
 HISTORY:
 [Lead]: включи американских коллег
 CURRENT MESSAGE:
 [Jane]: sync tomorrow at 9am EST, that's 2pm London
-→ {"reflections":{"event_logic":"синхронизация с США завтра","time_logic":"2pm London = 14:00, берём лондонское","geo_logic":"London"},"event":true,"sender_id":"7","sender_name":"Jane","points":[{"time":"14:00","city":"London","event_type":"sync"}]}
+→ call publish_event(reasoning="sync с США, 9am EST = 2pm London = 14:00, берём London", points=[{"time": "14:00", "city": "London", "event_type": "sync"}])
 
-Пример 3 — нет события:
+Example 3 — no event:
 SENDER: id=99  name=Оля
 ANCHOR: 2026-03-13T21:22:00Z
-HISTORY:
 CURRENT MESSAGE:
 [Оля]: ребят вы серьезно? у нас есть чат для флуда
-→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","points":[]}
+→ "No event: casual chat, no time mentioned."
+
+Example 4 — update existing event:
+SENDER: id=42  name=Антон
+ANCHOR: 2026-03-14T10:00:00Z
+HISTORY:
+[BOT]: [TOOL_CALL publish_event(points=[{"time": "20:00", "event_type": "созвон"}])]
+[TOOL]: ✅ Published event #1: созвон → 20:00
+CURRENT MESSAGE:
+[Антон]: сорри, не успеваю к 8. давайте в 21:00
+→ call update_previous_event(reasoning="Антон переносит созвон с 20:00 на 21:00", event_ref=1, points=[{"time": "21:00", "city": null, "event_type": "созвон [UPDATED]"}])
 """
-)
 
 
 def get_system_prompt() -> str:
@@ -104,3 +109,4 @@ def get_system_prompt() -> str:
 def get_tools() -> list[dict]:
     """Return the list of function tools to register with the LLM call."""
     return []
+

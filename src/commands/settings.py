@@ -5,6 +5,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    ReactionTypeEmoji,
 )
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -622,12 +623,34 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
 
     for pending in messages:
 
-        async def send_reply_fn(text: str, _pending=pending) -> None:
-            await bot.send_message(
-                chat_id=chat_id,
+        async def send_reply_fn(text: str, _pending=pending) -> str | None:
+            try:
+                msg = await bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_to_message_id=_pending.get("message_id"),
+                )
+                return str(msg.message_id)
+            except Exception as e:
+                from src.logger import get_logger
+                get_logger().warning(f"Failed to send pending reply: {e}")
+                return None
+                
+        async def edit_reply_fn(msg_id: str, text: str) -> None:
+            await bot.edit_message_text(
                 text=text,
-                reply_to_message_id=_pending.get("message_id"),
+                chat_id=chat_id,
+                message_id=int(msg_id)
             )
+            try:
+                await bot.set_message_reaction(
+                    chat_id=chat_id,
+                    message_id=int(msg_id),
+                    reaction=[ReactionTypeEmoji(emoji="✍")]
+                )
+            except Exception as e:
+                from src.logger import get_logger
+                get_logger().debug(f"Failed to set edit reaction: {e}")
 
         snapshot = append_to_history("telegram", str(chat_id), pending)
 
@@ -640,6 +663,7 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
             timestamp_utc=pending.get("timestamp_utc", ""),
             sender_db=user_record,
             send_fn=send_reply_fn,
+            edit_fn=edit_reply_fn,
             skip_history_append=True,
             skip_aging=True,
             precomputed_snapshot=snapshot,

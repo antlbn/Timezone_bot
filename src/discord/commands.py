@@ -187,6 +187,10 @@ async def _process_discord_pending(interaction: discord.Interaction):
                         color=discord.Color.green(),
                     )
                     await prev.edit(embed=new_embed)
+                    try:
+                        await prev.add_reaction("✍️")
+                    except Exception as react_err:
+                        logger.debug(f"Failed to add edit reaction: {react_err}")
                 except Exception as e:
                     logger.warning(f"edit_reply_fn failed for msg {message_id}: {e}")
                     raise

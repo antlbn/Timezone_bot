@@ -89,3 +89,8 @@ def get_dm_onboarding_cooldown() -> int:
 def get_log_llm_prompts() -> bool:
     """Whether to log the full LLM prompts (including history) for debugging."""
     return get_config().get("event_detection", {}).get("log_prompts", False)
+
+
+def get_republish_edited_message_after_distance() -> int:
+    """Get the distance threshold after which an edited message is republished instead of silently edited."""
+    return get_config().get("event_detection", {}).get("republish_edited_message_after_distance", 8)

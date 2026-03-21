@@ -1,6 +1,7 @@
 import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
+from langchain_core.messages import AIMessage
 from src.event_detection import process_message
 
 
@@ -45,15 +46,15 @@ async def test_full_pipeline_integration():
         {"time": "15:00", "city": None, "event_type": "event 2"},
     ]
 
-    mock_response = MagicMock()
-    mock_response.tool_calls = [
-        {
+    mock_response = AIMessage(
+        content="",
+        tool_calls=[{
             "name": "publish_event",
             "args": {"points": points_payload},
             "id": "call_abc",
-        }
-    ]
-    mock_response.content = ""
+            "type": "tool_call",
+        }]
+    )
 
     # Patch ChatOpenAI class-level in detector to bypass API key check
     mock_llm_with_tools = MagicMock()
@@ -71,7 +72,7 @@ async def test_full_pipeline_integration():
 
     # 4. Execute Pipeline
     with (
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
     ):
         await process_message(

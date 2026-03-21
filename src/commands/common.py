@@ -6,6 +6,7 @@ from aiogram.types import (
     ChatMemberUpdated,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    ReactionTypeEmoji,
 )
 from aiogram.filters import Command, ChatMemberUpdatedFilter, IS_NOT_MEMBER
 from aiogram.fsm.context import FSMContext
@@ -146,9 +147,29 @@ async def handle_time_mention(
     # 2. Update activity timestamp (for all active users)
     await storage.update_activity(user_id, "telegram")
 
-    # 3. Define send_fn for the LLM pipeline
-    async def send_fn(text: str) -> None:
-        await message.answer(text)
+    # 3. Define send_fn and edit_fn for the LLM pipeline
+    async def send_fn(text: str) -> str | None:
+        try:
+            msg = await message.answer(text)
+            return str(msg.message_id)
+        except Exception as e:
+            logger.warning(f"Failed to send message: {e}")
+            return None
+
+    async def edit_fn(msg_id: str, text: str) -> None:
+        await message.bot.edit_message_text(
+            text=text,
+            chat_id=chat_id,
+            message_id=int(msg_id)
+        )
+        try:
+            await message.bot.set_message_reaction(
+                chat_id=chat_id,
+                message_id=int(msg_id),
+                reaction=[ReactionTypeEmoji(emoji="✍")]
+            )
+        except Exception as e:
+            logger.debug(f"Failed to set edit reaction: {e}")
 
     # 4. LLM pipeline — detection + tool dispatch
     # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion
@@ -161,6 +182,7 @@ async def handle_time_mention(
         timestamp_utc=timestamp_utc,
         sender_db=sender,
         send_fn=send_fn if is_registered else None,
+        edit_fn=edit_fn if is_registered else None,
         skip_aging=skip_aging,
     )
 

@@ -51,6 +51,12 @@ event_detection:
   # How long to wait before re-prompting a user who ignored/abandoned DM onboarding
   dm_onboarding_cooldown_seconds: 600
 
+  # Visibility
+  # If an edited event is older than this many messages, the bot will delete the 
+  # old message and republish it at the bottom to ensure the user notices it.
+  # If the distance is smaller, it's silently edited in-place.
+  republish_edited_message_after_distance: 3
+
 # Data Management
 storage:
   # Delete users who haven't interacted with the bot for this many days (0 = disabled)
