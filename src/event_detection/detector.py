@@ -2,7 +2,7 @@
 detector.py — LangChain Tool-Calling Agent for Event Detection
 
 Architecture:
-  1. Build user-turn content (SENDER + HISTORY + CURRENT MESSAGE)
+  1. Build user-turn content using BaseMessages (SystemMessage + Human/AIMessage history)
   2. Bind two tools to the LLM:
        - publish_event       → sends a new bot message
        - update_previous_event → edits the most recent bot message in-place
@@ -11,10 +11,12 @@ Architecture:
 
 import json
 import logging
+import os
 from typing import Any, Callable, Awaitable
 
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage, trim_messages
 
 from src.logger import get_logger
 from src.event_detection.client import get_llm_model
@@ -23,83 +25,6 @@ from src.event_detection.history import get_last_bot_message_id
 from src.config import get_bot_settings, get_log_llm_prompts
 
 logger = get_logger()
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Relative-time helper (kept from previous implementation)
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _format_relative_time(msg_ts: str, anchor_ts: str) -> str:
-    """Return a human-readable relative time label, e.g. '5m ago', '2h ago'."""
-    try:
-        import datetime
-        msg_time = datetime.datetime.fromisoformat(msg_ts.replace("Z", "+00:00"))
-        anchor_time = datetime.datetime.fromisoformat(anchor_ts.replace("Z", "+00:00"))
-        delta_secs = int((anchor_time - msg_time).total_seconds())
-        if delta_secs < 0:
-            return "just now"
-        if delta_secs < 60:
-            return f"{delta_secs}s ago"
-        if delta_secs < 3600:
-            return f"{delta_secs // 60}m ago"
-        return f"{delta_secs // 3600}h ago"
-    except Exception:
-        return ""
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Prompt builder
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _build_user_content(
-    current_msg: dict,
-    snapshot: list[dict],
-    sender_db: dict,
-) -> str:
-    """
-    Compose the plain-text user-turn block that goes to the LLM.
-
-    Format:
-        SENDER: id=<id>  name=<name>
-        ANCHOR: <timestamp_utc>
-
-        HISTORY:
-        [Author, 5m ago]: text
-        ...
-        [BOT, 3m ago]: detected: встреча → 10:00   ← if previous event
-
-        CURRENT MESSAGE:
-        [Author]: text
-    """
-    sender_id = current_msg.get("author_id", "")
-    sender_name = current_msg.get("author_name", "Unknown")
-    anchor = current_msg.get("timestamp_utc", "")
-
-    lines = [
-        f"SENDER: id={sender_id}  name={sender_name}",
-        f"ANCHOR: {anchor}",
-        "",
-        "HISTORY:",
-    ]
-
-    if snapshot:
-        for msg in snapshot:
-            author = msg.get("author_name", "Unknown")
-            text = msg.get("text", "")
-            rel_time = _format_relative_time(msg.get("timestamp_utc", ""), anchor)
-            label = f"{author}, {rel_time}" if rel_time else author
-            lines.append(f"[{label}]: {text}")
-    else:
-        lines.append("(no prior messages)")
-
-    lines += [
-        "",
-        "CURRENT MESSAGE:",
-        f"[{sender_name}]: {current_msg.get('text', '')}",
-    ]
-
-    return "\n".join(lines)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Reply formatter helper (imported lazily to avoid circular imports)
@@ -214,7 +139,7 @@ def _parse_llm_json(raw: str, ctx_logger: Any) -> dict:
 
 async def detect_event(
     current_msg: dict,
-    snapshot: list[dict],
+    snapshot: list,
     sender_db: dict,
     send_fn: Callable[[str], Awaitable[str | None]] | None = None,
     edit_fn: Callable[[str, str], Awaitable[None]] | None = None,
@@ -224,24 +149,39 @@ async def detect_event(
 ) -> dict:
     """
     LangChain tool-calling agent for event detection.
-
-    The LLM chooses between two tools:
-      - publish_event(points)         → send new message, return message_id
-      - update_previous_event(points) → edit previous bot message in-place
-
-    Falls back gracefully when no send_fn provided (test / dry-run mode).
+    
+    Now uses 2026 Core Message management:
+      - Uses BaseMessage (SystemMessage, HumanMessage, AIMessage)
+      - Slices history heavily
+      - Trims tokens properly to save costs
     """
     if ctx_logger is None:
         ctx_logger = logger
 
     sender_id = current_msg.get("author_id", "")
     sender_name = current_msg.get("author_name", "Unknown")
-    user_content = _build_user_content(current_msg, snapshot, sender_db)
+    anchor = current_msg.get("timestamp_utc", "")
+    current_text = current_msg.get("text", "")
+
+    # Prepend Context to System
+    system_text = get_system_prompt()
+    system_text += f"\n\n--- CURRENT CONTEXT ---\nSENDER: id={sender_id} name={sender_name}\nANCHOR (CURRENT) TIME: {anchor}\n"
+
+    messages = [SystemMessage(content=system_text)]
+    messages.extend(snapshot)
+
+    # Append the actual message that triggered the bot
+    ts_str = f"[{anchor}] " if anchor else ""
+    messages.append(HumanMessage(content=f"{ts_str}[{sender_name}]: {current_text}"))
 
     if get_log_llm_prompts():
-        ctx_logger.info(f"\n🚀 [LLM PROMPT LOG MODE] 🚀\n{user_content}\n" + "-" * 42)
+        # Cleanly format messages for debug output
+        debug_str = "\n".join(
+            f"[{m.__class__.__name__}]: {m.content[:200]}" for m in messages
+        )
+        ctx_logger.info(f"\n🚀 [LLM PROMPT LOG MODE] 🚀\n{debug_str}\n" + "-" * 42)
     else:
-        ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
+        ctx_logger.debug(f"LLM call | msg='{current_text[:60]}'")
 
     # ── Build tools ──────────────────────────────────────────────────────────
 
@@ -277,14 +217,7 @@ async def detect_event(
                 ctx_logger.warning(
                     f"[chat:{chat_id}] edit failed ({e}), falling back to publish"
                 )
-        # Fallback: no previous message or edit failed → publish new
         return await _do_publish(points)
-
-    # ── LangChain tool definitions (schema-only stubs) ────────────────────────
-    # These @tool stubs are used ONLY to produce the JSON schema for bind_tools.
-    # The actual async execution happens below in the ainvoke response handler.
-    # We never call these stubs — the LLM picks a tool by name and we dispatch
-    # to _do_publish / _do_update in the async block that follows.
 
     @tool
     def publish_event(points: list[dict]) -> str:
@@ -313,20 +246,45 @@ async def detect_event(
         import asyncio
         return asyncio.get_event_loop().run_until_complete(_do_update(points)) or ""
 
-    # ── LangChain model setup (lazy — only on actual call) ───────────────────
+    # ── LangChain model setup ────────────────────────────────────────────────
     settings = get_bot_settings()
     temp = settings.get("llm", {}).get("temperature", 0.0)
     model_name = get_llm_model()
 
-    llm = ChatOpenAI(model=model_name, temperature=temp)
+    llm = ChatOpenAI(
+        model=model_name,
+        temperature=temp,
+        openai_api_base=os.getenv("LLM_BASE_URL") or None,
+        openai_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or "no-key",
+    )
     tools_list = [publish_event, update_previous_event]
     llm_with_tools = llm.bind_tools(tools_list)
 
+    # ── Apply Trim Policies ──────────────────────────────────────────────────
+    
+    # 1. Trim by count (limit to max 10 messages + 1 system msg max)
+    limit = settings.get("event_detection", {}).get("context_messages", 5)
+    if len(messages) > limit + 1:
+        messages = [messages[0]] + messages[-limit:]
 
-    messages = [
-        {"role": "system", "content": get_system_prompt()},
-        {"role": "user", "content": user_content},
-    ]
+    # 2. Trim strictly by tokens
+    def rough_token_counter(msgs: list) -> int:
+        # A fast robust heuristic: ~4 characters per token
+        return sum(len(str(m.content)) // 4 for m in msgs)
+
+    try:
+        trimmed_messages = trim_messages(
+            messages,
+            max_tokens=2500, # Large ENOUGH for the system prompt, tight enough for history
+            strategy="last",
+            token_counter=rough_token_counter,
+            include_system=True,
+            allow_partial=False
+        )
+    except Exception as e:
+        ctx_logger.error(f"Error trimming messages: {e}")
+        trimmed_messages = messages
+
 
     # ── Invoke agent ─────────────────────────────────────────────────────────
     result_points: list[dict] = []
@@ -334,10 +292,9 @@ async def detect_event(
     message_id: str | None = None
 
     try:
-        response = await llm_with_tools.ainvoke(messages)
+        response = await llm_with_tools.ainvoke(trimmed_messages)
 
         if response.tool_calls:
-            # Agent chose a tool
             tc = response.tool_calls[0]
             tool_used = tc["name"]
             args = tc["args"]
@@ -350,9 +307,7 @@ async def detect_event(
                 message_id = await _do_update(points)
 
         else:
-            # No tool call — agent returned plain text/JSON (dry-run or no event)
             raw = response.content or ""
-            # Try to parse as JSON (backward-compat with non-tool response)
             if raw.strip().startswith("{"):
                 parsed = _parse_llm_json(raw, ctx_logger)
                 if parsed.get("event") and send_fn:
