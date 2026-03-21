@@ -49,7 +49,9 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "publish_event",
-            "time": "10:00",
+            "points": [
+                {"time": "10:00", "city": None, "event_type": "созвон"}
+            ]
         },
     },
 
@@ -69,7 +71,9 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "publish_event",
-            "time": "20:00",
+            "points": [
+                {"time": "20:00", "city": None, "event_type": "дедлайн"}
+            ]
         },
     },
 
@@ -89,7 +93,9 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "update_previous_event",
-            "time": "11:00",
+            "points": [
+                {"time": "11:00", "city": None, "event_type": "созвон"}
+            ]
         },
     },
 
@@ -110,7 +116,9 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "update_previous_event",
-            "time": "13:30",
+            "points": [
+                {"time": "13:30", "city": None, "event_type": "встреча"}
+            ]
         },
     },
 
@@ -127,7 +135,7 @@ EXAMPLES = [
         "outputs": {
             "event": False,
             "tool": None,
-            "time": None,
+            "points": []
         },
     },
 
@@ -144,7 +152,7 @@ EXAMPLES = [
         "outputs": {
             "event": False,
             "tool": None,
-            "time": None,
+            "points": []
         },
     },
 
@@ -163,10 +171,11 @@ EXAMPLES = [
         "outputs": {
             "event": True,
             "tool": "publish_event",
-            "time": "14:00",
+            "points": [
+                {"time": "14:00", "city": "London", "event_type": "sync"} # or "встреча"
+            ]
         },
     },
-
 
 ]
 

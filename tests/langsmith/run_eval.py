@@ -176,24 +176,49 @@ def eval_tool_was_called(run: Run, example: Example) -> dict:
     return {"key": "tool_called", "score": score, "comment": f"tool={tool}"}
 
 
-def eval_time_extracted(run: Run, example: Example) -> dict:
-    """When event=true, did we extract the correct time?"""
+def eval_points_extracted(run: Run, example: Example) -> dict:
+    """When event=true, did we extract the correct time, city, and event_type?"""
     expected_event = example.outputs.get("event")
     if not expected_event:
-        return {"key": "time_extracted", "score": 1, "comment": "n/a (event=false)"}
+        return {"key": "points_extracted", "score": 1, "comment": "n/a (event=false)"}
 
-    expected_time = example.outputs.get("time")  # e.g. "10:00"
-    actual_times  = (run.outputs or {}).get("time", [])
+    # Handle legacy dataset without explicit time/points definitions
+    if "time" not in example.outputs and "points" not in example.outputs:
+        return {"key": "points_extracted", "score": 1, "comment": "legacy match (no point ground truth)"}
 
-    if expected_time:
-        # Check exact match in extracted times
+    # Handle old dataset format fallback (timezone-bot-tool-calls v1)
+    if "time" in example.outputs and "points" not in example.outputs:
+        expected_time = example.outputs.get("time")
+        actual_times = (run.outputs or {}).get("time", [])
         score = 1 if expected_time in actual_times else 0
-        comment = f"expected={expected_time!r} got={actual_times}"
-    else:
-        score = 1 if actual_times else 0
-        comment = f"got={actual_times}"
+        return {"key": "points_extracted", "score": score, "comment": f"legacy match: {expected_time}"}
 
-    return {"key": "time_extracted", "score": score, "comment": comment}
+    expected_points = example.outputs.get("points", [])
+    actual_points = (run.outputs or {}).get("points", [])
+
+    if not expected_points:
+        score = 1 if not actual_points else 0
+        return {"key": "points_extracted", "score": score, "comment": f"expected empty, got={actual_points}"}
+
+    # We check if EVERY expected point is present in the actual points.
+    # A point matches if time, city, and event_type match.
+    matched_count = 0
+    for ep in expected_points:
+        matched = False
+        for ap in actual_points:
+            # We enforce exact matches on these fields to ensure strict tool checking
+            if (ap.get("time") == ep.get("time") and 
+                ap.get("city") == ep.get("city") and 
+                ap.get("event_type") == ep.get("event_type")):
+                matched = True
+                break
+        if matched:
+            matched_count += 1
+            
+    score = 1 if matched_count == len(expected_points) and len(actual_points) == len(expected_points) else 0
+    comment = f"expected={expected_points} got={actual_points}"
+
+    return {"key": "points_extracted", "score": score, "comment": comment}
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -234,7 +259,7 @@ def main():
             eval_event_detected,
             eval_correct_tool,
             eval_tool_was_called,
-            eval_time_extracted,
+            eval_points_extracted,
         ],
         experiment_prefix=args.prefix,
         max_concurrency=1,   # token-efficient

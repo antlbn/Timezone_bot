@@ -16,7 +16,7 @@ from typing import Any, Callable, Awaitable
 
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage, HumanMessage, trim_messages
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage, trim_messages
 
 from src.logger import get_logger
 from src.event_detection.client import get_llm_model
@@ -134,12 +134,13 @@ def _parse_llm_json(raw: str, ctx_logger: Any) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 # Main detect_event — LangChain agent entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def detect_event(
     current_msg: dict,
-    snapshot: list,
+    snapshot: list,   # Kept for signature compatibility, but mostly ignored by Graph
     sender_db: dict,
     send_fn: Callable[[str], Awaitable[str | None]] | None = None,
     edit_fn: Callable[[str, str], Awaitable[None]] | None = None,
@@ -150,10 +151,8 @@ async def detect_event(
     """
     LangChain tool-calling agent for event detection.
     
-    Now uses 2026 Core Message management:
-      - Uses BaseMessage (SystemMessage, HumanMessage, AIMessage)
-      - Slices history heavily
-      - Trims tokens properly to save costs
+    Now uses LangGraph (StateGraph) with AsyncSqliteSaver. Memory is preserved in sqlite!
+    We use One-Shot routing natively handled by 'action_node' in graph.py.
     """
     if ctx_logger is None:
         ctx_logger = logger
@@ -163,161 +162,105 @@ async def detect_event(
     anchor = current_msg.get("timestamp_utc", "")
     current_text = current_msg.get("text", "")
 
-    # Prepend Context to System
+    # Build Context
     system_text = get_system_prompt()
     system_text += f"\n\n--- CURRENT CONTEXT ---\nSENDER: id={sender_id} name={sender_name}\nANCHOR (CURRENT) TIME: {anchor}\n"
 
-    messages = [SystemMessage(content=system_text)]
-    messages.extend(snapshot)
-
-    # Append the actual message that triggered the bot
     ts_str = f"[{anchor}] " if anchor else ""
-    messages.append(HumanMessage(content=f"{ts_str}[{sender_name}]: {current_text}"))
+    human_msg = HumanMessage(content=f"{ts_str}[{sender_name}]: {current_text}")
 
-    if get_log_llm_prompts():
-        # Cleanly format messages for debug output
-        debug_str = "\n".join(
-            f"[{m.__class__.__name__}]: {m.content[:200]}" for m in messages
-        )
-        ctx_logger.info(f"\n🚀 [LLM PROMPT LOG MODE] 🚀\n{debug_str}\n" + "-" * 42)
-    else:
-        ctx_logger.debug(f"LLM call | msg='{current_text[:60]}'")
-
-    # ── Build tools ──────────────────────────────────────────────────────────
-
-    async def _do_publish(points: list[dict]) -> str | None:
-        """Build reply and send as a NEW message."""
-        reply = await _build_reply(
+    # Build reply closure for tools
+    async def build_reply_wrapper(points: list[dict]) -> str | None:
+        return await _build_reply(
             points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
         )
-        if reply and send_fn:
-            message_id = await send_fn(reply)
-            ctx_logger.info(
-                f"[chat:{chat_id}] publish_event: sent new message "
-                f"(id={message_id}, points={len(points)})"
-            )
-            return message_id
-        return None
 
-    async def _do_update(points: list[dict]) -> str | None:
-        """Build reply and EDIT the most recent bot message."""
-        prev_id = get_last_bot_message_id(platform, chat_id)
-        reply = await _build_reply(
-            points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
-        )
-        if reply and prev_id and edit_fn:
-            try:
-                await edit_fn(prev_id, reply)
-                ctx_logger.info(
-                    f"[chat:{chat_id}] update_previous_event: edited message "
-                    f"(id={prev_id}, points={len(points)})"
-                )
-                return prev_id
-            except Exception as e:
-                ctx_logger.warning(
-                    f"[chat:{chat_id}] edit failed ({e}), falling back to publish"
-                )
-        return await _do_publish(points)
-
-    @tool
-    def publish_event(points: list[dict]) -> str:
-        """
-        Call this tool when the current message contains a NEW time event
-        that has not been published yet, or when there is no previous bot message
-        to update.
-
-        Args:
-            points: List of event points, each with 'time' (HH:MM), optional 'city',
-                    and 'event_type' (e.g. 'созвон', 'дедлайн').
-        """
-        import asyncio
-        return asyncio.get_event_loop().run_until_complete(_do_publish(points)) or ""
-
-    @tool
-    def update_previous_event(points: list[dict]) -> str:
-        """
-        Call this tool when the current message OVERRIDES or REFINES a time that
-        the bot already published (visible as [BOT]: detected: ... in HISTORY).
-        This edits the previous bot message in-place instead of flooding the chat.
-
-        Args:
-            points: Updated event points with corrected time/city/event_type.
-        """
-        import asyncio
-        return asyncio.get_event_loop().run_until_complete(_do_update(points)) or ""
-
-    # ── LangChain model setup ────────────────────────────────────────────────
-    settings = get_bot_settings()
-    temp = settings.get("llm", {}).get("temperature", 0.0)
-    model_name = get_llm_model()
-
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=temp,
-        openai_api_base=os.getenv("LLM_BASE_URL") or None,
-        openai_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or "no-key",
-    )
-    tools_list = [publish_event, update_previous_event]
-    llm_with_tools = llm.bind_tools(tools_list)
-
-    # ── Apply Trim Policies ──────────────────────────────────────────────────
+    # Compile Graph
+    from src.event_detection.graph import build_agent_graph
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+    import uuid
     
-    # 1. Trim by count (limit to max 10 messages + 1 system msg max)
-    limit = settings.get("event_detection", {}).get("context_messages", 5)
-    if len(messages) > limit + 1:
-        messages = [messages[0]] + messages[-limit:]
+    # Isolate tests cleanly in SQLite Database
+    thread_id = f"{platform}_{chat_id}"
+    if platform == "eval":
+        thread_id = f"eval_{uuid.uuid4().hex[:8]}"
 
-    # 2. Trim strictly by tokens
-    def rough_token_counter(msgs: list) -> int:
-        # A fast robust heuristic: ~4 characters per token
-        return sum(len(str(m.content)) // 4 for m in msgs)
-
-    try:
-        trimmed_messages = trim_messages(
-            messages,
-            max_tokens=2500, # Large ENOUGH for the system prompt, tight enough for history
-            strategy="last",
-            token_counter=rough_token_counter,
-            include_system=True,
-            allow_partial=False
-        )
-    except Exception as e:
-        ctx_logger.error(f"Error trimming messages: {e}")
-        trimmed_messages = messages
-
-
-    # ── Invoke agent ─────────────────────────────────────────────────────────
-    result_points: list[dict] = []
-    tool_used: str = ""
-    message_id: str | None = None
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+            "system_prompt": system_text,
+            "send_fn": send_fn,
+            "edit_fn": edit_fn,
+            "delete_fn": None, # Future impl
+            "build_reply_fn": build_reply_wrapper,
+            "chat_id": chat_id,
+            "platform": platform,
+        }
+    }
 
     try:
-        response = await llm_with_tools.ainvoke(trimmed_messages)
+        data_dir = os.path.join(os.getcwd(), "data")
+        os.makedirs(data_dir, exist_ok=True)
+        db_path = os.path.join(data_dir, "graph_checkpoints.db")
+        
+        async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
+            await checkpointer.setup()
+            graph = build_agent_graph()
+            app = graph.compile(checkpointer=checkpointer)
 
-        if response.tool_calls:
-            tc = response.tool_calls[0]
-            tool_used = tc["name"]
-            args = tc["args"]
-            points = args.get("points", [])
-            result_points = points
+            # Inject snapshot if provided (used in eval tests)
+            input_messages = snapshot + [human_msg] if snapshot else [human_msg]
+            
+            response_state = await app.ainvoke({"messages": input_messages}, config)
+            
+            # Check results
+            messages = response_state.get("messages", [])
+            last_msg = messages[-1] if messages else None
+            
+            result_points = []
+            tool_used = ""
+            message_id = None
+            
+            if last_msg and isinstance(last_msg, ToolMessage):
+                tool_used = last_msg.name
+                
+                # Retrieve the tool call arguments from the previous AIMessage
+                for i in range(len(messages) - 2, -1, -1):
+                    if isinstance(messages[i], AIMessage) and messages[i].tool_calls:
+                        tc = messages[i].tool_calls[0]
+                        if tc["id"] == last_msg.tool_call_id:
+                            result_points = tc["args"].get("points", [])
+                            tool_used = tc["name"]
+                            break
+                            
+                message_id = last_msg.additional_kwargs.get("message_id")
+            elif last_msg and isinstance(last_msg, AIMessage) and last_msg.content:
+                # LLM outputted JSON string instead of calling tool (fallback scenario)
+                raw = last_msg.content
+                if raw.strip().startswith("{"):
+                    parsed = _parse_llm_json(raw, ctx_logger)
+                    if parsed.get("event") and send_fn:
+                        result_points = parsed.get("points", [])
+                        tool_used = "publish_event"
+                        message_id = await send_fn(await build_reply_wrapper(result_points))
+                    return parsed
 
-            if tool_used == "publish_event":
-                message_id = await _do_publish(points)
-            elif tool_used == "update_previous_event":
-                message_id = await _do_update(points)
-
-        else:
-            raw = response.content or ""
-            if raw.strip().startswith("{"):
-                parsed = _parse_llm_json(raw, ctx_logger)
-                if parsed.get("event") and send_fn:
-                    result_points = parsed.get("points", [])
-                    tool_used = "publish_event"
-                    message_id = await _do_publish(result_points)
-                return parsed
+            event_detected = bool(result_points and tool_used)
+            return {
+                "reflections": {},
+                "event": event_detected,
+                "sender_id": sender_id,
+                "sender_name": sender_name,
+                "time": [p.get("time", "") for p in result_points],
+                "city": [p.get("city") for p in result_points],
+                "event_type": [p.get("event_type", "событие") for p in result_points],
+                "points": result_points,
+                "tool_used": tool_used,
+                "message_id": message_id,
+            }
 
     except Exception as exc:
-        ctx_logger.error(f"[chat:{chat_id}] Agent error: {exc}")
+        ctx_logger.error(f"[chat:{chat_id}] Graph Agent error: {exc}")
         return {
             "reflections": {},
             "event": False,
@@ -328,18 +271,3 @@ async def detect_event(
             "event_type": [],
             "points": [],
         }
-
-    # ── Build result dict ─────────────────────────────────────────────────────
-    event_detected = bool(result_points and tool_used)
-    return {
-        "reflections": {},
-        "event": event_detected,
-        "sender_id": sender_id,
-        "sender_name": sender_name,
-        "time": [p.get("time", "") for p in result_points],
-        "city": [p.get("city") for p in result_points],
-        "event_type": [p.get("event_type", "событие") for p in result_points],
-        "points": result_points,
-        "tool_used": tool_used,
-        "message_id": message_id,
-    }
