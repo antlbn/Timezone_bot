@@ -51,7 +51,7 @@ async def on_message(message: discord.Message):
             )
             await prev_msg.edit(embed=new_embed)
             try:
-                await prev_msg.add_reaction("✍️")
+                await prev_msg.add_reaction("🤖")
             except Exception as react_err:
                 logger.debug(f"Failed to add edit reaction: {react_err}")
         except Exception as e:

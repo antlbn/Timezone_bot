@@ -3,7 +3,7 @@
 - **Consistency**: Production adapters (Discord/Telegram) now match the LangSmith evaluation test cases exactly.
 - **Bug Fix**: Resolved a `ValueError` in the `process_message` aging check caused by redundant `+00:00Z` formatting.
 - **Robustness**: Replaced fragile string manipulation in event detection with `dateutil.parser.isoparse`.
-- **Docs**: Updated `HANDOVER.md` with section 3.6 to enforce Zulu consistency for future maintainers.
+- **Docs**: Updated `HANDOVER.md` and created [18_llm_tools.md](18_llm_tools.md) for tools specification. Updated [14_llm_module.md](14_llm_module.md) with internal links.
 - **Verification**: Verified zero-transformation time flow from adapters through history to the LLM.
 
 ## 2026-03-18 (session 4) - Linter Run

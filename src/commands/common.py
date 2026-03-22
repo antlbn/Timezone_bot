@@ -166,7 +166,7 @@ async def handle_time_mention(
             await message.bot.set_message_reaction(
                 chat_id=chat_id,
                 message_id=int(msg_id),
-                reaction=[ReactionTypeEmoji(emoji="✍")]
+                reaction=[ReactionTypeEmoji(emoji="🤖")]
             )
         except Exception as e:
             logger.debug(f"Failed to set edit reaction: {e}")

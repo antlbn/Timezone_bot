@@ -17,7 +17,8 @@ The LLM is now the **orchestrator**, not just a classifier:
    - If `event == false` → message is silently added to history for future context.
    - If `event == true` AND author is **unregistered** → Onboarding is started (Lazy Onboarding).
    - If `event == true` AND author is **registered** → proceed to Conversion.
-3. **Execution**: The detector parses the JSON and (if event is true) calls `execute_convert_time`.
+3. **Execution**: The detector parses the JSON and (if event is true) calls the appropriate tool (`publish_event` or `update_previous_event`).
+   - See [18_llm_tools.md](18_llm_tools.md) for tool schemas and execution details.
 
 ### Why this shape?
 
