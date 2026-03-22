@@ -3,7 +3,7 @@ Transform module.
 Time conversion using UTC-pivot architecture.
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from zoneinfo import ZoneInfo
 
 
@@ -67,7 +67,7 @@ def convert_time(
         day_offset: 0 = same day, +1 = next day, -1 = previous day
     """
     if reference_date is None:
-        reference_date = datetime.now()
+        reference_date = datetime.now(timezone.utc)
 
     # Parse the time
     t = parse_time_string(time_str)

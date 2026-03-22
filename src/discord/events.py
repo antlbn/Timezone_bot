@@ -25,7 +25,7 @@ async def on_message(message: discord.Message):
         return
 
     sender = await get_user_cached(message.author.id, platform=PLATFORM)
-    timestamp_utc = message.created_at.isoformat() + "Z" if message.created_at else ""
+    timestamp_utc = message.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if message.created_at else ""
     user_name = message.author.display_name or "User"
     chat_id = str(message.guild.id)
 

@@ -1,5 +1,6 @@
 import datetime
 import logging
+import dateutil.parser
 from typing import List, Dict, Any, Callable
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
@@ -61,9 +62,7 @@ async def process_message(
     if not skip_aging:
         max_age = get_max_message_age()
         try:
-            msg_time = datetime.datetime.fromisoformat(
-                timestamp_utc.replace("Z", "+00:00")
-            )
+            msg_time = dateutil.parser.isoparse(timestamp_utc)
             now = datetime.datetime.now(datetime.timezone.utc)
             diff = (now - msg_time).total_seconds()
             logger.debug(
@@ -86,7 +85,7 @@ async def process_message(
 
     # Pre-parse time for second aging check below
     try:
-        msg_time = datetime.datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+        msg_time = dateutil.parser.isoparse(timestamp_utc)
     except Exception:
         msg_time = datetime.datetime.now(datetime.timezone.utc)
 

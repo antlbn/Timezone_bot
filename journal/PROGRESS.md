@@ -1,3 +1,11 @@
+## 2026-03-22 (session) - Timestamp Consistency & Zulu Format
+- **Feature**: Aligned all internal timestamps (`timestamp_utc`) to the standard **ISO 8601 Zulu format** (`Z`).
+- **Consistency**: Production adapters (Discord/Telegram) now match the LangSmith evaluation test cases exactly.
+- **Bug Fix**: Resolved a `ValueError` in the `process_message` aging check caused by redundant `+00:00Z` formatting.
+- **Robustness**: Replaced fragile string manipulation in event detection with `dateutil.parser.isoparse`.
+- **Docs**: Updated `HANDOVER.md` with section 3.6 to enforce Zulu consistency for future maintainers.
+- **Verification**: Verified zero-transformation time flow from adapters through history to the LLM.
+
 ## 2026-03-18 (session 4) - Linter Run
 - Thats it - that's linter RUN! 
 - **Fix**: unclosed DB connection while pytest run

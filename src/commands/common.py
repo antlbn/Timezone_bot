@@ -136,7 +136,7 @@ async def handle_time_mention(
     user_id = message.from_user.id
     chat_id = message.chat.id
     user_name = message.from_user.full_name or "User"
-    timestamp_utc = message.date.isoformat() + "Z" if message.date else ""
+    timestamp_utc = message.date.strftime("%Y-%m-%dT%H:%M:%SZ") if message.date else ""
 
     # 1. Check registration status
     sender = await get_user_cached(user_id, platform="telegram")

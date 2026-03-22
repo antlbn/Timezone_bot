@@ -105,6 +105,13 @@ The bot implements a custom in-memory architecture to handle state without exter
 - **WAL (Write-Ahead Logging)** — Global PRAGMA for high concurrency.
 - **Multi-platform ready** — `platform` column separates Telegram/Discord users
 
+### 3.6 Timestamp Consistency (Zulu Format)
+
+To ensure perfect alignment between production adapters and evaluation test cases:
+- **Format**: All internal timestamps (`timestamp_utc`) **MUST** use the ISO 8601 Zulu format: `YYYY-MM-DDTHH:MM:SSZ`.
+- **Generation**: Use `.strftime('%Y-%m-%dT%H:%M:%SZ')` in adapters. Avoid `isoformat()` which may include redundant offsets (e.g., `+00:00`).
+- **Parsing**: Use `dateutil.parser.isoparse()` for robust parsing in the event detection pipeline.
+
 ---
 
 ## 4. Component Overview
