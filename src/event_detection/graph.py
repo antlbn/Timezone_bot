@@ -129,7 +129,7 @@ async def pre_process_node(state: GraphState, config: RunnableConfig) -> dict:
     """
     messages = state["messages"]
     
-    # Retain system prompts and the most recent 10-15 messages.
+    # Retain system prompts and the most recent 15 messages in DB.
     # We find all messages that are not SystemMessage, and if there's more than 15, we delete the oldest ones.
     history_msgs = [m for m in messages if not isinstance(m, SystemMessage)]
     
@@ -138,7 +138,7 @@ async def pre_process_node(state: GraphState, config: RunnableConfig) -> dict:
         to_remove = history_msgs[:-15]
         # Generate RemoveMessage instructions for LangGraph
         return {"messages": [RemoveMessage(id=m.id) for m in to_remove if m.id is not None]}
-        
+
     return {}
 
 async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
@@ -157,13 +157,33 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     )
     llm_with_tools = llm.bind_tools(tools_list)
     
-    # Strict Token Trimming Just-In-Time
+    # Expose strict Context Limit
+    from src.config import get_context_messages_limit
+    context_limit = get_context_messages_limit()
+    
+    # 1. Slice history by literal message count safely
+    system_msgs = [m for m in state["messages"] if isinstance(m, SystemMessage)]
+    history_msgs = [m for m in state["messages"] if not isinstance(m, SystemMessage)]
+    
+    if context_limit > 0 and len(history_msgs) > context_limit:
+        start_idx = len(history_msgs) - context_limit
+        # Walk backwards to ensure the slice starts with a HumanMessage, 
+        # avoiding orphaned ToolMessages or raw AIMessages which crash OpenAI.
+        while start_idx > 0 and not isinstance(history_msgs[start_idx], HumanMessage):
+            start_idx -= 1
+        recent_msgs = history_msgs[start_idx:]
+    else:
+        recent_msgs = history_msgs
+        
+    context_window = system_msgs + recent_msgs
+    
+    # 2. Strict Token Trimming Just-In-Time (failsafe)
     from langchain_core.messages import trim_messages
     def rough_token_counter(msgs: list) -> int:
         return sum(len(str(m.content)) // 4 for m in msgs)
         
     trimmed_messages = trim_messages(
-        state["messages"],
+        context_window,
         max_tokens=2500,
         strategy="last",
         token_counter=rough_token_counter,

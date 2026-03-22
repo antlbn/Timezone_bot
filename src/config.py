@@ -94,3 +94,7 @@ def get_log_llm_prompts() -> bool:
 def get_republish_edited_message_after_distance() -> int:
     """Get the distance threshold after which an edited message is republished instead of silently edited."""
     return get_config().get("event_detection", {}).get("republish_edited_message_after_distance", 8)
+
+def get_context_messages_limit() -> int:
+    """Get the number of recent messages to pass to the LLM context window."""
+    return get_config().get("event_detection", {}).get("context_messages", 5)
