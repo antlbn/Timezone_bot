@@ -179,12 +179,15 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     
     # 2. Strict Token Trimming Just-In-Time (failsafe)
     from langchain_core.messages import trim_messages
+    from src.config import get_max_tokens_limit
+    max_tokens = get_max_tokens_limit()
+    
     def rough_token_counter(msgs: list) -> int:
         return sum(len(str(m.content)) // 4 for m in msgs)
         
     trimmed_messages = trim_messages(
         context_window,
-        max_tokens=2500,
+        max_tokens=max_tokens,
         strategy="last",
         token_counter=rough_token_counter,
         include_system=True,

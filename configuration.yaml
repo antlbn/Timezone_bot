@@ -38,7 +38,9 @@ event_detection:
   context_messages: 5
 
   # Protection against token limit exhaustion.
-  # Messages longer than this are truncated before adding to deque/LLM.
+  # The LLM prompt (system + history + current) is trimmed to stay below this limit.
+  max_tokens: 500
+  # Individual messages longer than this are truncated before adding to deque/LLM.
   max_message_length_chars: 500
 
   # Concurrency & Aging

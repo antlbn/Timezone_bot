@@ -98,3 +98,7 @@ def get_republish_edited_message_after_distance() -> int:
 def get_context_messages_limit() -> int:
     """Get the number of recent messages to pass to the LLM context window."""
     return get_config().get("event_detection", {}).get("context_messages", 5)
+
+def get_max_tokens_limit() -> int:
+    """Get the token limit for the total LLM prompt context."""
+    return get_config().get("event_detection", {}).get("max_tokens", 2500)
