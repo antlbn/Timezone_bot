@@ -10,19 +10,14 @@ Architecture:
 """
 
 import json
-import logging
 import os
 import re
 from typing import Any, Callable, Awaitable
 
-from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage, trim_messages
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 from src.logger import get_logger
-from src.event_detection.client import get_llm_model
 from src.event_detection.prompts import get_system_prompt
-from src.config import get_bot_settings, get_log_llm_prompts
 
 logger = get_logger()
 

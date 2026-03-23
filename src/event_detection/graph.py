@@ -4,7 +4,9 @@ This module defines the StateGraph, nodes, and tools for the event detection loo
 """
 
 import os
-from typing import Annotated, TypedDict, Any, Callable, Awaitable
+import re
+import random
+from typing import Annotated, TypedDict
 from langchain_core.messages import (
     BaseMessage, SystemMessage, HumanMessage, AIMessage, ToolMessage, RemoveMessage
 )
@@ -13,7 +15,6 @@ from langchain_openai import ChatOpenAI
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from pydantic import BaseModel, Field
 
 from src.logger import get_logger
@@ -65,21 +66,22 @@ def _format_event_summary(points: list[dict]) -> str:
     return ", ".join(parts)
 
 
-import re
 
-def _count_published_events(messages: list) -> int:
-    """Find the highest event number assigned so far by parsing ToolMessages."""
-    max_num = 0
+def _generate_event_ref(messages: list) -> int:
+    """Generate a unique 4-digit event reference ID."""
+    existing_refs = set()
     # Support both "event #1" and "event_ref: 1"
     pattern = re.compile(r"(?:event_ref: |#)(\d+)")
     for m in messages:
         if isinstance(m, ToolMessage) and m.content:
             match = pattern.search(m.content)
             if match:
-                num = int(match.group(1))
-                if num > max_num:
-                    max_num = num
-    return max_num
+                existing_refs.add(int(match.group(1)))
+                
+    while True:
+        ref = random.randint(1000, 9999)
+        if ref not in existing_refs:
+            return ref
 
 
 def _find_event_by_ref(messages: list, event_ref: int) -> tuple[int, int] | None:
@@ -121,10 +123,16 @@ async def pre_process_node(state: GraphState, config: RunnableConfig) -> dict:
     history_msgs = [m for m in messages if not isinstance(m, SystemMessage)]
     
     if len(history_msgs) > 15:
-        # Keep the last 15
-        to_remove = history_msgs[:-15]
-        # Generate RemoveMessage instructions for LangGraph
-        return {"messages": [RemoveMessage(id=m.id) for m in to_remove if m.id is not None]}
+        idx = len(history_msgs) - 15
+        
+        # Walk backwards to ensure the slice starts with a HumanMessage
+        # This prevents breaking an AIMessage/ToolMessage sequence.
+        while idx > 0 and not isinstance(history_msgs[idx], HumanMessage):
+            idx -= 1
+            
+        if idx > 0:
+            to_remove = history_msgs[:idx]
+            return {"messages": [RemoveMessage(id=m.id) for m in to_remove if m.id is not None]}
 
     return {}
 
@@ -178,7 +186,12 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     max_tokens = get_max_tokens_limit()
     
     def rough_token_counter(msgs: list) -> int:
-        return sum(len(str(m.content)) // 4 for m in msgs)
+        total = 0
+        for m in msgs:
+            c_len = len(str(m.content)) if m.content else 0
+            tc_len = sum(len(str(tc)) for tc in getattr(m, 'tool_calls', []))
+            total += (c_len + tc_len) // 4
+        return total
         
     trimmed_messages = trim_messages(
         context_window,
@@ -186,7 +199,8 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
         strategy="last",
         token_counter=rough_token_counter,
         include_system=True,
-        allow_partial=False
+        allow_partial=False,
+        start_on="human"
     )
     
     response = await llm_with_tools.ainvoke(trimmed_messages)
@@ -209,7 +223,6 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     delete_fn = callbacks.get("delete_fn")
     build_reply_fn = callbacks.get("build_reply_fn")
     chat_id = callbacks.get("chat_id")
-    platform = callbacks.get("platform")
     
     messages = state["messages"]
     last_msg = messages[-1]
@@ -248,7 +261,7 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     
     # ── PUBLISH ──────────────────────────────────────────────────────────
     if tool_name == "publish_event":
-        event_num = _count_published_events(messages) + 1
+        event_num = _generate_event_ref(messages)
         
         if build_reply_fn and send_fn:
             reply = await build_reply_fn(valid_points, footer=comment)
@@ -277,7 +290,7 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
                 reply = await build_reply_fn(valid_points, footer=comment)
                 if reply:
                     message_id = await send_fn(reply)
-            event_num = _count_published_events(messages) + 1
+            event_num = _generate_event_ref(messages)
             tool_output = f"✅ Event published. event_ref: {event_num} (fallback). Summary: {summary}"
             result_messages.append(ToolMessage(
                 content=tool_output,

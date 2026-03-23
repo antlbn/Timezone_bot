@@ -144,22 +144,18 @@ async def _process_discord_pending(interaction: discord.Interaction):
         # NOTE: Default argument `_pending=pending` is intentional — it captures
         # the current loop variable by value, avoiding the classic Python
         # closure-in-loop bug where all closures would share the last `pending`.
+        # Resolve channel once for both send and edit functions
+        original_channel_id = int(pending.get("channel_id") or pending["chat_id"])
+        channel = bot.get_channel(original_channel_id)
+        if not channel:
+            try:
+                channel = await bot.fetch_channel(original_channel_id)
+            except Exception:
+                logger.error(f"Could not fetch channel {original_channel_id}")
+
         async def send_reply_fn(text: str, _pending: dict = pending) -> None:
             # IMPORTANT: Releasing from queue must use the original channel
             # to allow replying to the original message.
-            original_channel_id = int(
-                _pending.get("channel_id") or _pending["chat_id"]
-            )
-            channel = bot.get_channel(original_channel_id)
-
-            if not channel:
-                # If bot doesn't "see" it in cache, try fetching it
-                try:
-                    channel = await bot.fetch_channel(original_channel_id)
-                except Exception:
-                    logger.error(f"Could not fetch channel {original_channel_id}")
-                    return
-
             if channel:
                 message_ref = discord.MessageReference(
                     message_id=int(_pending["message_id"]),

@@ -16,18 +16,17 @@ Token-efficient: uses the same model as prod, no extra API calls.
 import asyncio
 import sys
 import argparse
-import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from langsmith import Client, evaluate, aevaluate
-from langsmith.schemas import Run, Example
+from langsmith import Client, aevaluate  # noqa: E402
+from langsmith.schemas import Run, Example  # noqa: E402
 
-from src.event_detection.detector import detect_event
-from src.event_detection.history import _message_history, _chat_locks
+from src.event_detection.detector import detect_event  # noqa: E402
+from src.event_detection.history import _message_history, _chat_locks  # noqa: E402
 
 # ── Config ─────────────────────────────────────────────────────────────────
 # Default dataset — switch with --dataset flag
@@ -45,7 +44,7 @@ async def _run_agent(inputs: dict) -> dict:
 
     # Capture which tool was invoked and what points it returned
     tool_used: list[str] = []
-    captured_points: list[list] = []
+    # captured_points: list[list] = []  # Unused, removed to satisfy linter
 
     async def send_fn(text: str) -> str | None:
         return "eval_msg_000"   # fake message_id — we don't test formatting here
@@ -147,7 +146,7 @@ def _parse_history(history_data: list | str) -> list:
                     
                     try:
                         args["points"] = json.loads(points_str)
-                    except:
+                    except Exception:
                         args["points"] = []
                         
                     entries.append(AIMessage(
@@ -347,7 +346,7 @@ async def main():
     print(f"Dataset : {dataset_name}")
     print(f"Prefix  : {args.prefix}")
     print(f"Delay   : {args.delay}s between calls")
-    print(f"Project : timezone-bot-tests\n")
+    print("Project : timezone-bot-tests\n")
 
     results = await aevaluate(
         target,
@@ -380,7 +379,7 @@ async def main():
                         print(f"  - {er.key}: {er.comment}")
                 
     print(f"Results: {passed} / {total} passed all checks.")
-    print(f"Results → https://eu.smith.langchain.com")
+    print("Results → https://eu.smith.langchain.com")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ Pulling in production (optional future use):
     prompt = Client().pull_prompt("timezone-bot-system-prompt")
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -26,7 +25,7 @@ from langchain_core.prompts import ChatPromptTemplate
 load_dotenv()
 
 # ── Import production prompt ────────────────────────────────────────────────
-from src.event_detection.prompts import get_system_prompt
+from src.event_detection.prompts import get_system_prompt  # noqa: E402
 
 PROMPT_NAME = "timezone-bot-system-prompt"
 
@@ -57,13 +56,13 @@ def main():
         print(f"   URL: {url}")
     except Exception as e:
         if "Nothing to commit" in str(e) or "409" in str(e):
-            print(f"ℹ️  Prompt unchanged — no new version created (already up to date)")
+            print("ℹ️  Prompt unchanged — no new version created (already up to date)")
             print(f"   View at: https://eu.smith.langchain.com/prompts/{PROMPT_NAME}")
         else:
             raise
 
-    print(f"\nTo pull in code:")
-    print(f"   from langsmith import Client")
+    print("\nTo pull in code:")
+    print("   from langsmith import Client")
     print(f"   prompt = Client().pull_prompt('{PROMPT_NAME}')")
 
 

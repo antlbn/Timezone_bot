@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from langsmith import Client
+from langsmith import Client  # noqa: E402
 
 DATASET_NAME = "timezone-bot-tool-calls"
 

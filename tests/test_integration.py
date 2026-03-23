@@ -1,5 +1,4 @@
 import pytest
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.messages import AIMessage
 from src.event_detection import process_message

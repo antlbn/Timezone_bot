@@ -12,8 +12,6 @@ What it does:
 Run once; re-running updates the dataset (deduplicates by description).
 """
 
-import os
-import sys
 import yaml
 from pathlib import Path
 from dotenv import load_dotenv

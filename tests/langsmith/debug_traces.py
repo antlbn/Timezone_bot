@@ -1,4 +1,3 @@
-import asyncio
 from langsmith import Client
 
 def main():
