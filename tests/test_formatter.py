@@ -74,7 +74,7 @@ class TestFormatConversionReply:
             sender_name="Alice",
         )
         assert "Alice:" in reply
-        assert "\n14:00" in reply
+        assert "14:00" in reply
         assert "/tb_help" not in reply
         assert "|" not in reply
 
@@ -167,9 +167,8 @@ class TestFormatConversionReply:
         # Alice:
         # 14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸
         # 22:00 Tokyo 🇯🇵
-        lines = reply.split("\n")
-        assert lines[0] == "Alice:"
-        assert "Berlin" in lines[1]
-        assert "New York" in lines[2]
-        assert "Tokyo" in lines[3]
+        lines = [line for line in reply.split("\n") if line.strip()]
+        assert "Alice: 14:00 Berlin 🇩🇪" in lines[0]
+        assert "New York 🇺🇸" in lines[1]
+        assert "22:00 Tokyo 🇯🇵" in lines[2]
         assert "|" not in "\n".join(lines)

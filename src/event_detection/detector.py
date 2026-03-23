@@ -104,7 +104,7 @@ def _parse_llm_json(raw: str, ctx_logger: Any) -> dict:
     try:
         # Use regex to find the first JSON-like object to handle trailing tags or text
         import re
-        json_match = re.search(r'(\{.*?\})', raw, re.DOTALL)
+        json_match = re.search(r'(\{.*\})', raw, re.DOTALL)
         if json_match:
             data = json.loads(json_match.group(1))
         else:
@@ -224,7 +224,10 @@ async def detect_event(
             # Input for LangGraph: ONLY the current human message in prod.
             # History is automatically handled by AsyncSqliteSaver via thread_id.
             # For evaluations, we prepend the manually crafted `snapshot` history.
-            input_messages = snapshot + [human_msg] if snapshot else [human_msg]
+            if platform == "eval":
+                input_messages = snapshot + [human_msg] if snapshot else [human_msg]
+            else:
+                input_messages = [human_msg]
             
             response_state = await app.ainvoke({"messages": input_messages}, config)
             

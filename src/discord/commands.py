@@ -153,20 +153,27 @@ async def _process_discord_pending(interaction: discord.Interaction):
             except Exception:
                 logger.error(f"Could not fetch channel {original_channel_id}")
 
-        async def send_reply_fn(text: str, _pending: dict = pending) -> None:
+        async def send_reply_fn(text: str, _pending: dict = pending, _orig_id=original_channel_id) -> None:
             # IMPORTANT: Releasing from queue must use the original channel
             # to allow replying to the original message.
-            if channel:
+            _channel = bot.get_channel(_orig_id)
+            if not _channel:
+                try:
+                    _channel = await bot.fetch_channel(_orig_id)
+                except Exception:
+                    logger.error(f"Could not fetch channel {_orig_id}")
+
+            if _channel:
                 message_ref = discord.MessageReference(
                     message_id=int(_pending["message_id"]),
-                    channel_id=original_channel_id,
+                    channel_id=_orig_id,
                     guild_id=interaction.guild_id,
                 )
                 embed = discord.Embed(
                     description=text,
                     color=discord.Color.green(),
                 )
-                sent = await channel.send(embed=embed, reference=message_ref)
+                sent = await _channel.send(embed=embed, reference=message_ref)
                 return str(sent.id)
             else:
                 logger.error(
@@ -174,10 +181,17 @@ async def _process_discord_pending(interaction: discord.Interaction):
                 )
                 return None
 
-        async def edit_reply_fn(message_id: str, new_text: str) -> None:
-            if channel:
+        async def edit_reply_fn(message_id: str, new_text: str, _orig_id=original_channel_id) -> None:
+            _channel = bot.get_channel(_orig_id)
+            if not _channel:
                 try:
-                    prev = await channel.fetch_message(int(message_id))
+                    _channel = await bot.fetch_channel(_orig_id)
+                except Exception:
+                    logger.error(f"Could not fetch channel {_orig_id}")
+
+            if _channel:
+                try:
+                    prev = await _channel.fetch_message(int(message_id))
                     new_embed = discord.Embed(
                         description=new_text,
                         color=discord.Color.green(),

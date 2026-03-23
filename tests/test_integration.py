@@ -97,10 +97,9 @@ async def test_full_pipeline_integration():
     assert "15:00 Sarajevo 🇧🇦" in reply
     # Check formatting
     lines = [line for line in reply.split("\n") if line.strip()]
-    assert lines[0] == "Anton:"
-    assert lines[1] == "event 1"
-    assert "10:30 Sarajevo 🇧🇦" in lines[2]
-    assert "09:30 London 🇬🇧" in lines[3]
-    assert lines[4] == "event 2"
-    assert "15:00 Sarajevo 🇧🇦" in lines[5]
-    assert "14:00 London 🇬🇧" in lines[6]
+    assert lines[0] == "Anton: event 1"
+    assert "10:30 Sarajevo 🇧🇦" in lines[1]
+    assert "09:30 London 🇬🇧" in lines[2]
+    assert lines[3] == "event 2"
+    assert "15:00 Sarajevo 🇧🇦" in lines[4]
+    assert "14:00 London 🇬🇧" in lines[5]

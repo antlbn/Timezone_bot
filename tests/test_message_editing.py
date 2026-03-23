@@ -101,6 +101,7 @@ async def test_edit_message_flow_telegram():
     with (
         patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
+        patch("src.event_detection.graph._generate_event_ref", return_value=1),
     ):
         # ── Message 1: schedule ───────────────────────────────────────────────
         await process_message(
@@ -185,6 +186,7 @@ async def test_edit_message_flow_discord():
     with (
         patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
+        patch("src.event_detection.graph._generate_event_ref", return_value=1),
     ):
         # ── Message 1: schedule ───────────────────────────────────────────────
         await process_message(
