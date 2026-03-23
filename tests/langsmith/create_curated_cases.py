@@ -36,7 +36,6 @@ DATASET_NAME = "timezone-bot-tool-calls"
 
 EXAMPLES = [
 
-    
     # -- UPDATE: длинный спор (на русском, но event_type на английском)
     {
         "description": "[TOOL=update] Arguing around event (Complex Negotiation)",
@@ -69,6 +68,32 @@ EXAMPLES = [
                 {"time": "10:00", "city": "Berlin", "event_type": "zoom [UPDATED]"} 
             ],
             "comment": "UPDATE due to coordination"
+        },
+    },
+
+    # ── UPDATE: Add ISS passing to star-fall event ─────────────────────────
+    {
+        "description": "[TOOL=update] Add ISS passing to star-fall event",
+        "inputs": {
+            "text": "and approximately at 3 it,s possible to watch ISS pasing",
+            "history": [
+                {"type": "human", "content": "[2026-03-23T20:10:00Z] [Author: Anton Lubny]: in our rigion it will be star-fall from 10 to 6"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "points": [{"time": "22:00", "city": None, "event_type": "star-fall start"}, {"time": "06:00", "city": None, "event_type": "star-fall end"}]}, "id": "tc_starfall"}], "message_id": "m_starfall"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1071. Summary: star-fall start → 22:00, star-fall end → 06:00", "tool_call_id": "tc_starfall"}
+            ],
+            "sender_id": "anton_lubny",
+            "sender_name": "Anton Lubny",
+            "timestamp": "2026-03-23T20:12:26Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "update_previous_event",
+            "event_ref": 1071,
+            "points": [
+                {"time": "22:00", "city": None, "event_type": "star-fall start"},
+                {"time": "06:00", "city": None, "event_type": "star-fall end"},
+                {"time": "03:00", "city": None, "event_type": "ISS passing"}
+            ]
         },
     },
 
