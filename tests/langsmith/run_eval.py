@@ -75,15 +75,20 @@ async def _run_agent(inputs: dict) -> dict:
     if not tool_used and result.get("message_id"):
         tool_used = "publish_event"  # default inferred
 
-    return {
+    payload = {
         "event":      result.get("event", False),
+        "tool":       tool_used,
         "points":     result.get("points", []),
-        "time":       result.get("time", []),
-        "tool_used":  tool_used,
-        "event_ref":  result.get("event_ref"),
-        "reasoning":  result.get("reasoning", ""),
-        "message_id": result.get("message_id"),
     }
+    
+    if result.get("event_ref") is not None:
+        payload["event_ref"] = result.get("event_ref")
+    if result.get("comment") is not None:
+        payload["comment"] = result.get("comment")
+
+    return payload
+
+
 
 
 def _parse_history(history_data: list | str) -> list:
@@ -95,58 +100,74 @@ def _parse_history(history_data: list | str) -> list:
     # Handle the new structured format
     if isinstance(history_data, list):
         for msg in history_data:
-            if msg.get("type") == "ai":
-                content = msg.get("content", "")
+            m_type = msg.get("type")
+            content = msg.get("content", "")
+            
+            # 1. Native ToolMessage support
+            if m_type == "tool" or content.startswith("[TOOL]:"):
+                from langchain_core.messages import ToolMessage
+                clean_content = content.replace("[TOOL]:", "").strip() if content.startswith("[TOOL]:") else content
                 
-                # Support mocked ToolMessages directly in history
-                if content.startswith("[TOOL]:"):
-                    from langchain_core.messages import ToolMessage
-                    clean_content = content.replace("[TOOL]:", "").strip()
+                # Tool name needs to match whatever we stored right before this
+                last_tc_name = "publish_event"
+                if entries and isinstance(entries[-1], AIMessage) and entries[-1].tool_calls:
+                    last_tc_name = entries[-1].tool_calls[0]["name"]
                     
-                    # Tool name needs to match whatever we stored right before this
-                    last_tc_name = "publish_event"
-                    if entries and isinstance(entries[-1], AIMessage) and entries[-1].tool_calls:
-                        last_tc_name = entries[-1].tool_calls[0]["name"]
-                        
-                    entries.append(ToolMessage(
-                        content=clean_content,
-                        tool_call_id="mock_test_id",
-                        name=last_tc_name
+                entries.append(ToolMessage(
+                    content=clean_content,
+                    tool_call_id=msg.get("tool_call_id", "mock_test_id"),
+                    name=msg.get("name", last_tc_name)
+                ))
+            
+            # 2. Native AIMessage with tool_calls support
+            elif m_type == "ai" and (msg.get("tool_calls") or content.startswith("[BOT]: [TOOL_CALL")):
+                if msg.get("tool_calls"):
+                    # Explicit tool_calls provided in dict
+                    entries.append(AIMessage(
+                        content=content,
+                        tool_calls=msg["tool_calls"],
+                        additional_kwargs={"message_id": msg.get("message_id")} if "message_id" in msg else {}
                     ))
-                elif content.startswith("[BOT]: [TOOL_CALL"):
-                    # Extract the tool name and arguments (very basic parse for testing)
+                else:
+                    # Legacy marker pattern extraction
                     import json
-                    # [BOT]: [TOOL_CALL publish_event(points=...)]
+                    import re
                     tool_name = "publish_event" 
                     if "update_previous_event" in content:
                         tool_name = "update_previous_event"
-                        
-                    # find anything that looks like points=...
+                    
+                    args = {}
+                    m_ref = re.search(r"event_ref=(\d+)", content)
+                    if m_ref:
+                        args["event_ref"] = int(m_ref.group(1))
+
                     points_str = content.split("points=")[-1].strip()
                     if points_str.endswith(")]"):
                         points_str = points_str[:-2]
                     
                     try:
-                        points = json.loads(points_str)
+                        args["points"] = json.loads(points_str)
                     except:
-                        points = []
+                        args["points"] = []
                         
                     entries.append(AIMessage(
                         content="",
                         tool_calls=[{
                             "name": tool_name,
-                            "args": {"points": points},
+                            "args": args,
                             "id": "mock_test_id"
                         }],
                         additional_kwargs={"message_id": msg.get("message_id")} if "message_id" in msg else {}
                     ))
-                else:
-                    entries.append(AIMessage(
-                        content=content,
-                        additional_kwargs={"message_id": msg.get("message_id")} if "message_id" in msg else {}
-                    ))
-            else: # This covers "human" and any other types not explicitly handled
-                entries.append(HumanMessage(content=msg.get("content", "")))
+            
+            # 3. Standard AI or Human messages
+            elif m_type == "ai":
+                entries.append(AIMessage(
+                    content=content,
+                    additional_kwargs={"message_id": msg.get("message_id")} if "message_id" in msg else {}
+                ))
+            else: # Default to human
+                entries.append(HumanMessage(content=content))
         return entries
         
     # Fallback for old string format (from migrated datasets)
@@ -213,7 +234,7 @@ def eval_correct_tool(run: Run, example: Example) -> dict:
         # migrated dataset: no tool ground truth, skip
         return {"key": "correct_tool", "score": 1, "comment": "n/a"}
 
-    actual_tool = (run.outputs or {}).get("tool_used")
+    actual_tool = (run.outputs or {}).get("tool")
     score = 1 if actual_tool == expected_tool else 0
     return {"key": "correct_tool", "score": score,
             "comment": f"expected={expected_tool!r} got={actual_tool!r}"}
@@ -224,7 +245,7 @@ def eval_tool_was_called(run: Run, example: Example) -> dict:
     expected_event = example.outputs.get("event")
     if not expected_event:
         return {"key": "tool_called", "score": 1, "comment": "n/a (event=false)"}
-    tool = (run.outputs or {}).get("tool_used")
+    tool = (run.outputs or {}).get("tool")
     score = 1 if tool in ("publish_event", "update_previous_event") else 0
     return {"key": "tool_called", "score": score, "comment": f"tool={tool}"}
 

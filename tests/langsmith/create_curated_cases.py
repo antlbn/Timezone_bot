@@ -36,22 +36,39 @@ DATASET_NAME = "timezone-bot-tool-calls"
 
 EXAMPLES = [
 
-    # ── PUBLISH: первое упоминание встречи ─────────────────────────────────
+    
+    # -- UPDATE: длинный спор (на русском, но event_type на английском)
     {
-        "description": "[TOOL=publish] First meeting mention",
+        "description": "[TOOL=update] Arguing around event (Complex Negotiation)",
         "inputs": {
-            "text": "Давайте созвонимся завтра в 10 утра",
-            "history": [],
-            "sender_id": "u1",
-            "sender_name": "Иван",
-            "timestamp": "2026-03-20T09:00:00Z",
+            "text": "нет я настаиваю на том что нам стоит собраться в 10",
+            "history": [
+                {"type": "human", "content": "[2026-03-24T09:58:00Z] [Jack]: давайте общий зум по scope of work завтра в 9 утра по Берлику"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "points": [{"time": "09:00", "city": "Berlin", "event_type": "zoom"}]}, "id": "tc1"}], "message_id": "m1"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: zoom → 09:00 (Berlin)", "tool_call_id": "tc1"},
+                
+                {"type": "human", "content": "[2026-03-24T09:59:00Z] [Макс]: у меня будет глубокая ночь - я точно нужен?"},
+                
+                {"type": "human", "content": "[2026-03-24T10:02:00Z] [Jess]: я посмотрела - можем в 11 если, что скажете?"},
+                {"type": "ai", "tool_calls": [{"name": "update_previous_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "event_ref": 1, "points": [{"time": "09:00", "city": "Berlin", "event_type": "zoom"}, {"time": "11:00", "city": "Berlin", "event_type": "sync"}], "comment": "UPDATE due to coordination"}, "id": "tc2"}], "message_id": "m1"},
+                {"type": "tool", "content": "✅ Event updated. event_ref: 1. Summary: zoom → 09:00 (Berlin), sync → 11:00. Comment: UPDATE due to coordination", "tool_call_id": "tc2"},
+                
+                {"type": "human", "content": "[2026-03-24T10:02:00Z] [Jack]: в 11 тоже так себе у меня другой колл - давайте тогда в 12 - хотя-бы"},
+                {"type": "ai", "tool_calls": [{"name": "update_previous_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "event_ref": 1, "points": [{"time": "09:00", "city": "Berlin", "event_type": "zoom"}, {"time": "11:00", "city": "Berlin", "event_type": "sync"}, {"time": "12:00", "city": "Berlin", "event_type": "call"}], "comment": "UPDATE due to negotiation"}, "id": "tc3"}], "message_id": "m1"},
+                {"type": "tool", "content": "✅ Event updated. event_ref: 1. Summary: zoom → 09:00 (Berlin), sync → 11:00, call → 12:00. Comment: UPDATE due to negotiation", "tool_call_id": "tc3"}
+            ],
+            "sender_id": "hr2",
+            "sender_name": "Jane",
+            "timestamp": "2026-03-24T10:15:00Z",
         },
         "outputs": {
             "event": True,
-            "tool": "publish_event",
+            "tool": "update_previous_event",
+            "event_ref": 1,
             "points": [
-                {"time": "10:00", "city": None, "event_type": "созвон"}
-            ]
+                {"time": "10:00", "city": "Berlin", "event_type": "zoom [UPDATED]"} 
+            ],
+            "comment": "UPDATE due to coordination"
         },
     },
 
@@ -72,8 +89,9 @@ EXAMPLES = [
             "event": True,
             "tool": "publish_event",
             "points": [
-                {"time": "20:00", "city": None, "event_type": "дедлайн"}
-            ]
+                {"time": "20:00", "city": None, "event_type": "deadline"}
+            ],
+            "comment": ""
         },
     },
 
@@ -84,8 +102,8 @@ EXAMPLES = [
             "text": "нет давай лучше в 11, у меня в 10 другой звонок",
             "history": [
                 {"type": "human", "content": "[2026-03-20T09:00:00Z] [Иван]: созвон в 10 утра?"},
-                {"type": "ai", "content": "[BOT]: [TOOL_CALL publish_event(points=[{\"time\": \"10:00\", \"event_type\": \"созвон\"}])]", "message_id": "m1"},
-                {"type": "ai", "content": "[TOOL]: ✅ Published event #1: созвон → 10:00"}
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "points": [{"time": "10:00", "city": None, "event_type": "созвон"}]}, "id": "tc1"}], "message_id": "m1"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: созвон → 10:00", "tool_call_id": "tc1"}
             ],
             "sender_id": "u2",
             "sender_name": "Петя",
@@ -97,7 +115,8 @@ EXAMPLES = [
             "event_ref": 1,
             "points": [
                 {"time": "11:00", "city": None, "event_type": "созвон"}
-            ]
+            ],
+            "comment": "UPDATE due to coordination"
         },
     },
 
@@ -108,8 +127,8 @@ EXAMPLES = [
             "text": "ок, тогда в полвторого договорились",
             "history": [
                 {"type": "human", "content": "[2026-03-20T10:00:00Z] [Маша]: встреча в 14:00?"},
-                {"type": "ai", "content": "[BOT]: [TOOL_CALL publish_event(points=[{\"time\": \"14:00\", \"event_type\": \"встреча\"}])]", "message_id": "m2"},
-                {"type": "ai", "content": "[TOOL]: ✅ Published event #1: встреча → 14:00"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "points": [{"time": "14:00", "city": None, "event_type": "встреча"}]}, "id": "tc1"}], "message_id": "m2"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: встреча → 14:00", "tool_call_id": "tc1"},
                 {"type": "human", "content": "[2026-03-20T10:05:00Z] [Саша]: я не успею к 14, можно в 13:30?"}
             ],
             "sender_id": "u3",
@@ -122,7 +141,8 @@ EXAMPLES = [
             "event_ref": 1,
             "points": [
                 {"time": "13:30", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "comment": "UPDATE due to coordination"
         },
     },
 
@@ -176,8 +196,55 @@ EXAMPLES = [
             "event": True,
             "tool": "publish_event",
             "points": [
-                {"time": "14:00", "city": "London", "event_type": "sync"} # or "встреча"
-            ]
+                {"time": "14:00", "city": "London", "event_type": "sync"}
+            ],
+            "comment": ""
+        },
+    },
+
+    # ── PUBLISH: Knowledge worker sync with history (flood + short pings + distracing time point in history) ──
+    {
+        "description": "[TOOL=publish] Knowledge worker sync (English, Slang, History)",
+        "inputs": {
+            "text": "Actually, let's hop on a quick sync for the Board Meeting at 5pm today.",
+            "history": [
+                {"type": "human", "content": "[2026-03-22T09:15:00Z] [Alex]: That new RAG approach is absolute fire, we should double down on it ASAP."},
+                {"type": "human", "content": "[2026-03-22T09:20:00Z] [Jordan]: Hard agree, but let's circle back to the latency benchmarks first. Any word on that?"},
+                {"type": "human", "content": "[2026-03-22T09:30:00Z] [Alex]: Not yet, will loop back after I finish this PR review. COB today at 11 for sure."},
+                {"type": "human", "content": "[2026-03-22T13:30:00Z] [Taylor]: ping"},
+                {"type": "human", "content": "[2026-03-22T13:32:00Z] [Jordan]: ?"},
+                {"type": "human", "content": "[2026-03-22T13:35:00Z] [Taylor]: check slack pls"}
+            ],
+            "sender_id": "u8",
+            "sender_name": "Taylor",
+            "timestamp": "2026-03-22T14:40:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "17:00", "city": None, "event_type": "Board Meeting"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── EDGE: Number trap — 'встречаемся в 9' (building number) ─────────
+    {
+        "description": "[TOOL=null] Number trap — '9ка' (building) is not a time",
+        "inputs": {
+            "text": "встречаемся в девятом",
+            "history": [
+                {"type": "human", "content": "[2026-03-13T16:30:00Z] [Гоша]: в каком здании встречаемся?"},
+                {"type": "human", "content": "[2026-03-13T16:36:00Z] [Степан]: едем на объект сегодня вечером"}
+            ],
+            "sender_id": "802",
+            "sender_name": "Степан",
+            "timestamp": "2026-03-13T16:40:00Z",
+        },
+        "outputs": {
+            "event": False,
+            "tool": None,
+            "points": []
         },
     },
 

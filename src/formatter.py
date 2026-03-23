@@ -127,7 +127,7 @@ def format_single_point_line(
 
 
 def format_multi_conversion(
-    conversions: list[dict], members: list[dict], sender_name: str = ""
+    conversions: list[dict], members: list[dict], sender_name: str = "", footer: str | None = None
 ) -> str:
     """
     Format multiple time points into a single beautiful message.
@@ -147,6 +147,11 @@ def format_multi_conversion(
         point_lines.append(point_text)
 
     body = "\n\n".join(point_lines)
+    
+    # Append footer if provided (on a new single line, as requested)
+    if footer:
+        body += f"\n{footer}"
+
     if sender_name:
         return f"{sender_name}:\n{body}"
     return body

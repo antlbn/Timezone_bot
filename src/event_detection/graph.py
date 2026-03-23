@@ -14,6 +14,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from pydantic import BaseModel, Field
 
 from src.logger import get_logger
 from src.event_detection.client import get_llm_model
@@ -33,33 +34,29 @@ class GraphState(TypedDict):
 
 # ── 2. Define Tools Schema ──────────────────────────────────────────────────
 
-@tool
-def publish_event(reasoning: str, points: list[dict]) -> str:
-    """
-    Call this tool when the current message contains a NEW time event
-    that has not been published yet. Or if there is no previous bot message
-    about this event to update.
+class Reflections(BaseModel):
+    event_logic: str = Field(description="Суть события/контекст.")
+    time_logic: str = Field(description="Релевантность времени (24ч).")
+    geo_logic: str = Field(description="Город/часовой пояс.")
+    tool_logic: str = Field(description="Почему publish или update?")
 
-    Args:
-        reasoning: Brief explanation: why is this an event? How did you
-                   interpret the time? Any geo/timezone notes?
-        points: List of event points, each with 'time' (HH:MM), optional 'city',
-                and 'event_type' (e.g. 'созвон', 'дедлайн').
+class EventPoint(BaseModel):
+    time: str | None = Field(default=None, description="HH:MM 24h format. Set to null if NO EXACT TIME mentioned. NEVER GUESS.")
+    city: str | None = Field(description="City/timezone if mentioned, else null.")
+    event_type: str = Field(description="Short event name ('zoom', 'call').")
+
+@tool
+def publish_event(reflections: Reflections, points: list[EventPoint], comment: str = "") -> str:
+    """
+    CREATE a NEW event.
+    DO NOT use if event was already published in history! Use update_previous_event instead.
     """
     pass
 
 @tool
-def update_previous_event(reasoning: str, event_ref: int, points: list[dict]) -> str:
+def update_previous_event(reflections: Reflections, event_ref: int, points: list[EventPoint], comment: str = "") -> str:
     """
-    Call this tool when the current message OVERRIDES or REFINES a time that
-    the bot already published in HISTORY.
-    This edits the previous bot message in-place instead of flooding the chat.
-
-    Args:
-        reasoning: Brief explanation: what changed? How did you re-interpret
-                   the time or event?
-        event_ref: The event number to update (from "Published event #N" in history).
-        points: Updated event points with corrected time/city/event_type.
+    OVERRIDE or REFINE a Published event from HISTORY (look for '✅ Event published. event_ref: N').
     """
     pass
 
@@ -84,7 +81,8 @@ import re
 def _count_published_events(messages: list) -> int:
     """Find the highest event number assigned so far by parsing ToolMessages."""
     max_num = 0
-    pattern = re.compile(r"(?:Published|Updated) event #(\d+)")
+    # Support both "event #1" and "event_ref: 1"
+    pattern = re.compile(r"(?:event_ref: |#)(\d+)")
     for m in messages:
         if isinstance(m, ToolMessage) and m.content:
             match = pattern.search(m.content)
@@ -98,11 +96,11 @@ def _count_published_events(messages: list) -> int:
 def _find_event_by_ref(messages: list, event_ref: int) -> tuple[int, int] | None:
     """Find the (ai_idx, tool_idx) pair for a specific event_ref.
     
-    Looks for a ToolMessage with 'Published/Updated event #N' and then
+    Looks for a ToolMessage with 'event_ref: N' or 'event #N' and then
     finds its corresponding AIMessage.
     Returns indices into the messages list, or None if not found.
     """
-    pattern = re.compile(rf"(?:Published|Updated) event #{event_ref}\b")
+    pattern = re.compile(rf"(?:event_ref: |#){event_ref}\b")
     
     # Search backwards to find the latest tool message for this event_ref
     for j in range(len(messages) - 1, -1, -1):
@@ -163,6 +161,14 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     
     # 1. Slice history by literal message count safely
     system_msgs = [m for m in state["messages"] if isinstance(m, SystemMessage)]
+    
+    # LangGraph best practice: if no system message in state, inject from config.
+    # This keeps state raw while ensuring the LLM receives its instructions.
+    if not system_msgs:
+        sys_prompt = config.get("configurable", {}).get("system_prompt")
+        if sys_prompt:
+            system_msgs = [SystemMessage(content=sys_prompt)]
+
     history_msgs = [m for m in state["messages"] if not isinstance(m, SystemMessage)]
     
     if context_limit > 0 and len(history_msgs) > context_limit:
@@ -225,26 +231,28 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     tc = last_msg.tool_calls[0]
     tool_name = tc["name"]
     points = tc["args"].get("points", [])
+    comment = tc["args"].get("comment", "") # Extract user-facing comment
     
     # ── VALIDATION ───────────────────────────────────────────────────────
     import re
     time_pattern = re.compile(r"^\d{1,2}:\d{2}$")
-    invalid_points = []
-    for p in points:
+    points_dicts = [p.dict() if hasattr(p, "dict") else p for p in points]
+    
+    valid_points = []
+    for p in points_dicts:
         t = p.get("time")
-        if not isinstance(t, str) or not time_pattern.match(t.strip()):
-            invalid_points.append(p)
+        if isinstance(t, str) and time_pattern.match(t.strip()):
+            valid_points.append(p)
             
-    if invalid_points:
-        logger.warning(f"[chat:{chat_id}] Invalid time format from LLM: {invalid_points}")
+    if not valid_points:
+        logger.warning(f"[chat:{chat_id}] No valid times extracted by LLM (points={points_dicts})")
         err_msg = (
-            f"Error: Invalid time format in points {invalid_points}. "
-            f"The 'time' field MUST strictly match 'HH:MM' (e.g. '14:00'). "
-            f"Do NOT output 'None', do NOT append timezones."
+            "No extractable time found. Do NOT call tools for vague times like 'evening'. "
+            "If meeting today, give HH:MM format."
         )
         return {"messages": [ToolMessage(content=err_msg, tool_call_id=tc["id"])]}
         
-    summary = _format_event_summary(points)
+    summary = _format_event_summary(valid_points)
     
     message_id = None
     result_messages: list = []  # messages to return (ToolMessage + optional RemoveMessages)
@@ -254,11 +262,14 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
         event_num = _count_published_events(messages) + 1
         
         if build_reply_fn and send_fn:
-            reply = await build_reply_fn(points)
+            reply = await build_reply_fn(valid_points, footer=comment)
             if reply:
                 message_id = await send_fn(reply)
         
-        tool_output = f"✅ Published event #{event_num}: {summary}"
+        tool_output = f"✅ Event published. event_ref: {event_num}. Summary: {summary}"
+        if comment:
+            tool_output += f". Comment: {comment}"
+            
         result_messages.append(ToolMessage(
             content=tool_output,
             tool_call_id=tc["id"],
@@ -274,11 +285,11 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
             logger.warning(f"[chat:{chat_id}] event_ref #{event_ref} not found. Falling back to publish.")
             # Fallback: treat as new publish
             if build_reply_fn and send_fn:
-                reply = await build_reply_fn(points)
+                reply = await build_reply_fn(valid_points, footer=comment)
                 if reply:
                     message_id = await send_fn(reply)
             event_num = _count_published_events(messages) + 1
-            tool_output = f"✅ Published event #{event_num} (fallback): {summary}"
+            tool_output = f"✅ Event published. event_ref: {event_num} (fallback). Summary: {summary}"
             result_messages.append(ToolMessage(
                 content=tool_output,
                 tool_call_id=tc["id"],
@@ -293,7 +304,7 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
             
             # Execute side effect: edit or delete+republish in chat
             if build_reply_fn:
-                reply = await build_reply_fn(points)
+                reply = await build_reply_fn(valid_points, footer=comment)
                 if reply:
                     # Count HumanMessages since the old event to decide edit vs delete+republish
                     from src.config import get_republish_edited_message_after_distance
@@ -327,7 +338,10 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
                 result_messages.append(RemoveMessage(id=messages[old_tool_idx].id))
             
             # Record the updated event with the SAME event_ref number
-            tool_output = f"✅ Published event #{event_ref} (updated): {summary}"
+            tool_output = f"✅ Event updated. event_ref: {event_ref}. Summary: {summary}"
+            if comment:
+                tool_output += f". Comment: {comment}"
+                
             result_messages.append(ToolMessage(
                 content=tool_output,
                 tool_call_id=tc["id"],

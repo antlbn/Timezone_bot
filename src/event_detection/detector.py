@@ -20,8 +20,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 
 from src.logger import get_logger
 from src.event_detection.client import get_llm_model
-from src.event_detection.prompts import get_system_prompt, EVENT_DETECTION_SCHEMA
-from src.event_detection.history import get_last_bot_message_id
+from src.event_detection.prompts import get_system_prompt
 from src.config import get_bot_settings, get_log_llm_prompts
 
 logger = get_logger()
@@ -38,6 +37,7 @@ async def _build_reply(
     platform: str,
     chat_id: str,
     ctx_logger: Any,
+    footer: str | None = None,
 ) -> str | None:
     """Build the formatted conversion reply string, or None if no members."""
     from src.storage import storage
@@ -85,7 +85,7 @@ async def _build_reply(
         return None
 
     return formatter.format_multi_conversion(
-        conversions=conversions, members=members, sender_name=sender_name
+        conversions=conversions, members=members, sender_name=sender_name, footer=footer
     )
 
 
@@ -170,9 +170,9 @@ async def detect_event(
     human_msg = HumanMessage(content=f"{ts_str}[{sender_name}]: {current_text}")
 
     # Build reply closure for tools
-    async def build_reply_wrapper(points: list[dict]) -> str | None:
+    async def build_reply_wrapper(points: list[dict], footer: str | None = None) -> str | None:
         return await _build_reply(
-            points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
+            points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger, footer=footer
         )
 
     # Compile Graph
@@ -209,7 +209,9 @@ async def detect_event(
             graph = build_agent_graph()
             app = graph.compile(checkpointer=checkpointer)
 
-            # Inject snapshot if provided (used in eval tests)
+            # Input for LangGraph: ONLY the current human message in prod.
+            # History is automatically handled by AsyncSqliteSaver via thread_id.
+            # For evaluations, we prepend the manually crafted `snapshot` history.
             input_messages = snapshot + [human_msg] if snapshot else [human_msg]
             
             response_state = await app.ainvoke({"messages": input_messages}, config)
@@ -222,6 +224,8 @@ async def detect_event(
             tool_used = ""
             message_id = None
             reasoning = ""
+            event_ref = None
+            comment = None
             
             if last_msg and isinstance(last_msg, ToolMessage):
                 tool_used = last_msg.name
@@ -236,6 +240,7 @@ async def detect_event(
                             reasoning = tc["args"].get("reasoning", "") or messages[i].content or ""
                             # event_ref specific to update_previous_event
                             event_ref = tc["args"].get("event_ref", None)
+                            comment = tc["args"].get("comment", None)
                             tool_used = tc["name"]
                             break
                             
@@ -274,6 +279,8 @@ async def detect_event(
                 "points": result_points,
                 "tool_used": tool_used,
                 "message_id": message_id,
+                "event_ref": event_ref,
+                "comment": comment,
             }
 
     except Exception as exc:
