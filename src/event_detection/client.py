@@ -17,7 +17,7 @@ def get_llm_client() -> AsyncOpenAI:
     global _client
     if _client is None:
         base_url = os.getenv("LLM_BASE_URL")
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")
 
         _client = AsyncOpenAI(base_url=base_url, api_key=api_key, http_client=None)
         logger.info(f"Initialized LLM client with base_url: {base_url}")

@@ -12,6 +12,7 @@ Architecture:
 import json
 import logging
 import os
+import re
 from typing import Any, Callable, Awaitable
 
 from langchain_openai import ChatOpenAI
@@ -90,13 +91,29 @@ async def _build_reply(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Agent fallback: parse JSON if the model returns JSON instead of a tool call
+# Text thought parsing and fallback JSON parsing
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_reflections_from_text(text: str) -> dict:
+    ref_dict = {"event_logic": "", "time_logic": "", "geo_logic": "", "tool_logic": ""}
+    if not text:
+        return ref_dict
+    for key in ref_dict.keys():
+        match = re.search(rf"<{key}>(.*?)</{key}>", text, re.IGNORECASE | re.DOTALL)
+        if match:
+            ref_dict[key] = match.group(1).strip()
+    return ref_dict
 
 def _parse_llm_json(raw: str, ctx_logger: Any) -> dict:
     """Parse a raw JSON string from the LLM into a normalised result dict."""
     try:
-        data = json.loads(raw)
+        # Use regex to find the first JSON-like object to handle trailing tags or text
+        import re
+        json_match = re.search(r'(\{.*?\})', raw, re.DOTALL)
+        if json_match:
+            data = json.loads(json_match.group(1))
+        else:
+            data = json.loads(raw)
         reflections = data.get("reflections", {})
         points = data.get("points", [])
         times = [p["time"] for p in points] if isinstance(points, list) else []
@@ -167,7 +184,7 @@ async def detect_event(
     system_text += f"\n\n--- CURRENT CONTEXT ---\nSENDER: id={sender_id} name={sender_name}\nANCHOR (CURRENT) TIME: {anchor}\n"
 
     ts_str = f"[{anchor}] " if anchor else ""
-    human_msg = HumanMessage(content=f"{ts_str}[{sender_name}]: {current_text}")
+    human_msg = HumanMessage(content=f"{ts_str}[Author: {sender_name}]: {current_text}")
 
     # Build reply closure for tools
     async def build_reply_wrapper(points: list[dict], footer: str | None = None) -> str | None:
@@ -256,7 +273,13 @@ async def detect_event(
                     parsed = _parse_llm_json(json_str, ctx_logger)
                 else:
                     reasoning = raw.strip()
-                    parsed = {"event": False, "points": []} # Failsafe
+                    parsed = {
+                        "event": False, 
+                        "points": [],
+                        "reflections": _parse_reflections_from_text(reasoning),
+                        "time": [], "city": [], "event_type": [],
+                        "sender_id": sender_id, "sender_name": sender_name
+                    }
                 
                 if parsed.get("event") and send_fn:
                     result_points = parsed.get("points", [])
@@ -264,11 +287,15 @@ async def detect_event(
                     message_id = await send_fn(await build_reply_wrapper(result_points))
                 
                 parsed["reasoning"] = reasoning
+                if not parsed.get("reflections"):
+                    parsed["reflections"] = _parse_reflections_from_text(reasoning)
                 return parsed
 
             event_detected = bool(result_points and tool_used)
+            parsed_ref = _parse_reflections_from_text(reasoning)
+            
             return {
-                "reflections": {},
+                "reflections": parsed_ref,
                 "reasoning": reasoning,
                 "event": event_detected,
                 "sender_id": sender_id,

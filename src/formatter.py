@@ -148,12 +148,11 @@ def format_multi_conversion(
 
     body = "\n\n".join(point_lines)
     
-    # Append footer if provided (on a new single line, as requested)
     if footer:
-        body += f"\n{footer}"
+        body += f"\n**{footer}**"
 
     if sender_name:
-        return f"{sender_name}:\n{body}"
+        return f"{sender_name}: {body}"
     return body
 
 

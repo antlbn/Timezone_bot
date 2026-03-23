@@ -185,6 +185,12 @@ def _parse_history(history_data: list | str) -> list:
         else:
             # We preserve the approximate relative time in the content if it existed inside the brackets
             original_bracket = line.split("]")[0].lstrip("[")
+            # If the original bracket already contains 'name:' or similar (from user tests), we handle it
+            if "name:" in original_bracket:
+                original_bracket = original_bracket.replace("name:", "Author: ")
+            elif "Author:" not in original_bracket:
+                original_bracket = f"Author: {original_bracket}"
+            
             entries.append(HumanMessage(content=f"[{original_bracket}]: {text}"))
     return entries
 
@@ -361,10 +367,17 @@ async def main():
     total = 0
     async for r in results:
         total += 1
-        if len(r["evaluation_results"]["results"]) == 5:
-            all_passed = all(er.score == 1 for er in r["evaluation_results"]["results"])
+        eval_results = r["evaluation_results"]["results"]
+        if len(eval_results) == 5:
+            all_passed = all(er.score == 1 for er in eval_results)
             if all_passed:
                 passed += 1
+            else:
+                desc = r["example"].metadata.get("description", "Unknown")
+                print(f"FAILED: {desc}")
+                for er in eval_results:
+                    if er.score != 1:
+                        print(f"  - {er.key}: {er.comment}")
                 
     print(f"Results: {passed} / {total} passed all checks.")
     print(f"Results → https://eu.smith.langchain.com")

@@ -39,6 +39,10 @@ async def on_message(message: discord.Message):
             color=discord.Color.blue(),
         )
         sent = await message.reply(embed=embed)
+        try:
+            await sent.add_reaction("🤖")
+        except Exception as react_err:
+            logger.warning(f"Reaction failed (send_fn): {react_err}")
         return str(sent.id)
 
     async def edit_fn(message_id: str, new_text: str) -> None:
@@ -53,7 +57,7 @@ async def on_message(message: discord.Message):
             try:
                 await prev_msg.add_reaction("🤖")
             except Exception as react_err:
-                logger.debug(f"Failed to add edit reaction: {react_err}")
+                logger.warning(f"Reaction failed (edit_fn): {react_err}")
         except Exception as e:
             logger.warning(f"[guild:{chat_id}] edit_fn failed for msg {message_id}: {e}")
             raise

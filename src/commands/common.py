@@ -148,28 +148,44 @@ async def handle_time_mention(
     await storage.update_activity(user_id, "telegram")
 
     # 3. Define send_fn and edit_fn for the LLM pipeline
+    # 3. Define send_fn and edit_fn for the LLM pipeline
     async def send_fn(text: str) -> str | None:
         try:
-            msg = await message.answer(text)
+            msg = await message.answer(text, parse_mode="Markdown")
+            try:
+                await message.bot.set_message_reaction(
+                    chat_id=chat_id,
+                    message_id=msg.message_id,
+                    reaction=[ReactionTypeEmoji(emoji="🤖")]
+                )
+            except Exception as re:
+                logger.warning(f"Reaction failed (send_fn): {re}")
             return str(msg.message_id)
         except Exception as e:
             logger.warning(f"Failed to send message: {e}")
             return None
 
     async def edit_fn(msg_id: str, text: str) -> None:
-        await message.bot.edit_message_text(
-            text=text,
-            chat_id=chat_id,
-            message_id=int(msg_id)
-        )
         try:
-            await message.bot.set_message_reaction(
+            await message.bot.edit_message_text(
+                text=text,
                 chat_id=chat_id,
                 message_id=int(msg_id),
-                reaction=[ReactionTypeEmoji(emoji="🤖")]
+                parse_mode="Markdown"
             )
+            try:
+                await message.bot.set_message_reaction(
+                    chat_id=chat_id,
+                    message_id=int(msg_id),
+                    reaction=[ReactionTypeEmoji(emoji="🤖")]
+                )
+            except Exception as e:
+                logger.warning(f"Reaction failed (edit_fn): {e}")
         except Exception as e:
-            logger.debug(f"Failed to set edit reaction: {e}")
+            logger.warning(f"Failed to edit message: {e}")
+            raise
+
+    # 4. LLM pipeline — detection + tool dispatch
 
     # 4. LLM pipeline — detection + tool dispatch
     # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion

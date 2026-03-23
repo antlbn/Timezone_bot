@@ -34,30 +34,19 @@ class GraphState(TypedDict):
 
 # ── 2. Define Tools Schema ──────────────────────────────────────────────────
 
-class Reflections(BaseModel):
-    event_logic: str = Field(description="Суть события/контекст.")
-    time_logic: str = Field(description="Релевантность времени (24ч).")
-    geo_logic: str = Field(description="Город/часовой пояс.")
-    tool_logic: str = Field(description="Почему publish или update?")
-
 class EventPoint(BaseModel):
-    time: str | None = Field(default=None, description="HH:MM 24h format. Set to null if NO EXACT TIME mentioned. NEVER GUESS.")
+    time: str | None = Field(default=None, description="HH:MM 24h. Null if no exact time. No guessing.")
     city: str | None = Field(description="City/timezone if mentioned, else null.")
-    event_type: str = Field(description="Short event name ('zoom', 'call').")
+    event_type: str = Field(description="Short event name ('zoom').")
 
 @tool
-def publish_event(reflections: Reflections, points: list[EventPoint], comment: str = "") -> str:
-    """
-    CREATE a NEW event.
-    DO NOT use if event was already published in history! Use update_previous_event instead.
-    """
+def publish_event(points: list[EventPoint], comment: str = "") -> str:
+    """Create NEW event. Do NOT use if already published in history."""
     pass
 
 @tool
-def update_previous_event(reflections: Reflections, event_ref: int, points: list[EventPoint], comment: str = "") -> str:
-    """
-    OVERRIDE or REFINE a Published event from HISTORY (look for '✅ Event published. event_ref: N').
-    """
+def update_previous_event(event_ref: int, points: list[EventPoint], comment: str = "") -> str:
+    """Update event from history ('✅ Event published. event_ref: N')."""
     pass
 
 tools_list = [publish_event, update_previous_event]
@@ -151,7 +140,7 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
         model=model_name,
         temperature=temp,
         openai_api_base=os.getenv("LLM_BASE_URL") or None,
-        openai_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or "no-key",
+        openai_api_key=os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or "no-key",
     )
     llm_with_tools = llm.bind_tools(tools_list)
     
