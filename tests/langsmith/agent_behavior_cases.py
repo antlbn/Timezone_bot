@@ -24,6 +24,8 @@ EXAMPLES = [
                 {"type": "human", "content": "[2026-03-13T09:48:00Z] [Author: Recruiter]: Hi Elena, when can we talk?"},
                 {"type": "human", "content": "[2026-03-13T09:53:00Z] [Author: Elena]: Hi!"},
             ],
+            "sender_id": "304",
+            "sender_name": "Elena",
             "timestamp": "2026-03-13T10:00:00Z",
         },
         "outputs": {
@@ -32,7 +34,9 @@ EXAMPLES = [
             "points": [
                 {"time": "14:00", "city": None, "event_type": "availability"},
                 {"time": "17:30", "city": None, "event_type": "availability"}
-            ]
+            ],
+            "sender_id": "304",
+            "sender_name": "Elena"
         },
         "metadata": {"group": "publish_simple", "split": "agent_behavior"}
     },
@@ -43,6 +47,8 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-20T17:55:00Z] [Author: Lead]: include US colleagues please"}
             ],
+            "sender_id": "u7",
+            "sender_name": "Jane",
             "timestamp": "2026-03-20T18:00:00Z",
         },
         "outputs": {
@@ -50,7 +56,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "14:00", "city": "London", "event_type": "sync"}
-            ]
+            ],
+            "sender_id": "u7",
+            "sender_name": "Jane"
         },
         "metadata": {"group": "publish_simple", "split": "agent_behavior"}
     },
@@ -62,6 +70,8 @@ EXAMPLES = [
                 {"type": "human", "content": "[2026-03-13T21:15:00Z] [Author: Dima]: Hey colleagues..."},
                 {"type": "human", "content": "[2026-03-13T21:30:00Z] [Author: Elena]: Agree... How about Thursday morning, say half past nine?"},
             ],
+            "sender_id": "601",
+            "sender_name": "Anton",
             "timestamp": "2026-03-13T22:00:00Z",
         },
         "outputs": {
@@ -71,7 +81,9 @@ EXAMPLES = [
                 {"time": "10:30", "city": None, "event_type": "logistics call"},
                 {"time": "13:00", "city": None, "event_type": "investor deck"},
                 {"time": "17:00", "city": None, "event_type": "code deadline"}
-            ]
+            ],
+            "sender_id": "601",
+            "sender_name": "Anton"
         },
         "metadata": {"group": "publish_simple", "split": "agent_behavior"}
     },
@@ -82,6 +94,8 @@ EXAMPLES = [
         "inputs": {
             "text": "сможете завтра в 14:30?",
             "history": [],
+            "sender_id": "u_quest",
+            "sender_name": "UserQuest",
             "timestamp": "2026-03-13T10:00:00Z",
         },
         "outputs": {
@@ -89,7 +103,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "14:30", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_quest",
+            "sender_name": "UserQuest"
         },
         "metadata": {"group": "publish_context", "split": "agent_behavior"}
     },
@@ -100,6 +116,8 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-24T10:45:00Z] [Author: PM]: нам нужно доделать то что не успели на прошлой неделе"},
             ],
+            "sender_id": "u_kate",
+            "sender_name": "Катя",
             "timestamp": "2026-03-24T11:00:00Z",
         },
         "outputs": {
@@ -107,7 +125,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "10:00", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_kate",
+            "sender_name": "Катя"
         },
         "metadata": {"group": "publish_context", "split": "agent_behavior"}
     },
@@ -119,6 +139,8 @@ EXAMPLES = [
                 {"type": "human", "content": "[2026-03-22T09:30:00Z] [Author: Alex]: COB today at 11 for sure."},
                 {"type": "human", "content": "[2026-03-22T13:30:00Z] [Author: Taylor]: ping"},
             ],
+            "sender_id": "u8",
+            "sender_name": "Taylor",
             "timestamp": "2026-03-22T14:40:00Z",
         },
         "outputs": {
@@ -126,7 +148,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "17:00", "city": None, "event_type": "Board Meeting"}
-            ]
+            ],
+            "sender_id": "u8",
+            "sender_name": "Taylor"
         },
         "metadata": {"group": "publish_context", "split": "agent_behavior"}
     },
@@ -139,12 +163,16 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T21:50:00Z] [Author: User1]: Ох, устал сегодня."}
             ],
+            "sender_id": "201",
+            "sender_name": "User",
             "timestamp": "2026-03-13T22:00:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "201",
+            "sender_name": "User"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -155,12 +183,16 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T09:45:00Z] [Author: Team]: Планируем ретроспективу."}
             ],
+            "sender_id": "502",
+            "sender_name": "Vlad",
             "timestamp": "2026-03-13T10:00:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "502",
+            "sender_name": "Vlad"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -172,12 +204,16 @@ EXAMPLES = [
                 {"type": "human", "content": "[2026-03-24T17:00:00Z] [Author: Серёга]: окей после пяти встречаемся"},
                 {"type": "human", "content": "[2026-03-24T17:30:00Z] [Author: Лёня]: алло?"},
             ],
+            "sender_id": "u_leo",
+            "sender_name": "Лёня",
             "timestamp": "2026-03-24T18:00:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "u_leo",
+            "sender_name": "Лёня"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -190,12 +226,16 @@ EXAMPLES = [
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "14:00", "city": None, "event_type": "разбор"}]}, "id": "tc1"}], "message_id": "m1"},
                 {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
             ],
+            "sender_id": "u_nar",
+            "sender_name": "UserNar",
             "timestamp": "2026-03-13T16:00:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "u_nar",
+            "sender_name": "UserNar"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -206,12 +246,16 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-24T11:50:00Z] [Author: Толя]: может в следующем году?"},
             ],
+            "sender_id": "u_roma",
+            "sender_name": "Рома",
             "timestamp": "2026-03-24T12:00:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "u_roma",
+            "sender_name": "Рома"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -224,12 +268,16 @@ EXAMPLES = [
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "встреча"}]}, "id": "tc1"}], "message_id": "m1"},
                 {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
             ],
+            "sender_id": "u_echo",
+            "sender_name": "UserEcho",
             "timestamp": "2026-03-13T15:00:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "u_echo",
+            "sender_name": "UserEcho"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -240,12 +288,16 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T16:30:00Z] [Author: Гоша]: в каком здании встречаемся?"},
             ],
+            "sender_id": "802",
+            "sender_name": "Степан",
             "timestamp": "2026-03-13T16:40:00Z",
         },
         "outputs": {
             "event": False,
             "tool": None,
-            "points": []
+            "points": [],
+            "sender_id": "802",
+            "sender_name": "Степан"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -260,6 +312,8 @@ EXAMPLES = [
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "10:00", "city": None, "event_type": "созвон"}]}, "id": "tc1"}], "message_id": "m1"},
                 {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"}
             ],
+            "sender_id": "u2",
+            "sender_name": "Петя",
             "timestamp": "2026-03-20T09:10:00Z",
         },
         "outputs": {
@@ -268,7 +322,10 @@ EXAMPLES = [
             "event_ref": 1,
             "points": [
                 {"time": "11:00", "city": None, "event_type": "созвон"}
-            ]
+            ],
+            "sender_id": "u2",
+            "sender_name": "Петя",
+            "comment": "UPDATE due to coordination"
         },
         "metadata": {"group": "update_correction", "split": "agent_behavior"}
     },
@@ -282,6 +339,8 @@ EXAMPLES = [
                 {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
                 {"type": "human", "content": "[2026-03-20T10:05:00Z] [Author: Саша]: я не успею к 14, можно в 13:30?"}
             ],
+            "sender_id": "u3",
+            "sender_name": "Маша",
             "timestamp": "2026-03-20T10:20:00Z",
         },
         "outputs": {
@@ -290,7 +349,10 @@ EXAMPLES = [
             "event_ref": 1,
             "points": [
                 {"time": "13:30", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u3",
+            "sender_name": "Маша",
+            "comment": "UPDATE due to coordination"
         },
         "metadata": {"group": "update_correction", "split": "agent_behavior"}
     },
@@ -305,6 +367,8 @@ EXAMPLES = [
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "22:00", "city": None, "event_type": "star-fall start"}, {"time": "06:00", "city": None, "event_type": "star-fall end"}]}, "id": "tc1"}], "message_id": "m1"},
                 {"type": "tool", "content": "✅ Event published. event_ref: 1071", "tool_call_id": "tc1"}
             ],
+            "sender_id": "u_star",
+            "sender_name": "Anton",
             "timestamp": "2026-03-23T20:12:26Z",
         },
         "outputs": {
@@ -315,7 +379,9 @@ EXAMPLES = [
                 {"time": "22:00", "city": None, "event_type": "star-fall start"},
                 {"time": "06:00", "city": None, "event_type": "star-fall end"},
                 {"time": "03:00", "city": None, "event_type": "ISS passing"}
-            ]
+            ],
+            "sender_id": "u_star",
+            "sender_name": "Anton"
         },
         "metadata": {"group": "update_addition", "split": "agent_behavior"}
     },
@@ -336,6 +402,8 @@ EXAMPLES = [
                 {"type": "ai", "tool_calls": [{"name": "update_previous_event", "args": {"event_ref": 1, "points": [{"time": "12:00", "city": None, "event_type": "zoom"}]}, "id": "tc3"}], "message_id": "m1"},
                 {"type": "tool", "content": "✅ Event updated. event_ref: 1", "tool_call_id": "tc3"},
             ],
+            "sender_id": "hr2",
+            "sender_name": "Jane",
             "timestamp": "2026-03-24T10:15:00Z",
         },
         "outputs": {
@@ -344,7 +412,10 @@ EXAMPLES = [
             "event_ref": 1,
             "points": [
                 {"time": "10:00", "city": None, "event_type": "zoom [UPDATED]"}
-            ]
+            ],
+            "sender_id": "hr2",
+            "sender_name": "Jane",
+            "comment": "UPDATE due to coordination"
         },
         "metadata": {"group": "update_negotiation", "split": "agent_behavior"}
     },

@@ -83,15 +83,39 @@ RULES:
 7. No exact time → no tools.
 
 EXAMPLES:
-`[Ivan]: в 16-ом` → <event_logic>address</event_logic><time_logic>16=building not time</time_logic><geo_logic>none</geo_logic><tool_logic>skip</tool_logic>
+`[Ivan]: в 16-ом` → 
+<event_logic>address</event_logic>
+<time_logic>16=building not time</time_logic>
+<geo_logic>none</geo_logic>
+<tool_logic>skip</tool_logic>
 
-`[Carlos]: sync 9am EST = 2pm London` → <event_logic>sync yes</event_logic><time_logic>14:00</time_logic><geo_logic>London</geo_logic><tool_logic>publish</tool_logic> → publish_event(points=[{"time":"14:00","city":"London","event_type":"sync"}])
+`[Carlos]: sync 9am EST = 2pm London` → 
+<event_logic>sync yes</event_logic>
+<time_logic>9am EST and 2pm London is equal, I'll take 14:00 London</time_logic>
+<geo_logic>London</geo_logic>
+<tool_logic>publish, since its NEW</tool_logic>
+ → publish_event(points=[{"time":"14:00","city":"London","event_type":"sync"}])
 
-history: ✅ event_ref:1 | `[Jack]: zoom 9am, meeting 2pm` → update_previous_event(event_ref=1,points=[{"time":"09:00","city":null,"event_type":"zoom"},{"time":"14:00","city":null,"event_type":"meeting"}],comment="added zoom+meeting")
+history: "✅ Event published. event_ref: 1071. Summary: zoom → 21:00"
+`[Jack]: zoom 9am, meeting 2pm`
+<event_logic>zoom and meeting mentioned, simce like event addition</event_logic>
+<time_logic>9:00 and 14:00 - clear and precisely</time_logic>
+<geo_logic>none</geo_logic>
+<tool_logic>update, addition</tool_logic>
+→ update_previous_event(event_ref=1,points=[{"time":"09:00","city":null,"event_type":"zoom"},{"time":"14:00","city":null,"event_type":"meeting"}],comment="UPADATED: zoom+meeting")
 
-`[Masha]: вчера созвон 18:00 Москва` → <event_logic>past call, coord value yes</event_logic><time_logic>18:00</time_logic><geo_logic>Moscow</geo_logic><tool_logic>publish</tool_logic> → publish_event(points=[{"time":"18:00","city":"Moscow","event_type":"call"}])
+`[Masha]: вчера созвон 18:00 Москва` → 
+<event_logic>past call, coord value yes</event_logic>
+<time_logic>18:00</time_logic>
+<geo_logic>Moscow time mentioned</geo_logic>
+<tool_logic>publish</tool_logic>
+ → publish_event(points=[{"time":"18:00","city":"Moscow","event_type":"call"}])
 
-`[Dima]: вчера до полуночи в баре` → <event_logic>personal anecdote</event_logic><time_logic>midnight but irrelevant</time_logic><geo_logic>none</geo_logic><tool_logic>skip</tool_logic>
+`[Dima]: вчера до полуночи в баре` → 
+<event_logic>personal anecdote</event_logic>
+<time_logic>midnight but irrelevant</time_logic>
+<geo_logic>none</geo_logic>
+<tool_logic>skip</tool_logic>
 """
 
 def get_system_prompt() -> str:

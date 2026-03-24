@@ -28,10 +28,12 @@ from langsmith.schemas import Run, Example  # noqa: E402
 from src.event_detection.detector import detect_event  # noqa: E402
 from src.event_detection.history import _message_history, _chat_locks  # noqa: E402
 
-# ── Config ─────────────────────────────────────────────────────────────────
-# Default dataset — switch with --dataset flag
+# Default datasets
 DATASET_CURATED  = "timezone-bot-tool-calls"        # hand-crafted with tool ground truth
 DATASET_MIGRATED = "timezone-bot-event-detection"   # migrated from cases.yaml
+DATASET_PARSING  = "timezone-bot-time-parsing"      # time parsing focus
+DATASET_BEHAVIOR = "timezone-bot-agent-behavior"    # agent logic/behavior focus
+
 EXPERIMENT_PREFIX = "agent-v1"   # bump when making big changes
 
 
@@ -322,8 +324,10 @@ def eval_event_ref(run: Run, example: Example) -> dict:
 async def main():
     parser = argparse.ArgumentParser(description="Run LangSmith eval")
     parser.add_argument(
-        "--dataset", choices=["curated", "migrated"], default="curated",
-        help="curated=tool-calls dataset, migrated=cases.yaml dataset",
+        "--dataset", 
+        choices=["curated", "migrated", "parsing", "behavior"], 
+        default="curated",
+        help="curated=tool-calls, migrated=cases.yaml, parsing=time_parsing_cases, behavior=agent_behavior_cases",
     )
     parser.add_argument("--prefix", default=EXPERIMENT_PREFIX,
                         help="Experiment name prefix")
@@ -334,7 +338,13 @@ async def main():
     global _EVAL_ARGS
     _EVAL_ARGS = args
 
-    dataset_name = DATASET_CURATED if args.dataset == "curated" else DATASET_MIGRATED
+    dataset_map = {
+        "curated":  DATASET_CURATED,
+        "migrated": DATASET_MIGRATED,
+        "parsing":  DATASET_PARSING,
+        "behavior": DATASET_BEHAVIOR,
+    }
+    dataset_name = dataset_map.get(args.dataset)
 
     client = Client()
     datasets = {d.name: d for d in client.list_datasets()}

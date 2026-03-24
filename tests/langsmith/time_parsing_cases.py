@@ -41,6 +41,8 @@ EXAMPLES = [
         "inputs": {
             "text": "sync at 2pm today",
             "history": [],
+            "sender_id": "u_sync",
+            "sender_name": "UserSync",
             "timestamp": "2026-03-13T10:00:00Z",
         },
         "outputs": {
@@ -48,7 +50,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "14:00", "city": None, "event_type": "sync"}
-            ]
+            ],
+            "sender_id": "u_sync",
+            "sender_name": "UserSync"
         },
         "metadata": {"group": "standard", "split": "time_parsing"}
     },
@@ -69,7 +73,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "15:00", "city": None, "event_type": "митинг"}
-            ]
+            ],
+            "sender_id": "701",
+            "sender_name": "Пашок"
         },
         "metadata": {"group": "standard", "split": "time_parsing"}
     },
@@ -90,7 +96,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "20:00", "city": None, "event_type": "deadline"}
-            ]
+            ],
+            "sender_id": "u2",
+            "sender_name": "Anton"
         },
         "metadata": {"group": "standard", "split": "time_parsing"}
     },
@@ -103,6 +111,8 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T17:15:00Z] [Author: Anton]: Ребят, во сколько сегодня встреча?"}
             ],
+            "sender_id": "u_idiom1",
+            "sender_name": "UserIdiom1",
             "timestamp": "2026-03-13T17:20:00Z",
         },
         "outputs": {
@@ -110,7 +120,9 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "17:45", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_idiom1",
+            "sender_name": "UserIdiom1"
         },
         "metadata": {"group": "idioms", "split": "time_parsing"}
     },
@@ -122,14 +134,18 @@ EXAMPLES = [
                 {"type": "human", "content": "[2026-03-13T10:00:00Z] [Author: Маша]: встреча в 14:00?"},
                 {"type": "human", "content": "[2026-03-13T10:05:00Z] [Author: Саша]: я не успею к 14, можно в 13:30?"}
             ],
+            "sender_id": "u_idiom2",
+            "sender_name": "UserIdiom2",
             "timestamp": "2026-03-13T10:20:00Z",
         },
         "outputs": {
             "event": True,
-            # Note: User schema says this should be 13:30
+            "tool": "publish_event",
             "points": [
                 {"time": "13:30", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_idiom2",
+            "sender_name": "UserIdiom2"
         },
         "metadata": {"group": "idioms", "split": "time_parsing"}
     },
@@ -138,13 +154,18 @@ EXAMPLES = [
         "inputs": {
             "text": "завтра в час ждём всех",
             "history": [],
+            "sender_id": "u_idiom3",
+            "sender_name": "UserIdiom3",
             "timestamp": "2026-03-13T23:50:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "13:00", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_idiom3",
+            "sender_name": "UserIdiom3"
         },
         "metadata": {"group": "idioms", "split": "time_parsing"}
     },
@@ -153,13 +174,18 @@ EXAMPLES = [
         "inputs": {
             "text": "morgen um halb zehn kurzes meeting ja?",
             "history": [],
+            "sender_id": "u_idiom4",
+            "sender_name": "UserIdiom4",
             "timestamp": "2026-03-13T10:05:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "09:30", "city": None, "event_type": "meeting"}
-            ]
+            ],
+            "sender_id": "u_idiom4",
+            "sender_name": "UserIdiom4"
         },
         "metadata": {"group": "idioms", "split": "time_parsing"}
     },
@@ -168,13 +194,18 @@ EXAMPLES = [
         "inputs": {
             "text": "réunion demain matin à 9h",
             "history": [],
+            "sender_id": "u_idiom5",
+            "sender_name": "UserIdiom5",
             "timestamp": "2026-03-13T14:33:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "09:00", "city": None, "event_type": "réunion"}
-            ]
+            ],
+            "sender_id": "u_idiom5",
+            "sender_name": "UserIdiom5"
         },
         "metadata": {"group": "idioms", "split": "time_parsing"}
     },
@@ -183,13 +214,18 @@ EXAMPLES = [
         "inputs": {
             "text": "дедлайн сегодня в полночь",
             "history": [],
+            "sender_id": "u_idiom6",
+            "sender_name": "UserIdiom6",
             "timestamp": "2026-03-13T12:00:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "00:00", "city": None, "event_type": "дедлайн"}
-            ]
+            ],
+            "sender_id": "u_idiom6",
+            "sender_name": "UserIdiom6"
         },
         "metadata": {"group": "idioms", "split": "time_parsing"}
     },
@@ -200,13 +236,18 @@ EXAMPLES = [
         "inputs": {
             "text": "через час будет созвон",
             "history": [],
+            "sender_id": "u_rel1",
+            "sender_name": "UserRel1",
             "timestamp": "2026-03-13T12:21:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "13:21", "city": None, "event_type": "созвон"}
-            ]
+            ],
+            "sender_id": "u_rel1",
+            "sender_name": "UserRel1"
         },
         "metadata": {"group": "relative", "split": "time_parsing"}
     },
@@ -215,13 +256,18 @@ EXAMPLES = [
         "inputs": {
             "text": "чз 20 мин хопа в зуме ладн",
             "history": [],
+            "sender_id": "u_rel2",
+            "sender_name": "UserRel2",
             "timestamp": "2026-03-13T11:47:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "12:07", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_rel2",
+            "sender_name": "UserRel2"
         },
         "metadata": {"group": "relative", "split": "time_parsing"}
     },
@@ -232,13 +278,18 @@ EXAMPLES = [
         "inputs": {
             "text": "lets do thursdsy at 10:30",
             "history": [],
+            "sender_id": "u_typo1",
+            "sender_name": "UserTypo1",
             "timestamp": "2026-03-13T10:00:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "10:30", "city": None, "event_type": "meeting"}
-            ]
+            ],
+            "sender_id": "u_typo1",
+            "sender_name": "UserTypo1"
         },
         "metadata": {"group": "typos", "split": "time_parsing"}
     },
@@ -249,13 +300,18 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T17:15:00Z] [Author: Anton]: Ребят, во сколько сегодня встреча?"}
             ],
+            "sender_id": "u_typo2",
+            "sender_name": "UserTypo2",
             "timestamp": "2026-03-13T17:20:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "17:45", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_typo2",
+            "sender_name": "UserTypo2"
         },
         "metadata": {"group": "typos", "split": "time_parsing"}
     },
@@ -264,13 +320,18 @@ EXAMPLES = [
         "inputs": {
             "text": "davay v poltretego",
             "history": [],
+            "sender_id": "u_typo3",
+            "sender_name": "UserTypo3",
             "timestamp": "2026-03-24T14:30:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "14:30", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_typo3",
+            "sender_name": "UserTypo3"
         },
         "metadata": {"group": "typos", "split": "time_parsing"}
     },
@@ -279,13 +340,18 @@ EXAMPLES = [
         "inputs": {
             "text": "and approximately at 3 it,s possible to watch ISS pasing",
             "history": [],
+            "sender_id": "u_typo4",
+            "sender_name": "UserTypo4",
             "timestamp": "2026-03-23T20:12:26Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "03:00", "city": None, "event_type": "ISS passing"}
-            ]
+            ],
+            "sender_id": "u_typo4",
+            "sender_name": "UserTypo4"
         },
         "metadata": {"group": "typos", "split": "time_parsing"}
     },
@@ -296,13 +362,18 @@ EXAMPLES = [
         "inputs": {
             "text": "meeting is at 7 in evening i mean 7pm not morning lol",
             "history": [],
+            "sender_id": "u_self1",
+            "sender_name": "UserSelf1",
             "timestamp": "2026-03-13T09:15:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "19:00", "city": None, "event_type": "meeting"}
-            ]
+            ],
+            "sender_id": "u_self1",
+            "sender_name": "UserSelf1"
         },
         "metadata": {"group": "self_correction", "split": "time_parsing"}
     },
@@ -311,13 +382,18 @@ EXAMPLES = [
         "inputs": {
             "text": "чз полчаса хопа в зуме ладн? ой сорян имел в виду не щас а в 1430",
             "history": [],
+            "sender_id": "u_self2",
+            "sender_name": "UserSelf2",
             "timestamp": "2026-03-13T13:00:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "14:30", "city": None, "event_type": "встреча"}
-            ]
+            ],
+            "sender_id": "u_self2",
+            "sender_name": "UserSelf2"
         },
         "metadata": {"group": "self_correction", "split": "time_parsing"}
     },
@@ -326,13 +402,18 @@ EXAMPLES = [
         "inputs": {
             "text": "mañana a las 9 y media, no a las 10 como dije antes",
             "history": [],
+            "sender_id": "u_self3",
+            "sender_name": "UserSelf3",
             "timestamp": "2026-03-13T17:02:00Z",
         },
         "outputs": {
             "event": True,
+            "tool": "publish_event",
             "points": [
                 {"time": "09:30", "city": None, "event_type": "reunión"}
-            ]
+            ],
+            "sender_id": "u_self3",
+            "sender_name": "UserSelf3"
         },
         "metadata": {"group": "self_correction", "split": "time_parsing"}
     },
