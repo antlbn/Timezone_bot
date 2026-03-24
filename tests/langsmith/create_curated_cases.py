@@ -77,12 +77,11 @@ EXAMPLES = [
         "inputs": {
             "text": "and approximately at 3 it,s possible to watch ISS pasing",
             "history": [
-                {"type": "human", "content": "[2026-03-23T20:10:00Z] [Author: Anton Lubny]: in our rigion it will be star-fall from 10 to 6"},
+                {"type": "human", "content": "[2026-03-23T20:10:00Z] [Author: Anton]: in our rigion it will be star-fall from 10 to 6"},
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"reflections": {"event_logic": "mock", "time_logic": "mock", "geo_logic": "mock", "tool_logic": "mock"}, "points": [{"time": "22:00", "city": None, "event_type": "star-fall start"}, {"time": "06:00", "city": None, "event_type": "star-fall end"}]}, "id": "tc_starfall"}], "message_id": "m_starfall"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1071. Summary: star-fall start → 22:00, star-fall end → 06:00", "tool_call_id": "tc_starfall"}
+                {"type": "tool", "content": "✅ Event published. event_ref:     1071. Summary: star-fall start → 22:00, star-fall end → 06:00", "tool_call_id": "tc_starfall"}
             ],
-            "sender_id": "anton_lubny",
-            "sender_name": "Anton Lubny",
+            "sender_name": "Anton",
             "timestamp": "2026-03-23T20:12:26Z",
         },
         "outputs": {
@@ -171,15 +170,19 @@ EXAMPLES = [
         },
     },
 
-    # ── NO EVENT: casual chat ──────────────────────────────────────────────
+    # ── NO EVENT: sarcastic/metaphorical time ──────────────────────────────
     {
-        "description": "[TOOL=null] Casual message — no event",
+        "description": "[TOOL=null] Sarcastic 'midnight' in history context",
         "inputs": {
-            "text": "Привет, как дела?",
-            "history": [],
-            "sender_id": "u1",
-            "sender_name": "User",
-            "timestamp": "2026-03-20T12:00:00Z",
+            "text": "да-да, договорились — ровно в полночь, как в сказке 🙄",
+            "history": [
+                {"type": "human", "content": "[2026-03-24T11:30:00Z] [Author: Толя]: когда наконец встретимся по этому вопросу?"},
+                {"type": "human", "content": "[2026-03-24T11:40:00Z] [Author: Рома]: ну ты сам всегда занят"},
+                {"type": "human", "content": "[2026-03-24T11:50:00Z] [Author: Толя]: может в следующем году?"},
+            ],
+            "sender_id": "u_roma",
+            "sender_name": "Рома",
+            "timestamp": "2026-03-24T12:00:00Z",
         },
         "outputs": {
             "event": False,
@@ -188,20 +191,27 @@ EXAMPLES = [
         },
     },
 
-    # ── NO EVENT: day-of-week misread trap ────────────────────────────────
+    # ── PUBLISH: Availability window (multiple times) ──────────────────────
     {
-        "description": "[TOOL=null] Day-of-week not a time (regression)",
+        "description": "[TOOL=publish] Availability window — multiple times in one message",
         "inputs": {
-            "text": "Увидимся в пятницу, пока без конкретного времени",
-            "history": [],
-            "sender_id": "u1",
-            "sender_name": "User",
-            "timestamp": "2026-03-20T10:00:00Z",
+            "text": "I am free between 14:00 and 17:30 tomorrow",
+            "history": [
+                {"type": "human", "content": "[2026-03-13T09:48:00Z] [Author: Recruiter]: Hi Elena, when can we talk?"},
+                {"type": "human", "content": "[2026-03-13T09:53:00Z] [Author: Elena]: Hi!"},
+            ],
+            "sender_id": "304",
+            "sender_name": "Elena",
+            "timestamp": "2026-03-13T10:00:00Z",
         },
         "outputs": {
-            "event": False,
-            "tool": None,
-            "points": []
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "14:00", "city": None, "event_type": "availability"},
+                {"time": "17:30", "city": None, "event_type": "availability"}
+            ],
+            "comment": ""
         },
     },
 
@@ -290,6 +300,159 @@ EXAMPLES = [
             "tool": "publish_event",
             "points": [
                 {"time": "09:30", "city": None, "event_type": "reunión"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── PUBLISH: Stress test (3 events + messy history + typos) ───────────
+    {
+        "description": "[TOOL=publish] Stress test — 3 events, massive history with typos",
+        "inputs": {
+            "text": "Man sry for writing so late im just buried in work and my brain is fried anyway about the loogistics call lets do thursdsy at 10:30 instead of half past nine as suggested coz i wont make it from the airport and also we really need to talk about the investor deck on Friday at 1 PM thats super critical and also remind me pls what about the code deadline on Monday by 5 PM are we on track? i am literally falling asleep here...",
+            "history": [
+                {"type": "human", "content": "[2026-03-13T21:15:00Z] [Author: Dima]: Hey colleagues, I was looking at our yesterday's sync from 9:00 AM and realized we have a massive workload ahead. Especially with the Munich logistics project we discussed last Friday at 4 PM. We should try to discuss everything this Wednesday around 2 PM if everyone is free."},
+                {"type": "human", "content": "[2026-03-13T21:30:00Z] [Author: Elena]: Agree, Dima. That project takes a lot of time. I remember we had a session at 11 AM about it. I can't do Wednesday at 2 because of a legal call at 2:30. How about Thursday morning, say half past nine, so we can cover everything?"},
+            ],
+            "sender_id": "601",
+            "sender_name": "Anton",
+            "timestamp": "2026-03-13T22:00:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "10:30", "city": None, "event_type": "logistics call"},
+                {"time": "13:00", "city": None, "event_type": "investor deck"},
+                {"time": "17:00", "city": None, "event_type": "code deadline"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── PUBLISH: Slang + typos (Russian) ──────────────────────────────────
+    {
+        "description": "[TOOL=publish] Slang + typos — 'митос в 1500'",
+        "inputs": {
+            "text": "гы народ митос завтр в 1500 не проспите лан?",
+            "history": [
+                {"type": "human", "content": "[2026-03-13T13:02:00Z] [Author: Серый]: пашок ты живой?"},
+                {"type": "human", "content": "[2026-03-13T13:09:00Z] [Author: Дэн]: задеплоили наконец-то ффух"},
+            ],
+            "sender_id": "701",
+            "sender_name": "Пашок",
+            "timestamp": "2026-03-13T13:14:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "15:00", "city": None, "event_type": "митинг"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── PUBLISH: Relative time (Russian) ──────────────────────────────────
+    {
+        "description": "[TOOL=publish] Relative time — 'через час'",
+        "inputs": {
+            "text": "через час будет созвон",
+            "history": [
+                {"type": "human", "content": "[2026-03-13T12:16:00Z] [Author: Admin]: Всем приготовиться."},
+            ],
+            "sender_id": "303",
+            "sender_name": "Jane",
+            "timestamp": "2026-03-13T12:21:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "13:21", "city": None, "event_type": "созвон"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── NO EVENT: Post-factum complaint ──────────────────────────────────
+    {
+        "description": "[TOOL=null] Post-factum complaint disguised as coordination",
+        "inputs": {
+            "text": "мы же договорились в 17:30, я прождал полчаса",
+            "history": [
+                {"type": "human", "content": "[2026-03-24T17:00:00Z] [Author: Серёга]: окей после пяти встречаемся"},
+                {"type": "human", "content": "[2026-03-24T17:30:00Z] [Author: Лёня]: алло?"},
+                {"type": "human", "content": "[2026-03-24T17:50:00Z] [Author: Лёня]: ну вы где"},
+            ],
+            "sender_id": "u_leo",
+            "sender_name": "Лёня",
+            "timestamp": "2026-03-24T18:00:00Z",
+        },
+        "outputs": {
+            "event": False,
+            "tool": None,
+            "points": []
+        },
+    },
+    # ── PUBLISH: Narrative of the past within future planning ─────────────
+    {
+        "description": "[TOOL=publish] Narrative of the past within future planning",
+        "inputs": {
+            "text": "в прошлый раз мы начали в 11 и не уложились до 13-ти,\nдавайте в этот раз возьмём с запасом — стартуем в 10",
+            "history": [
+                {"type": "human", "content": "[2026-03-24T10:45:00Z] [Author: PM]: нам нужно доделать то что не успели на прошлой неделе"},
+                {"type": "human", "content": "[2026-03-24T10:52:00Z] [Author: Дима]: согласен, там осталось много"},
+            ],
+            "sender_id": "u_kate",
+            "sender_name": "Катя",
+            "timestamp": "2026-03-24T11:00:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "10:00", "city": None, "event_type": "встреча"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── PUBLISH: Translit/Slang 'poltretego' (14:30) ──────────────────────
+    {
+        "description": "[TOOL=publish] Russian translit 'poltretego' = 14:30",
+        "inputs": {
+            "text": "davay v poltretego, eto 14:30 da?",
+            "history": [
+                {"type": "human", "content": "[2026-03-24T14:22:00Z] [Author: Дэн]: vo skolko zavtra?"},
+                {"type": "human", "content": "[2026-03-24T14:27:00Z] [Author: Артём]: я с утра занят"},
+            ],
+            "sender_id": "u_rustam",
+            "sender_name": "Рустам",
+            "timestamp": "2026-03-24T14:30:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "14:30", "city": None, "event_type": "встреча"}
+            ],
+            "comment": ""
+        },
+    },
+    # ── PUBLISH: German idiom 'halb zehn' (09:30) ─────────────────────────
+    {
+        "description": "[MULTILANG] German idiom — 'halb zehn' = 09:30 (not 10:30)",
+        "inputs": {
+            "text": "morgen um halb zehn kurzes meeting ja?",
+            "history": [
+                {"type": "human", "content": "[2026-03-13T09:57:00Z] [Author: Anna]: wann treffen wir uns?"},
+                {"type": "human", "content": "[2026-03-13T10:02:00Z] [Author: Klaus]: hab gerade mit dem Kunden gesprochen"},
+            ],
+            "sender_id": "803",
+            "sender_name": "Klaus",
+            "timestamp": "2026-03-13T10:05:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "09:30", "city": None, "event_type": "meeting"}
             ],
             "comment": ""
         },
