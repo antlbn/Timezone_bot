@@ -91,6 +91,10 @@ def get_log_llm_prompts() -> bool:
     return get_config().get("event_detection", {}).get("log_prompts", False)
 
 
+def get_edit_in_place_enabled() -> bool:
+    """Whether to edit messages in place or always republish."""
+    return get_config().get("event_detection", {}).get("edit_in_place", True)
+
 def get_republish_edited_message_after_distance() -> int:
     """Get the distance threshold after which an edited message is republished instead of silently edited."""
     return get_config().get("event_detection", {}).get("republish_edited_message_after_distance", 8)

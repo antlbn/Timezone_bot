@@ -309,12 +309,13 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
                 reply = await build_reply_fn(valid_points, footer=comment)
                 if reply:
                     # Count HumanMessages since the old event to decide edit vs delete+republish
-                    from src.config import get_republish_edited_message_after_distance
+                    from src.config import get_republish_edited_message_after_distance, get_edit_in_place_enabled
                     distance = sum(1 for m in messages[old_ai_idx:] if isinstance(m, HumanMessage))
                     limit = get_republish_edited_message_after_distance()
+                    edit_enabled = get_edit_in_place_enabled()
                     
-                    if distance > limit:
-                        logger.info(f"[chat:{chat_id}] update event #{event_ref} > {limit} msgs away ({distance}). Delete+republish.")
+                    if not edit_enabled or distance > limit:
+                        logger.info(f"[chat:{chat_id}] update event #{event_ref} (edit_enabled={edit_enabled}, distance={distance}). Delete+republish.")
                         if delete_fn and prev_msg_id:
                             await delete_fn(prev_msg_id)
                         if send_fn:

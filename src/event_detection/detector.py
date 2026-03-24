@@ -156,6 +156,7 @@ async def detect_event(
     sender_db: dict,
     send_fn: Callable[[str], Awaitable[str | None]] | None = None,
     edit_fn: Callable[[str, str], Awaitable[None]] | None = None,
+    delete_fn: Callable[[str], Awaitable[None]] | None = None,
     platform: str = "",
     chat_id: str = "",
     ctx_logger: Any = None,
@@ -203,7 +204,7 @@ async def detect_event(
             "system_prompt": system_text,
             "send_fn": send_fn,
             "edit_fn": edit_fn,
-            "delete_fn": None, # Future impl
+            "delete_fn": delete_fn,
             "build_reply_fn": build_reply_wrapper,
             "chat_id": chat_id,
             "platform": platform,

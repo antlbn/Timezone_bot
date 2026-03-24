@@ -224,7 +224,7 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T13:45:00Z] [Author: User1]: встречаемся в 14:00 для разбора"},
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "14:00", "city": None, "event_type": "разбор"}]}, "id": "tc1"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: разбор → 14:00", "tool_call_id": "tc1"},
             ],
             "sender_id": "u_nar",
             "sender_name": "UserNar",
@@ -266,18 +266,21 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-13T14:45:00Z] [Author: Anton]: завтра в 15:00 встречаемся"},
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "встреча"}]}, "id": "tc1"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: встреча → 15:00", "tool_call_id": "tc1"},
             ],
             "sender_id": "u_echo",
             "sender_name": "UserEcho",
             "timestamp": "2026-03-13T15:00:00Z",
         },
         "outputs": {
-            "event": False,
-            "tool": None,
-            "points": [],
+            "event": True,
+            "tool": "update_previous_event", 
+            "points": [
+                {"time": "15:00", "city": None, "event_type": "встреча"}
+            ],
             "sender_id": "u_echo",
-            "sender_name": "UserEcho"
+            "sender_name": "UserEcho",
+            "comment": "confirmed"
         },
         "metadata": {"group": "no_publish", "trap": True, "split": "agent_behavior"}
     },
@@ -310,7 +313,7 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-20T09:00:00Z] [Author: Иван]: созвон в 10 утра?"},
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "10:00", "city": None, "event_type": "созвон"}]}, "id": "tc1"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"}
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: созвон → 10:00", "tool_call_id": "tc1"}
             ],
             "sender_id": "u2",
             "sender_name": "Петя",
@@ -335,8 +338,8 @@ EXAMPLES = [
             "text": "ок, тогда в полвторого договорились",
             "history": [
                 {"type": "human", "content": "[2026-03-20T10:00:00Z] [Author: Маша]: встреча в 14:00?"},
-                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "14:00", "city": None, "event_type": "встреча"}]}, "id": "tc1"}], "message_id": "m2"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
+                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "14:00", "city": None, "event_type": "встреча"}]}, "id": "tc1"}], "message_id": "m2"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: встреча → 14:00", "tool_call_id": "tc1"},
                 {"type": "human", "content": "[2026-03-20T10:05:00Z] [Author: Саша]: я не успею к 14, можно в 13:30?"}
             ],
             "sender_id": "u3",
@@ -365,7 +368,7 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-23T20:10:00Z] [Author: Anton]: in our rigion it will be star-fall from 10 to 6"},
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "22:00", "city": None, "event_type": "star-fall start"}, {"time": "06:00", "city": None, "event_type": "star-fall end"}]}, "id": "tc1"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1071", "tool_call_id": "tc1"}
+                {"type": "tool", "content": "✅ Event published. event_ref: 1071. Summary: star-fall start → 22:00, star-fall end → 06:00", "tool_call_id": "tc1"}
             ],
             "sender_id": "u_star",
             "sender_name": "Anton",
@@ -381,7 +384,8 @@ EXAMPLES = [
                 {"time": "03:00", "city": None, "event_type": "ISS passing"}
             ],
             "sender_id": "u_star",
-            "sender_name": "Anton"
+            "sender_name": "Anton",
+            "comment": "added ISS pass at 03:00"
         },
         "metadata": {"group": "update_addition", "split": "agent_behavior"}
     },
@@ -394,13 +398,13 @@ EXAMPLES = [
             "history": [
                 {"type": "human", "content": "[2026-03-24T09:58:00Z] [Author: Jack]: давайте общий зум по scope of work завтра в 9 утра"},
                 {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "09:00", "city": None, "event_type": "zoom"}]}, "id": "tc1"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event published. event_ref: 1", "tool_call_id": "tc1"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1. Summary: zoom → 09:00", "tool_call_id": "tc1"},
                 {"type": "human", "content": "[2026-03-24T10:02:00Z] [Author: Jess]: можем в 11 если что?"},
                 {"type": "ai", "tool_calls": [{"name": "update_previous_event", "args": {"event_ref": 1, "points": [{"time": "11:00", "city": None, "event_type": "zoom"}]}, "id": "tc2"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event updated. event_ref: 1", "tool_call_id": "tc2"},
+                {"type": "tool", "content": "✅ Event updated. event_ref: 1. Summary: zoom → 11:00", "tool_call_id": "tc2"},
                 {"type": "human", "content": "[2026-03-24T10:02:00Z] [Author: Jack]: давайте тогда в 12"},
                 {"type": "ai", "tool_calls": [{"name": "update_previous_event", "args": {"event_ref": 1, "points": [{"time": "12:00", "city": None, "event_type": "zoom"}]}, "id": "tc3"}], "message_id": "m1"},
-                {"type": "tool", "content": "✅ Event updated. event_ref: 1", "tool_call_id": "tc3"},
+                {"type": "tool", "content": "✅ Event updated. event_ref: 1. Summary: zoom → 12:00", "tool_call_id": "tc3"},
             ],
             "sender_id": "hr2",
             "sender_name": "Jane",

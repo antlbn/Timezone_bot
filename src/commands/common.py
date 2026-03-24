@@ -185,6 +185,12 @@ async def handle_time_mention(
             logger.warning(f"Failed to edit message: {e}")
             raise
 
+    async def delete_fn(msg_id: str) -> None:
+        try:
+            await message.bot.delete_message(chat_id=chat_id, message_id=int(msg_id))
+        except Exception as e:
+            logger.warning(f"Failed to delete message {msg_id}: {e}")
+
     # 4. LLM pipeline — detection + tool dispatch
 
     # 4. LLM pipeline — detection + tool dispatch
@@ -199,6 +205,7 @@ async def handle_time_mention(
         sender_db=sender,
         send_fn=send_fn if is_registered else None,
         edit_fn=edit_fn if is_registered else None,
+        delete_fn=delete_fn if is_registered else None,
         skip_aging=skip_aging,
     )
 

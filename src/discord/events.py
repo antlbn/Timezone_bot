@@ -62,6 +62,14 @@ async def on_message(message: discord.Message):
             logger.warning(f"[guild:{chat_id}] edit_fn failed for msg {message_id}: {e}")
             raise
 
+    async def delete_fn(message_id: str) -> None:
+        try:
+            channel = message.channel
+            prev_msg = await channel.fetch_message(int(message_id))
+            await prev_msg.delete()
+        except Exception as e:
+            logger.warning(f"[guild:{chat_id}] delete_fn failed for msg {message_id}: {e}")
+
     # 3. Check registration status
     is_registered = bool(sender and sender.get("timezone"))
 
@@ -77,6 +85,7 @@ async def on_message(message: discord.Message):
             sender_db=sender,
             send_fn=send_fn if is_registered else None,
             edit_fn=edit_fn if is_registered else None,
+            delete_fn=delete_fn if is_registered else None,
         )
     except Exception as e:
         logger.error(
