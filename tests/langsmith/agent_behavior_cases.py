@@ -1,16 +1,10 @@
-"""
-agent_behavior_cases.py — LangSmith test cases for agent behavior (publish, update, no_publish).
-Split: "agent_behavior"
-"""
-
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from dotenv import load_dotenv
-load_dotenv()
-
 from langsmith import Client
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+load_dotenv()
 
 DATASET_NAME = "timezone-bot-agent-behavior"
 
