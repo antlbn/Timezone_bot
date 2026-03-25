@@ -1,196 +1,224 @@
-# Spec: LLM Chat Memory Model (v1.0)
+# Spec: LLM Chat Memory Model
 
-> **Status**: Design Draft — 2026-03-21  
-> **Relates to**: `14_llm_module.md`, `graph.py`, `prompts.py`
+> **Status**: Updated to current implementation  
+> **Relates to**: `14_llm_module.md`, `src/event_detection/__init__.py`, `src/event_detection/history.py`, `src/event_detection/graph.py`
 
 ---
 
 ## Цель
 
-Описать формат и содержимое "памяти чата" — той части контекста, которую ЛЛМ получает на каждом шаге  
-при поступлении нового сообщения от юзера.
+Описать, какую именно память использует LLM/event-detection pipeline, что в неё попадает, и где проходят границы между:
+
+- краткоживущим chat context в памяти процесса,
+- persisted LangGraph thread state,
+- внешними side effects в самом чате.
 
 ---
 
-## 1. Состав памяти чата
+## 1. Две памяти, а не одна
 
-ЛЛМ получает следующие типы записей в хронологическом порядке:
+В текущей реализации у нас есть **два слоя памяти**:
 
-### 1.1 Пользовательские сообщения
+### 1.1 Short-term chat history (`history.py`)
 
-Сообщения реальных юзеров из чата. Передаются с метаданными:
+Это in-memory история процесса:
 
-```
-[ISO_TIMESTAMP] [ИМЯ]: текст сообщения
+- хранится в `_message_history`;
+- ключ: `(platform, chat_id)`;
+- типы записей: `HumanMessage`, `AIMessage`;
+- используется как локальный snapshot-контекст вокруг входящего сообщения;
+- очищается при рестарте процесса.
+
+### 1.2 LangGraph thread state (`graph_checkpoints.db`)
+
+Это persisted state агента:
+
+- хранится через `AsyncSqliteSaver`;
+- ключ thread: обычно `"{platform}_{chat_id}"`;
+- для detection-only pass используется **ephemeral thread_id**, чтобы не загрязнять реальный thread;
+- содержит `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `RemoveMessage` semantics;
+- переживает рестарт процесса, пока доступен sqlite checkpoints DB.
+
+> Важно: short-term history и LangGraph thread state связаны, но не идентичны.  
+> Первый слой нужен для local snapshot / queueing semantics, второй — для agent-native memory.
+
+---
+
+## 2. Что видит LLM
+
+При обычной обработке зарегистрированного пользователя LLM получает:
+
+1. system prompt;
+2. persisted thread state из LangGraph checkpoints;
+3. текущее сообщение как `HumanMessage`.
+
+При detection-only pass для незарегистрированного пользователя LLM получает:
+
+1. system prompt;
+2. snapshot из `history.py`;
+3. текущее сообщение как `HumanMessage`;
+4. **ephemeral thread_id**, чтобы не записывать fake publish/update в реальный thread.
+
+---
+
+## 3. Какие записи живут в памяти
+
+### 3.1 Пользовательские сообщения
+
+Формат в short-term history:
+
+```text
+[ISO_TIMESTAMP] [Имя]: текст сообщения
 ```
 
 Пример:
-```
+
+```text
 [2026-03-21T10:03:00Z] [Оля]: Ребят, созвон сегодня в 10, потом зум в Лондоне в 22:00
 [2026-03-21T10:05:00Z] [Петя]: не смогу в 10, можно в 10:30?
 ```
 
-### 1.2 Записи о опубликованных событиях (от `publish_event`)
+### 3.2 BOT summary в short-term history
 
-После того как ЛЛМ вызвала инструмент `publish_event`, пайплайн публикует сообщение в чат  
-и добавляет в историю **упрощённую** запись о событии (не финальный отформатированный вид, а краткую).  
+После **реального** `publish_event` или `update_previous_event`, если сообщение действительно было отправлено или отредактировано в чате, `process_message(...)` добавляет компактную BOT-запись в `history.py`.
 
-Формат записи в памяти:
+Формат:
 
-```
-✅ Published event #N: [event_name: ТИП] [time: HH:MM] [city: ГОРОД | null] [msg_ref: N]
-```
-
-Если событие сложное (диапазон времени или несколько точек встречи в один вызов):
-
-```
-✅ Published event #1: [event_name: созвон с] [time: 10:00] [city: null] [msg_ref: 3]
-✅ Published event #2: [event_name: созвон до] [time: 11:00] [city: null] [msg_ref: 3]
-✅ Published event #3: [event_name: зум] [time: 22:00] [city: London] [msg_ref: 3]
+```text
+[BOT]: detected: sync → 14:00, call → 16:30 (London)
 ```
 
-> `msg_ref` — порядковый номер **пользовательского сообщения** в памяти чата (не message_id платформы),  
-> которое вызвало это событие. Нужен чтобы ЛЛМ понимала, к какому разговору привязано событие.  
-> `event #N` — порядковый номер **вызова** `publish_event` в сессии. Если один вызов содержит несколько `points`,  
-> все они хранятся под одним `event #N`. При обновлении ЛЛМ передаёт новый список `points` целиком — только нужные.
+Дополнительно в `additional_kwargs` хранится `message_id`, чтобы update logic могла найти последнее bot message.
 
-### 1.3 Записи об обновлённых событиях (от `update_previous_event`)
+> Detection-only onboarding pass **не должен** создавать такую BOT-запись.
 
-Когда ЛЛМ решает обновить уже опубликованное событие, вызывается `update_previous_event`  
-с указанием `event_ref` (номер события, которое нужно изменить).
+### 3.3 ToolMessage в LangGraph state
 
-Пайплайн:
-1. Обрабатывает изменение и обновляет/переиздаёт сообщение в чате.
-2. **Удаляет** из памяти старую запись `✅ Published event #N` и её AI-вызов.
-3. Вместо неё добавляет:
+В persisted thread state агент работает не с formatted chat reply, а с короткими ToolMessage-записями.
 
-```
-🔄 Updated event #N: [event_name: ...] [time: HH:MM] [city: ГОРОД | null]
+Форматы в текущем коде:
+
+```text
+✅ Event published. event_ref: 4821. Summary: sync → 14:00, call → 16:30
 ```
 
-> ЛЛМ при следующих сообщениях видит только актуальную версию события — без deprecated записей.
+или
+
+```text
+✅ Event updated. event_ref: 4821. Summary: sync → 15:00
+```
+
+Если update не нашёл исходное событие:
+
+```text
+✅ Event published. event_ref: 5932 (fallback). Summary: sync → 15:00
+```
+
+> `event_ref` сейчас не sequence number `#1/#2/#3`, а случайный уникальный 4-digit ref внутри thread.
 
 ---
 
-## 2. Логика поведения ЛЛМ
+## 4. Как работает publish/update memory semantics
 
-ЛЛМ при поступлении нового сообщения анализирует память чата и принимает одно из трёх решений:
+### 4.1 `publish_event`
 
-### 2.1 Публикация нового события → `publish_event`
+Когда агент выбирает `publish_event`:
 
-**Триггер**: ЛЛМ видит, что в текущем сообщении упоминается новое назначенное время или событие.
+1. валидируются `points`;
+2. строится reply;
+3. вызывается platform `send_fn`;
+4. в LangGraph state пишется `ToolMessage` с `event_ref`;
+5. в short-term history добавляется BOT summary, но только если сообщение реально опубликовано.
 
-**Пример**:
-```
-[Оля]: созвон сегодня в 10, зум в Лондоне в 22
-→ publish_event(points=[
-    {event_type: "созвон с", time: "10:00", city: null},
-    {event_type: "зум", time: "22:00", city: "London"}
-  ])
-```
+### 4.2 `update_previous_event`
 
-> Несколько `points` в одном `publish_event` — норма если одно сообщение содержит несколько временных точек.  
-> Каждая `point` записывается в память как отдельный `event #N`.
+Когда агент выбирает `update_previous_event(event_ref=...)`:
 
-### 2.2 Обновление события → `update_previous_event`
-
-**Триггер**: Юзеры в процессе обсуждения оспаривают или уточняют ранее установленное время.  
-ЛЛМ видит в памяти `✅ Published event #N` и понимает, что это событие нужно обновить.
-
-**Два случая**:
-
-**A. Спор без финального решения** — ЛЛМ фиксирует оба варианта чтобы обозначить ситуацию:
-```
-[Оля]: давайте в 9 утра
-→ publish_event → ✅ Published event #1: созвон [9:00]
-
-[Петя]: я не успею к 9, можно в 9:30?
-→ LLM видит спор, вызывает update_previous_event(event_ref=1, points=[
-    {event_type: "созвон (предложение Оли)", time: "09:00", city: null},
-    {event_type: "созвон (просьба Пети)", time: "09:30", city: null}
-  ])
-→ 🔄 Updated event #1: два варианта времени
-```
-
-**B. Финальное решение определено** — ЛЛМ обновляет одним событием:
-```
-[Оля]: ок, пусть будет 9:30
-→ update_previous_event(event_ref=1, points=[
-    {event_type: "созвон", time: "09:30", city: null}
-  ])
-→ 🔄 Updated event #1: созвон [9:30]
-```
-
-> ЛЛМ умеет различать эти два случая по контексту: если дискуссия продолжается — записывает оба варианта;
-> если смотрит что народ согласился — передаёт только одно финальное событие.
-
-### 2.3 Нет события → ничего
-
-Если текущее сообщение не содержит нового времени или изменения — ЛЛМ ничего не вызывает.  
-Сообщение просто добавляется в историю как контекст.
+1. ищется соответствующий `ToolMessage` по `event_ref`;
+2. агент решает `edit in place` vs `delete + republish` по distance rule;
+3. старая пара `AIMessage + ToolMessage` удаляется через `RemoveMessage`;
+4. в state остаётся только актуальная версия события;
+5. BOT summary в short-term history обновляется через новый append после реального side effect.
 
 ---
 
-## 3. Пример полной памяти чата
+## 5. Поведение при незарегистрированном пользователе
 
-```
-[2026-03-21T10:00:00Z] [Иван]: когда созвонимся по проекту?
-[2026-03-21T10:02:00Z] [Оля]: давайте в 10 утра, и вечером зум с Лондоном в 22:00
-✅ Published event #1: [event_name: созвон] [time: 10:00] [city: null] [msg_ref: 2]
-✅ Published event #2: [event_name: зум] [time: 22:00] [city: London] [msg_ref: 2]
-[2026-03-21T10:05:00Z] [Петя]: я к 10 не успею, можно в 10:30?
-🔄 Updated event #1: [event_name: созвон (Оля)] [time: 10:00] [city: null], [event_name: созвон (Петя)] [time: 10:30] [city: null]
-[2026-03-21T10:10:00Z] [Оля]: ок, пусть будет 10:30
-🔄 Updated event #1: [event_name: созвон] [time: 10:30] [city: null]
-[2026-03-21T10:12:00Z] [Иван]: отлично, жду всех!
-```
+Это важное отличие от старой версии спек.
 
-> В этой памяти ЛЛМ видит чёткую картину: созвон в 10:30 (а не несколько противоречащих записей),  
-> зум в 22:00 по Лондону. Нет мусора, нет confusion.
+Если сообщение написал незарегистрированный пользователь:
+
+- агент всё ещё может выполнить detection-only pass;
+- `event=True` может быть вычислен;
+- но никаких real publish side effects быть не должно;
+- никаких fake ToolMessage / BOT summary не должно попадать в реальный chat thread.
+
+После успешного onboarding бот **не replay'ит старые сообщения**. Он начинает работать со **следующего** сообщения пользователя.
 
 ---
 
-## 4. Пайплайн сторон эффектов (Side Effects)
+## 6. Side Effects Pipeline
 
 ```mermaid
 sequenceDiagram
-    participant LLM
-    participant action_node
-    participant Pipeline
+    participant Adapter
+    participant Orchestrator as process_message
+    participant History as history.py
+    participant Agent as LangGraph agent
     participant Chat
 
-    LLM->>action_node: tool_call: publish_event(points=[...])
-    action_node->>Pipeline: Передаёт points для конвертации времён
-    Pipeline-->>Chat: Публикует отформатированное сообщение
-    Chat-->>action_node: message_id (подтверждение публикации)
-    action_node->>LLM state: ToolMessage "✅ Published event #N: ..."
+    Adapter->>Orchestrator: incoming message
+    Orchestrator->>History: append human message + take snapshot
+    Orchestrator->>Agent: detect_event(current_msg, snapshot, send/edit/delete callbacks)
 
-    LLM->>action_node: tool_call: update_previous_event(event_ref=N, points=[...])
-    action_node->>LLM state: Удаляет старую пару AIMessage+ToolMessage через RemoveMessage
-    action_node->>Pipeline: Передаёт новые points
-    Pipeline-->>Chat: Редактирует / переиздаёт сообщение (зависит от расстояния в чате)
-    action_node->>LLM state: ToolMessage "🔄 Updated event #N: ..."
+    alt detection-only onboarding pass
+        Agent-->>Orchestrator: event detected, but message_published = false
+        Note over Agent: uses ephemeral thread_id
+    else real publish/update pass
+        Agent->>Chat: send/edit/delete
+        Chat-->>Agent: message_id
+        Agent-->>Orchestrator: message_published = true
+        Orchestrator->>History: append BOT summary with message_id
+    end
 ```
 
-### Логика Edit vs. Re-post (для Update):
+---
 
-| Расстояние старого сообщения | Действие |
-|---|---|
-| ≤ `EDIT_THRESHOLD` (напр. 5) сообщений назад | Редактирует старое сообщение in-place |
-| > `EDIT_THRESHOLD` | Удаляет старое, публикует новое внизу чата |
+## 7. Что НЕ делает LLM
+
+- Не видит финальный platform-formatted reply как source of truth.
+- Не использует platform `message_id` как primary semantic key; для update semantics используется `event_ref`.
+- Не replay'ит старые onboarding-era сообщения после setup.
+- Не опирается на pending queue: она была удалена из актуальной архитектуры.
 
 ---
 
-## 5. Что НЕ делает ЛЛМ
+## 8. Ограничения и Operational Notes
 
-- Не видит финальное отформатированное сообщение с конвертированными временами — только краткую запись события.
-- Не использует `message_id` платформы напрямую — только `event_ref` (порядковый номер внутри сессии).
-- Не хранит события между перезапусками — история только in-memory.
+### 8.1 Per-chat serialization
+
+Обработка сериализуется через `asyncio.Lock` на чат. Это защищает thread state от concurrent corruption, но означает:
+
+- burst в одном чате обрабатывается по одному сообщению;
+- старые сообщения могут быть отброшены по age guard, если очередь выросла.
+
+### 8.2 Snapshot timing nuance
+
+Сейчас `append_to_history(...)` и snapshot происходят **до** входа в per-chat lock.  
+В обычной работе это нормально, но при очень высокой нагрузке snapshot timing и execution order могут слегка разойтись.
+
+Если это станет проблемой, точка ужесточения очевидна:
+
+- перенести `append_to_history(...)` / snapshot внутрь locked section в `process_message(...)`.
+
+### 8.3 Short-term history is still process-local
+
+Хотя LangGraph thread state persisted в SQLite, `history.py` остаётся in-memory и сбрасывается при рестарте процесса.
 
 ---
 
-## 6. Открытые вопросы
+## 9. Open Questions
 
-- [ ] Как обрабатывать событие которое задаёт незарегистрированный юзер? (лазивый онбординг — см. `14_llm_module.md`)
-- [ ] Нужен ли `msg_ref` в записях памяти или достаточно `event_ref`?
-- [ ] Что делать когда юзер хочет отменить событие полностью (а не просто перенести)?
+- [ ] Нужна ли отдельная memory semantics для явной отмены события, а не только update?
+- [ ] Нужно ли когда-нибудь показывать LLM более структурированную BOT summary вместо строки `detected: ...`?
+- [ ] Если burst-нагрузка вырастет, стоит ли делать snapshot+lock fully atomic?

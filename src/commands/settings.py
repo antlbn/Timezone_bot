@@ -260,6 +260,7 @@ async def show_dm_settings_menu(
 
     text = (
         f"✅ Your timezone is set to: *{city} {flag}* ({timezone})\n"
+        "\nI'll start converting times from your next message.\n"
         "\nYou can manage your settings here:"
     )
 
@@ -378,6 +379,7 @@ async def dm_back_menu_callback(callback: CallbackQuery):
 
         text = (
             f"✅ Your timezone is set to: *{city} {flag}* ({timezone})\n"
+            "\nI'll start converting times from your next message.\n"
             "\nYou can manage your settings here:"
         )
         await callback.message.edit_text(

@@ -239,3 +239,12 @@ The cleanest way to think about the project is:
 3. **The LLM agent chooses publish vs update.**
 4. **Storage + geo + formatter provide the deterministic part of the reply.**
 5. **The adapter publishes the result back into the original chat UX.**
+
+## 6. Operational Note
+
+Under high load, message handling is serialized **per chat** via a chat-level lock. This prevents concurrent corruption of the LangGraph thread state, but it has two consequences:
+
+- A burst of messages in the same chat is processed one by one, not truly in parallel.
+- If the queue grows, older messages may be dropped by the message-age guard instead of being answered late.
+
+There is also one nuance to monitor if traffic grows substantially: short-term history is appended before the processing lock is acquired. In normal operation this is acceptable, but under very heavy burst traffic the **snapshot timing** and the **execution order** may diverge slightly. If this ever becomes user-visible, the first place to tighten is the `append_to_history(...)` / snapshot boundary in [__init__.py](/Users/johnwunderbellen/Timezone_bot/src/event_detection/__init__.py).

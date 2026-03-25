@@ -74,6 +74,7 @@ class TestHandleSettz:
         assert embed is not None
         assert "Berlin" in embed.description
         assert "🇩🇪" in embed.description
+        assert "next message" in embed.description
 
     @pytest.mark.asyncio
     async def test_city_not_found_shows_fallback(
@@ -149,6 +150,7 @@ class TestHandleManualTime:
         embed = mock_interaction.followup.send.call_args[1].get("embed")
         assert embed is not None
         assert "Set" in embed.title
+        assert "next message" in embed.description
 
     @pytest.mark.asyncio
     async def test_invalid_time_shows_fallback(

@@ -416,6 +416,7 @@ async def test_dm_onboarding_start_registered_shows_menu():
         mock_answer.assert_called_once()
         text = mock_answer.call_args[0][0]
         assert "Europe/Paris" in text
+        assert "next message" in text
         assert "manage your settings" in text
 
 
@@ -564,6 +565,7 @@ async def test_dm_start_plain_registered_shows_menu():
         mock_answer.assert_called_once()
         text = mock_answer.call_args[0][0]
         assert "Europe/London" in text
+        assert "next message" in text
         assert "manage your settings" in text
 
 

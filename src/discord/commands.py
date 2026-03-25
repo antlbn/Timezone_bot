@@ -111,7 +111,11 @@ async def handle_settz(interaction: discord.Interaction, city: str, origin_inter
 
     embed = discord.Embed(
         title="✅ Timezone Set!",
-        description=f"Your location is now **{location['city']} {location['flag']}**\nTimezone: `{location['timezone']}`",
+        description=(
+            f"Your location is now **{location['city']} {location['flag']}**\n"
+            f"Timezone: `{location['timezone']}`\n\n"
+            "I'll start converting times from your next message."
+        ),
         color=discord.Color.green(),
     )
     await interaction.followup.send(embed=embed, ephemeral=True)
@@ -182,7 +186,11 @@ async def handle_manual_time(interaction: discord.Interaction, time_str: str, or
 
     embed = discord.Embed(
         title="✅ Timezone Set!",
-        description=f"Your location is now **{location['city']} {location['flag']}**\nTimezone: `{location['timezone']}`",
+        description=(
+            f"Your location is now **{location['city']} {location['flag']}**\n"
+            f"Timezone: `{location['timezone']}`\n\n"
+            "I'll start converting times from your next message."
+        ),
         color=discord.Color.green(),
     )
     await interaction.followup.send(embed=embed, ephemeral=True)
