@@ -104,7 +104,7 @@ This allows the same numeric platform ID to exist independently across Telegram 
 
 Membership is tracked passively:
 
-- Telegram: middleware + group events
+- Telegram: middleware + group events + just-in-time verification before final reply build
 - Discord: message activity + guild/member events
 
 This means the bot only knows about users it has actually observed.
@@ -164,6 +164,7 @@ Instead it builds membership over time:
 | observed message from registered user | `add_chat_member(...)` |
 | user leaves chat/guild | `remove_chat_member(...)` |
 | bot removed from chat/guild | `clear_chat_members(...)` |
+| Telegram stale record discovered during reply build | `remove_chat_member(...)` |
 
 Implication:
 

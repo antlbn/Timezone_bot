@@ -51,9 +51,9 @@ async def execute_convert_time(
 
         # Resolve source timezone for this time entry
         if city_override:
-            from src.geo import get_timezone_by_city
+            from src.geo import aget_timezone_by_city
 
-            geo_result = get_timezone_by_city(city_override)
+            geo_result = await aget_timezone_by_city(city_override)
             if geo_result and not geo_result.get("error"):
                 source_city = geo_result["city"]
                 source_tz = geo_result["timezone"]

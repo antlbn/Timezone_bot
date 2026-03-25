@@ -255,7 +255,7 @@ async def test_dm_city_saves_and_clears_cooldown():
     location = {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪"}
 
     with (
-        patch("src.commands.settings.geo.get_timezone_by_city", return_value=location),
+        patch("src.commands.settings.geo.aget_timezone_by_city", new=AsyncMock(return_value=location)),
         patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set,
         patch("src.commands.settings.storage.add_chat_member", AsyncMock()),
         patch("src.commands.settings.invalidate_user_cache") as mock_invalidate,

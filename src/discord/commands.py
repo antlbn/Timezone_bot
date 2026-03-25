@@ -72,7 +72,7 @@ async def handle_settz(interaction: discord.Interaction, city: str, origin_inter
         except Exception as e:
             logger.debug(f"Could not delete message: {e}")
 
-    location = geo.get_timezone_by_city(city)
+    location = await geo.aget_timezone_by_city(city)
 
     if not location or "error" in location:
         # Show fallback UI with buttons
@@ -148,7 +148,7 @@ async def handle_manual_time(interaction: discord.Interaction, time_str: str, or
         except Exception as e:
             logger.debug(f"Could not delete origin ephemeral message: {e}")
 
-    location = geo.resolve_timezone_from_input(time_str)
+    location = await geo.aresolve_timezone_from_input(time_str)
 
     if not location:
         # Still invalid time - ask to try again

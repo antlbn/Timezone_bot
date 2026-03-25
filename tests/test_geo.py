@@ -1,6 +1,16 @@
 """Tests for geo module - city lookup and timezone resolution."""
 
+import pytest
 from unittest.mock import patch
+
+from src.geo import _city_cache
+
+
+@pytest.fixture(autouse=True)
+def clear_geo_cache():
+    _city_cache.clear()
+    yield
+    _city_cache.clear()
 
 
 class TestGetTimezoneByCity:

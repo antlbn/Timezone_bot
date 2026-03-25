@@ -34,12 +34,15 @@ async def _build_reply(
     chat_id: str,
     ctx_logger: Any,
     footer: str | None = None,
+    filter_members_fn: Callable[[list[dict]], Awaitable[list[dict]]] | None = None,
 ) -> str | None:
     """Build the formatted conversion reply string, or None if no members."""
     from src.storage import storage
     from src import formatter
 
     members = await storage.get_chat_members(chat_id, platform=platform)
+    if filter_members_fn:
+        members = await filter_members_fn(members)
     if not members:
         ctx_logger.warning(f"[chat:{chat_id}] No members in DB, skipping reply.")
         return None
@@ -50,8 +53,8 @@ async def _build_reply(
         city_override = point.get("city")
 
         if city_override:
-            from src.geo import get_timezone_by_city
-            geo_result = get_timezone_by_city(city_override)
+            from src.geo import aget_timezone_by_city
+            geo_result = await aget_timezone_by_city(city_override)
             if geo_result and not geo_result.get("error"):
                 source_city = geo_result["city"]
                 source_tz = geo_result["timezone"]
@@ -157,6 +160,7 @@ async def detect_event(
     send_fn: Callable[[str], Awaitable[str | None]] | None = None,
     edit_fn: Callable[[str, str], Awaitable[None]] | None = None,
     delete_fn: Callable[[str], Awaitable[None]] | None = None,
+    filter_members_fn: Callable[[list[dict]], Awaitable[list[dict]]] | None = None,
     platform: str = "",
     chat_id: str = "",
     ctx_logger: Any = None,
@@ -186,7 +190,15 @@ async def detect_event(
     # Build reply closure for tools
     async def build_reply_wrapper(points: list[dict], footer: str | None = None) -> str | None:
         return await _build_reply(
-            points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger, footer=footer
+            points,
+            sender_id,
+            sender_name,
+            sender_db,
+            platform,
+            chat_id,
+            ctx_logger,
+            footer=footer,
+            filter_members_fn=filter_members_fn,
         )
 
     # Compile Graph

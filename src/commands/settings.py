@@ -416,7 +416,7 @@ async def process_city(message: Message, state: FSMContext):
             logger.warning(f"Failed to delete bot's prompt: {e}")
 
     city_name = message.text.strip()
-    location = geo.get_timezone_by_city(city_name)
+    location = await geo.aget_timezone_by_city(city_name)
 
     if not location or "error" in location:
         if location and "error" in location:
@@ -470,7 +470,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
     user_input = (message.text or "").strip()
 
     # Use unified resolver
-    location = geo.resolve_timezone_from_input(user_input)
+    location = await geo.aresolve_timezone_from_input(user_input)
 
     if location:
         await _save_and_finish(message, state, location, is_retry=True)

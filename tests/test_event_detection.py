@@ -46,6 +46,32 @@ async def test_process_message_event():
         assert res["time"] == ["15:00"]
         assert res["sender_id"] == "456"
         mock_detect.assert_called_once()
+        assert mock_detect.call_args.kwargs["filter_members_fn"] is None
+
+
+@pytest.mark.asyncio
+async def test_process_message_forwards_filter_members_fn():
+    """Process pipeline should forward optional member filtering callback to detector."""
+    filter_members_fn = AsyncMock(return_value=[])
+
+    with patch(
+        "src.event_detection.detect_event", new_callable=AsyncMock
+    ) as mock_detect:
+        mock_detect.return_value = {"event": False, "time": [], "city": []}
+
+        await process_message(
+            message_text="Let's meet at 15:00",
+            chat_id="123",
+            user_id="456",
+            platform="telegram",
+            author_name="John",
+            timestamp_utc="2026-03-05T10:00:00Z",
+            sender_db={"timezone": "Europe/London", "city": "London"},
+            filter_members_fn=filter_members_fn,
+            skip_aging=True,
+        )
+
+        assert mock_detect.call_args.kwargs["filter_members_fn"] is filter_members_fn
 
 
 @pytest.mark.asyncio

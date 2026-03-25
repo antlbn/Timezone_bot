@@ -190,6 +190,27 @@ async def handle_time_mention(
         except Exception as e:
             logger.warning(f"Failed to delete message {msg_id}: {e}")
 
+    async def filter_members_fn(members: list[dict]) -> list[dict]:
+        """Drop stale Telegram members before formatting a conversion reply."""
+        live_members = []
+        for member in members:
+            member_user_id = int(member["user_id"])
+            try:
+                chat_member = await message.bot.get_chat_member(chat_id, member_user_id)
+                status = getattr(chat_member, "status", "")
+                if status in {"left", "kicked"}:
+                    await storage.remove_chat_member(chat_id, member_user_id, platform="telegram")
+                    logger.info(
+                        f"[chat:{chat_id}] Pruned stale Telegram member {member_user_id} during reply build"
+                    )
+                    continue
+            except Exception as e:
+                logger.warning(
+                    f"[chat:{chat_id}] Telegram member verification failed for {member_user_id}: {e}"
+                )
+            live_members.append(member)
+        return live_members
+
     # 4. LLM pipeline — detection + tool dispatch
 
     # 4. LLM pipeline — detection + tool dispatch
@@ -205,6 +226,7 @@ async def handle_time_mention(
         send_fn=send_fn if is_registered else None,
         edit_fn=edit_fn if is_registered else None,
         delete_fn=delete_fn if is_registered else None,
+        filter_members_fn=filter_members_fn if is_registered else None,
         skip_aging=skip_aging,
     )
 

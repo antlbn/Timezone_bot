@@ -48,8 +48,6 @@ event_detection:
   max_message_age_seconds: 30
   # Hard skip: messages longer than this are ignored entirely (no LLM, no history)
   max_message_hard_skip_chars: 2000
-  # How long to keep "frozen" messages during onboarding
-  onboarding_timeout_seconds: 120
   # How long to wait before re-prompting a user who ignored/abandoned DM onboarding
   dm_onboarding_cooldown_seconds: 600
 

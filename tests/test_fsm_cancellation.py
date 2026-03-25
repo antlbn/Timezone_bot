@@ -79,7 +79,7 @@ async def test_process_city_invalid_input_prompts_fallback(
     mock_message.text = "Just a normal chat message"
 
     mock_geo = MagicMock()
-    mock_geo.get_timezone_by_city.return_value = None
+    mock_geo.aget_timezone_by_city = AsyncMock(return_value=None)
     monkeypatch.setattr("src.commands.settings.geo", mock_geo)
 
     await process_city(mock_message, mock_state)
@@ -105,7 +105,7 @@ async def test_process_fallback_input_invalid_prompts_again(
     mock_message.text = "Still just a normal message"
 
     mock_geo = MagicMock()
-    mock_geo.resolve_timezone_from_input.return_value = None
+    mock_geo.aresolve_timezone_from_input = AsyncMock(return_value=None)
     monkeypatch.setattr("src.commands.settings.geo", mock_geo)
 
     await process_fallback_input(mock_message, mock_state)

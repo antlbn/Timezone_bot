@@ -2,31 +2,7 @@
 
 This artifact lists the most important architectural weak points found during spec review. These are not hypothetical style notes; they are places where the current design can degrade under load or drift away from its own contracts.
 
-## 1. Synchronous Geocoding in Async Runtime
-
-### What exists now
-
-`src/geo.py` uses synchronous `geopy.Nominatim` calls directly in runtime paths used by:
-
-- Telegram onboarding city setup,
-- Discord onboarding city setup,
-- event processing when a point contains `city`.
-
-### Why this is weak
-
-The bot is otherwise async. A blocking geocoding call can stall the event loop and delay unrelated chat processing.
-
-### Risk level
-
-High under load.
-
-### Suggested direction
-
-1. move blocking geocoding into a threadpool or async-friendly boundary,
-2. add cache for repeated city lookups,
-3. isolate provider latency from main chat processing.
-
-## 2. Snapshot Before Lock
+## 1. Snapshot Before Lock
 
 ### What exists now
 
@@ -44,15 +20,15 @@ Medium. Mostly visible under heavy chat bursts.
 
 Move append/snapshot inside the chat lock if ordering quality becomes more important than throughput.
 
-## 3. External Provider Work Inside Hot Path
+## 2. External Provider Work Inside Hot Path
 
 ### What exists now
 
-City override resolution for event points can trigger geocoding inside the publish/update path.
+City override resolution for event points can still trigger external geocoding inside the publish/update path on cache misses.
 
 ### Why this is weak
 
-Even registered-user event publishing can become dependent on slow external geo calls if the message contains an explicit city override.
+The event loop is no longer blocked, but reply latency for that specific message still depends on provider availability.
 
 ### Risk level
 
@@ -60,45 +36,9 @@ Medium to high depending on traffic and provider reliability.
 
 ### Suggested direction
 
-Add geo result caching and consider degrading gracefully when override resolution is unavailable.
+Keep geo caching, and consider stronger degradation rules when override resolution is unavailable or too slow.
 
-## 4. Config Drift
-
-### What exists now
-
-`configuration.yaml` still contains onboarding timeout settings from the removed replay/frozen-message model.
-
-### Why this is weak
-
-Specs and code are converging, but config drift can mislead future maintainers into believing a removed behavior still exists.
-
-### Risk level
-
-Medium for maintainability.
-
-### Suggested direction
-
-Remove dead config keys or mark them deprecated in code and docs until deletion.
-
-## 5. Telegram Membership Accuracy
-
-### What exists now
-
-Telegram membership cleanup is weaker than Discord. It depends more on observed events and manual correction.
-
-### Why this is weak
-
-Missed leave events can leave stale members in conversion output.
-
-### Risk level
-
-Medium.
-
-### Suggested direction
-
-Decide explicitly whether Telegram should stay manual-first or gain a just-in-time verification strategy for suspicious stale records.
-
-## 6. Documentation Sensitivity
+## 3. Documentation Sensitivity
 
 ### What exists now
 
@@ -115,3 +55,9 @@ Medium, but improving.
 ### Suggested direction
 
 Keep runtime invariants concentrated in a few canonical specs and keep analysis notes separate from source-of-truth documents.
+
+## Resolved Recently
+
+- Blocking geocoding was moved off the main event loop and wrapped with cache-aware async helpers.
+- Dead onboarding replay config was removed from `configuration.yaml`.
+- Telegram reply building now prunes stale members just in time before final conversion output.

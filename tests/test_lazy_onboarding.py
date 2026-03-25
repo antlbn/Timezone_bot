@@ -116,7 +116,7 @@ async def test_successful_onboarding_clears_cooldown_and_saves_timezone():
     location = {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪"}
 
     with (
-        patch("src.commands.settings.geo.get_timezone_by_city", return_value=location),
+        patch("src.commands.settings.geo.aget_timezone_by_city", new=AsyncMock(return_value=location)),
         patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set,
         patch("src.commands.settings.storage.add_chat_member", AsyncMock()),
         patch.object(Message, "answer", AsyncMock()),

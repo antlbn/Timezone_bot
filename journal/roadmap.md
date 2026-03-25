@@ -15,7 +15,5 @@ This document tracks long-term ideas, deferred features, and known technical deb
 ## 📋 General TO-DO & Technical Debt
 - [ ] **CachedDB Validation**: Verify if the in-memory caching layer is fully functional and update `05_storage.md` accordingly.
 - [ ] **Disambiguation**: Add a flow for when city search returns multiple results (Future Scope from `06_city_to_timezone.md`).
-- [ ] **JIT User Purge**: Implement Just-In-Time member validation before conversion to handle silent leaves (Telegram).
 - [ ] **Privacy**: Make time setting messages visible only to the target user (ephemeral/self-destructing).
-
 

@@ -21,6 +21,7 @@ async def process_message(
     send_fn: Callable | None = None,  # async callable(text: str) → str | None (message_id)
     edit_fn: Callable | None = None,  # async callable(message_id: str, text: str) → None
     delete_fn: Callable | None = None, # async callable(message_id: str) → None
+    filter_members_fn: Callable | None = None, # async callable(list[member]) -> filtered list
     skip_history_append: bool = False,
     skip_aging: bool = False,
     precomputed_snapshot: List[Dict] | None = None,
@@ -128,6 +129,7 @@ async def process_message(
             send_fn=send_fn,
             edit_fn=edit_fn,
             delete_fn=delete_fn,
+            filter_members_fn=filter_members_fn,
             platform=platform,
             chat_id=chat_id,
             ctx_logger=ctx_logger,

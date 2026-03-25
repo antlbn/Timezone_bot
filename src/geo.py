@@ -3,6 +3,10 @@ Geo module.
 City to timezone mapping using Nominatim and TimezoneFinder.
 """
 
+import asyncio
+import time
+from collections import OrderedDict
+
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
@@ -16,6 +20,8 @@ logger = get_logger()
 # Initialize clients
 _geolocator = Nominatim(user_agent="timezone_bot", timeout=5)
 _tf = TimezoneFinder()
+_city_cache: OrderedDict[str, dict | None] = OrderedDict()
+_CITY_CACHE_MAX = 256
 
 
 def get_country_flag(country_code: str) -> str:
@@ -25,16 +31,13 @@ def get_country_flag(country_code: str) -> str:
     return "".join(chr(ord(c) + 127397) for c in country_code.upper())
 
 
-def get_timezone_by_city(city_name: str) -> dict | None:
-    """
-    Look up timezone by city name.
+def _normalize_city_key(city_name: str) -> str:
+    """Normalize user-entered city text for cache lookup."""
+    return city_name.strip().casefold()
 
-    Args:
-        city_name: Name of city (e.g. "Berlin", "New York")
 
-    Returns:
-        Dict with city, timezone, country, flag or None if not found
-    """
+def _lookup_city_uncached(city_name: str) -> dict | None:
+    """Blocking city lookup implementation used behind sync/async wrappers."""
     try:
         location = _geolocator.geocode(city_name, language="en", addressdetails=True)
 
@@ -62,6 +65,47 @@ def get_timezone_by_city(city_name: str) -> dict | None:
     except (GeocoderTimedOut, GeocoderServiceError) as e:
         logger.error(f"Geocoding error for '{city_name}': {e}")
         return {"error": "Geocoding service unavailable", "details": str(e)}
+
+
+def get_timezone_by_city(city_name: str) -> dict | None:
+    """
+    Look up timezone by city name.
+
+    Args:
+        city_name: Name of city (e.g. "Berlin", "New York")
+
+    Returns:
+        Dict with city, timezone, country, flag or None if not found
+    """
+    key = _normalize_city_key(city_name)
+    if not key:
+        return None
+
+    if key in _city_cache:
+        _city_cache.move_to_end(key)
+        cached = _city_cache[key]
+        return dict(cached) if isinstance(cached, dict) else cached
+
+    result = _lookup_city_uncached(city_name)
+
+    # Cache stable outcomes only. Do not cache transient provider errors.
+    if result is None or (isinstance(result, dict) and "error" not in result):
+        _city_cache[key] = result
+        _city_cache.move_to_end(key)
+        if len(_city_cache) > _CITY_CACHE_MAX:
+            _city_cache.popitem(last=False)
+
+    return result
+
+
+async def aget_timezone_by_city(city_name: str) -> dict | None:
+    """Async wrapper for city lookup that keeps blocking geocoding off the event loop."""
+    started = time.perf_counter()
+    result = await asyncio.to_thread(get_timezone_by_city, city_name)
+    elapsed = time.perf_counter() - started
+    if elapsed > 1.0:
+        logger.warning(f"Slow geocoding lookup for '{city_name}' took {elapsed:.2f}s")
+    return result
 
 
 # Common timezones by UTC offset (for fallback)
@@ -194,3 +238,13 @@ def resolve_timezone_from_input(user_input: str) -> dict | None:
         return location
 
     return None
+
+
+async def aresolve_timezone_from_input(user_input: str) -> dict | None:
+    """Async wrapper for mixed time/city resolution."""
+    started = time.perf_counter()
+    result = await asyncio.to_thread(resolve_timezone_from_input, user_input)
+    elapsed = time.perf_counter() - started
+    if elapsed > 1.0 and not _extract_times_for_resolver(user_input):
+        logger.warning(f"Slow timezone resolution for '{user_input}' took {elapsed:.2f}s")
+    return result

@@ -22,6 +22,8 @@ The implementation uses:
 
 - `geopy.Nominatim` for geocoding,
 - `timezonefinder` for coordinates -> IANA timezone,
+- async wrappers that move blocking geocoding off the main event loop,
+- in-process cache for repeated city lookups,
 - a small offset-to-timezone map for manual-time fallback.
 
 ## 3. Resolution Order
@@ -60,17 +62,17 @@ This is acceptable for MVP, but it is not a strong disambiguation strategy.
 
 Manual time fallback maps an offset to one representative timezone. It is a recovery mechanism, not a precise geographic identity model.
 
-### 5.3 Runtime bottleneck risk
+### 5.3 External dependency still on cache-miss path
 
-The current geocoding implementation is synchronous and runs in the application path. Under load, this can block the event loop and slow unrelated chat processing.
+Blocking geocoding is now isolated from the event loop, but a cache miss still depends on an external provider in the runtime path.
 
-This is one of the main architectural weak points of the current system.
+That means provider slowness no longer freezes the whole async loop, but it can still delay the specific operation that needs geo resolution.
 
 ## 6. Performance and Reliability Requirements
 
 For a stronger production version, preserve the same functional contract but improve execution strategy:
 
-1. isolate blocking geocoding from the main async event loop,
+1. keep blocking geocoding off the main async event loop,
 2. add local caching for repeated city lookups,
 3. respect external provider rate limits,
 4. keep timeouts explicit,

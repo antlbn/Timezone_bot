@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import logging
 
-from src.geo import get_timezone_by_city
+from src.geo import get_timezone_by_city, _city_cache
 from src.formatter import normalize_time
 from src.commands.middleware import PassiveCollectionMiddleware
 from aiogram.types import Message, Chat, User
@@ -11,6 +11,13 @@ from aiogram.types import Message, Chat, User
 # ----------------------------------------------------------------------
 # 1. Geo Tests: Verify API Failures are Handled & Logged
 # ----------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def clear_geo_cache():
+    _city_cache.clear()
+    yield
+    _city_cache.clear()
 
 
 def test_geo_timeout_logging(caplog):

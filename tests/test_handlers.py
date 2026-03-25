@@ -107,11 +107,11 @@ async def test_process_city_success(
     # Mock geo logic
     # We need to mock 'src.commands.settings.geo'
     mock_geo = MagicMock()
-    mock_geo.get_timezone_by_city.return_value = {
+    mock_geo.aget_timezone_by_city = AsyncMock(return_value={
         "city": "Paris",
         "timezone": "Europe/Paris",
         "flag": "🇫🇷",
-    }
+    })
     monkeypatch.setattr("src.commands.settings.geo", mock_geo)
 
     # Setup message text
@@ -176,3 +176,48 @@ async def test_handle_time_mention_success(
     kwargs = mock_process.call_args.kwargs
     assert "send_fn" in kwargs
     assert kwargs["send_fn"] is not None
+    assert kwargs["filter_members_fn"] is not None
+
+
+@pytest.mark.asyncio
+async def test_handle_time_mention_filter_members_prunes_stale_telegram_members(
+    mock_storage_and_cache, mock_message, mock_state, monkeypatch
+):
+    """Telegram reply path should prune members that already left the chat."""
+    mock_storage, _ = mock_storage_and_cache
+
+    mock_cache = AsyncMock(return_value={
+        "city": "Berlin",
+        "timezone": "Europe/Berlin",
+        "flag": "🇩🇪",
+    })
+    monkeypatch.setattr("src.commands.common.get_user_cached", mock_cache)
+
+    mock_process = AsyncMock(return_value={"event": True, "time": ["15:00"], "city": [None]})
+    monkeypatch.setattr("src.commands.common.process_message", mock_process)
+
+    mock_message.text = "Let's meet at 15:00"
+    mock_message.date = MagicMock()
+    mock_message.date.strftime.return_value = "2026-03-05T10:00:00Z"
+
+    left_member = MagicMock()
+    left_member.status = "left"
+    active_member = MagicMock()
+    active_member.status = "member"
+    mock_message.bot = MagicMock()
+    mock_message.bot.get_chat_member = AsyncMock(side_effect=[left_member, active_member])
+
+    await handle_time_mention(mock_message, mock_state, skip_aging=True)
+
+    filter_members_fn = mock_process.call_args.kwargs["filter_members_fn"]
+    filtered = await filter_members_fn(
+        [
+            {"user_id": 1, "city": "Paris", "timezone": "Europe/Paris"},
+            {"user_id": 2, "city": "Berlin", "timezone": "Europe/Berlin"},
+        ]
+    )
+
+    assert [m["user_id"] for m in filtered] == [2]
+    mock_storage.remove_chat_member.assert_awaited_once_with(
+        12345, 1, platform="telegram"
+    )

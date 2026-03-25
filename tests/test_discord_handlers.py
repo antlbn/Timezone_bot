@@ -52,11 +52,11 @@ class TestHandleSettz:
 
         # Mock geo
         mock_geo = MagicMock()
-        mock_geo.get_timezone_by_city.return_value = {
+        mock_geo.aget_timezone_by_city = AsyncMock(return_value={
             "city": "Berlin",
             "timezone": "Europe/Berlin",
             "flag": "🇩🇪",
-        }
+        })
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_settz(mock_interaction, "Berlin")
@@ -85,7 +85,7 @@ class TestHandleSettz:
 
         # Mock geo to return None (city not found)
         mock_geo = MagicMock()
-        mock_geo.get_timezone_by_city.return_value = None
+        mock_geo.aget_timezone_by_city = AsyncMock(return_value=None)
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_settz(mock_interaction, "InvalidCity123")
@@ -108,7 +108,7 @@ class TestHandleSettz:
 
         # Mock geo to return error dict
         mock_geo = MagicMock()
-        mock_geo.get_timezone_by_city.return_value = {"error": "Service unavailable"}
+        mock_geo.aget_timezone_by_city = AsyncMock(return_value={"error": "Service unavailable"})
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_settz(mock_interaction, "Berlin")
@@ -130,11 +130,11 @@ class TestHandleManualTime:
 
         # Mock geo
         mock_geo = MagicMock()
-        mock_geo.resolve_timezone_from_input.return_value = {
+        mock_geo.aresolve_timezone_from_input = AsyncMock(return_value={
             "city": "UTC+3",
             "timezone": "Europe/Moscow",
             "flag": "🌐",
-        }
+        })
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_manual_time(mock_interaction, "15:30")
@@ -161,7 +161,7 @@ class TestHandleManualTime:
 
         # Mock geo to return None (invalid input)
         mock_geo = MagicMock()
-        mock_geo.resolve_timezone_from_input.return_value = None
+        mock_geo.aresolve_timezone_from_input = AsyncMock(return_value=None)
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_manual_time(mock_interaction, "invalid")

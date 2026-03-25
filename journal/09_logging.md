@@ -60,6 +60,8 @@ Recommended signals:
 - lock/backlog pressure per chat,
 - LLM invocation failures and retries.
 
+Current runtime already emits warnings for slow geo-resolution calls and for Telegram membership verification failures during reply preparation.
+
 ## 7. Rebuild Notes
 
 If logging is rebuilt:
