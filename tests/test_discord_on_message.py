@@ -162,10 +162,6 @@ class TestOnMessageLazyOnboarding:
             "src.discord.events.process_message",
             AsyncMock(return_value={"event": "meeting", "points": []}),
         )
-        # Mock save_pending_message (already in module namespace)
-        save_mock = AsyncMock()
-        monkeypatch.setattr(events_module, "save_pending_message", save_mock)
-
         # Mock the lazy-imported symbols inside on_message's if-block
         monkeypatch.setattr(ui_module, "SetTimezoneView", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(config_module, "get_settings_cleanup_timeout", MagicMock(return_value=60))
@@ -177,13 +173,6 @@ class TestOnMessageLazyOnboarding:
         reply_kwargs = mock_message.reply.call_args[1]
         assert reply_kwargs.get("mention_author") is True
 
-        # Pending message saved with correct user_id and platform
-        save_mock.assert_called_once()
-        saved_user_id, saved_platform, saved_data = save_mock.call_args[0]
-        assert saved_user_id == 12345
-        assert saved_platform == "discord"
-        assert saved_data["text"] == "Meeting at 15:00!"
-        assert saved_data["channel_id"] == "111"
 
     @pytest.mark.asyncio
     async def test_no_onboarding_when_no_event(

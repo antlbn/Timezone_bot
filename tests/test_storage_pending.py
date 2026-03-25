@@ -2,36 +2,42 @@ import pytest
 import asyncio
 import datetime
 from unittest.mock import AsyncMock, patch
-from src.storage.pending import save_pending_message, get_and_delete_pending_messages
+
+from src.storage.pending import (
+    should_send_dm_invite,
+    mark_dm_invite_sent,
+    clear_dm_invite,
+    _dm_invite_timestamps,
+)
 from src.event_detection import process_message
 from src.event_detection.history import get_chat_lock
 
 
+@pytest.fixture(autouse=True)
+def clear_invite_state():
+    _dm_invite_timestamps.clear()
+    yield
+    _dm_invite_timestamps.clear()
+
+
 @pytest.mark.asyncio
-async def test_pending_storage_memory_logic():
-    """Verifies in-memory pending storage."""
-    platform = "test"
-    uid = 101
-    await save_pending_message(uid, platform, {"text": "hello"})
-    res = await get_and_delete_pending_messages(uid, platform)
-    assert len(res) == 1
-    assert res[0]["text"] == "hello"
-    assert await get_and_delete_pending_messages(uid, platform) == []
+async def test_invite_cooldown_memory_logic():
+    assert await should_send_dm_invite(101, "telegram", 600) is True
+    await mark_dm_invite_sent(101, "telegram")
+    assert await should_send_dm_invite(101, "telegram", 600) is False
+    await clear_dm_invite(101, "telegram")
+    assert await should_send_dm_invite(101, "telegram", 600) is True
 
 
 @pytest.mark.asyncio
 async def test_waiting_lock_queuing():
-    """Verifies that messages wait for lock and mocks work."""
     chat_id = "group_1"
     platform = "telegram"
     lock = get_chat_lock(platform, chat_id)
 
     await lock.acquire()
     try:
-        # Patch detect_event IN THE NAMESPACE WHERE IT IS USED (src.event_detection)
-        with patch(
-            "src.event_detection.detect_event", AsyncMock(return_value={"event": True})
-        ) as mock_detect:
+        with patch("src.event_detection.detect_event", AsyncMock(return_value={"event": True})) as mock_detect:
             msg_task = asyncio.create_task(
                 process_message(
                     "Hello",
@@ -57,7 +63,6 @@ async def test_waiting_lock_queuing():
 
 @pytest.mark.asyncio
 async def test_message_aging_while_waiting():
-    """Verifies aging skip after queue."""
     chat_id = "group_3"
     platform = "telegram"
     lock = get_chat_lock(platform, chat_id)
@@ -66,13 +71,10 @@ async def test_message_aging_while_waiting():
     await lock.acquire()
 
     try:
-        # Patch get_max_message_age IN THE NAMESPACE WHERE IT IS USED
         with patch("src.event_detection.get_max_message_age", return_value=1):
             with patch("src.event_detection.detect_event", AsyncMock()) as mock_detect:
                 msg_task = asyncio.create_task(
-                    process_message(
-                        "Waiting msg", chat_id, "u1", platform, "Alice", fresh_time
-                    )
+                    process_message("Waiting msg", chat_id, "u1", platform, "Alice", fresh_time)
                 )
 
                 await asyncio.sleep(1.5)

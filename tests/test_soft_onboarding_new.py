@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 import time as time_mod
 from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.messages import AIMessage
@@ -15,7 +14,6 @@ from src.commands.settings import (
     dm_back_menu_callback,
 )
 from src.storage.pending import (
-    _frozen_messages,
     _dm_invite_timestamps,
     should_send_dm_invite,
     mark_dm_invite_sent,
@@ -26,7 +24,6 @@ import datetime
 
 def _clear_pending_state():
     """Reset in-memory storage between tests."""
-    _frozen_messages.clear()
     _dm_invite_timestamps.clear()
 
 
@@ -193,11 +190,11 @@ async def test_dm_setcity_callback():
 
 
 # ---------------------------------------------------------------------------
-# 3. DM decline sets onboarding_declined and drains queue
+# 3. DM decline sets onboarding_declined
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_dm_decline_processes_queue():
-    """Verify declining in DM saves declined flag and processes pending."""
+async def test_dm_decline_clears_cooldown_and_sets_declined():
+    """Verify declining in DM saves declined flag and clears cooldown."""
     user_id = 555
     chat_id = 999
     user_name = "Decliner"
@@ -213,27 +210,12 @@ async def test_dm_decline_processes_queue():
     state = MagicMock()
     state.clear = AsyncMock()
 
-    pending_mock = [
-        {
-            "text": "10:00 London",
-            "author_name": user_name,
-            "timestamp_utc": "2026-03-16T12:00:00Z",
-            "message_id": 1,
-            "chat_id": str(chat_id),
-        },
-    ]
-
     with (
         patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set_user,
-        patch(
-            "src.commands.settings.get_and_delete_pending_messages",
-            AsyncMock(return_value=pending_mock),
-        ),
         patch(
             "src.commands.settings.get_user_cached",
             AsyncMock(return_value={"user_id": user_id, "timezone": "UTC"}),
         ),
-        patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
         patch("src.commands.settings.clear_dm_invite", AsyncMock()) as mock_clear,
     ):
         await dm_decline_callback(callback, state)
@@ -245,9 +227,6 @@ async def test_dm_decline_processes_queue():
         # FSM cleared
         state.clear.assert_called_once()
 
-        # Pending discarded (not processed)
-        mock_process.assert_not_called()
-
         # Invite cooldown cleared
         mock_clear.assert_called_once_with(user_id, "telegram")
 
@@ -256,11 +235,11 @@ async def test_dm_decline_processes_queue():
 
 
 # ---------------------------------------------------------------------------
-# 4. City input in DM saves timezone and drains to source group chat
+# 4. City input in DM saves timezone and clears cooldown
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_dm_city_saves_and_drains():
-    """Verify city input in DM saves tz and calls process_message with source chat_id."""
+async def test_dm_city_saves_and_clears_cooldown():
+    """Verify city input in DM saves tz and clears the invite cooldown."""
     user_id = 777
     source_chat_id = 888
 
@@ -271,6 +250,7 @@ async def test_dm_city_saves_and_drains():
         return_value={"user_id": user_id, "source_chat_id": source_chat_id}
     )
     state.clear = AsyncMock()
+    _dm_invite_timestamps[(user_id, "telegram")] = 123.0
 
     location = {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪"}
 
@@ -280,26 +260,10 @@ async def test_dm_city_saves_and_drains():
         patch("src.commands.settings.storage.add_chat_member", AsyncMock()),
         patch("src.commands.settings.invalidate_user_cache") as mock_invalidate,
         patch(
-            "src.commands.settings.get_and_delete_pending_messages",
-            AsyncMock(
-                return_value=[
-                    {
-                        "text": "Meeting at 15:00",
-                        "author_name": "TestUser",
-                        "timestamp_utc": "2026-03-16T12:00:00Z",
-                        "message_id": 1,
-                        "chat_id": str(source_chat_id),
-                    }
-                ]
-            ),
-        ),
-        patch(
             "src.commands.settings.get_user_cached",
             AsyncMock(return_value={"user_id": user_id, "timezone": "Europe/Berlin"}),
         ),
-        patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
-        patch("src.commands.settings.clear_dm_invite", AsyncMock()),
-        patch("src.commands.settings.append_to_history", return_value=[]),
+        patch("src.commands.settings.clear_dm_invite", AsyncMock()) as mock_clear,
         patch.object(Message, "answer", new_callable=AsyncMock),
     ):
         await process_city(msg, state)
@@ -314,10 +278,7 @@ async def test_dm_city_saves_and_drains():
         # FSM cleared
         state.clear.assert_called_once()
 
-        # Pending messages processed — sent to source_chat_id, not DM
-        mock_process.assert_called_once()
-        call_kwargs = mock_process.call_args[1]
-        assert call_kwargs["chat_id"] == str(source_chat_id)
+        mock_clear.assert_called_once_with(user_id, "telegram")
 
 
 # ---------------------------------------------------------------------------
@@ -636,55 +597,8 @@ async def test_dm_start_plain_new_user_shows_welcome():
 
 
 # ---------------------------------------------------------------------------
-# 10. Timeout Processing (Phase 4)
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_cleanup_loop_calls_callback_on_expiration():
-    """Verify that cleanup_loop triggers the expire callback for old messages."""
-    user_id = 555
-    platform = "telegram"
-    msg_data = {"text": "hello", "chat_id": 444}
-
-    # 1. Setup pending message
-    from src.storage.pending import (
-        _frozen_messages,
-        cleanup_loop,
-        set_on_expire_callback,
-    )
-
-    _frozen_messages.clear()  # Start clean
-
-    # Manually insert an expired message
-    _frozen_messages[(user_id, platform)] = {
-        "messages": [msg_data],
-        "expires": time_mod.time() - 10,  # expired 10s ago
-    }
-
-    # 2. Setup mock callback
-    mock_cb = AsyncMock()
-    set_on_expire_callback(mock_cb)
-
-    # 3. Trigger cleanup by running one iteration of the loop logic.
-    # We'll use a side_effect to raise CancelledError after 1 call to stop the loop.
-    with patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]):
-        try:
-            await cleanup_loop(bot=MagicMock())
-        except asyncio.CancelledError:
-            pass
-
-    # 4. Verify
-    mock_cb.assert_called_once()
-    args = mock_cb.call_args[0]
-    assert args[1] == user_id
-    assert args[2] == platform
-    assert args[3] == [msg_data]
-    assert (user_id, platform) not in _frozen_messages
-
-
-# ---------------------------------------------------------------------------
-# 11. Help Menu Polish (Phase 5)
+# 10. Help Menu Polish (Phase 5)
 # ---------------------------------------------------------------------------
 
 

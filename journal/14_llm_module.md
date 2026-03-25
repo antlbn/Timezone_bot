@@ -80,7 +80,7 @@ The graph uses a dual-layered trimming strategy:
 The LLM selects one of the tools documented in [18_llm_tools.md](18_llm_tools.md).
 
 ### 5.2 Registration Gate (Lazy Onboarding)
-If an event is detected but the user is unregistered, the pipeline captures the interaction in a **pending queue** and stops the graph execution. The tool is NOT called until the user completes the city setup.
+If an event is detected but the user is unregistered, the pipeline performs a **detection-only** pass and stops before any real publish side effect. The user may receive an onboarding invite if cooldown allows, and the bot will only process future messages after setup is complete.
 
 ---
 

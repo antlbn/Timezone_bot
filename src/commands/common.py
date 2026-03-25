@@ -15,7 +15,6 @@ from aiogram.utils.deep_linking import create_start_link
 from src.storage import storage
 from src.storage.user_cache import get_user_cached
 from src.storage.pending import (
-    save_pending_message,
     should_send_dm_invite,
     mark_dm_invite_sent,
 )
@@ -223,19 +222,6 @@ async def handle_time_mention(
                 f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite"
             )
             return
-
-        msg_data = {
-            "platform": "telegram",
-            "chat_id": str(chat_id),
-            "author_id": str(user_id),
-            "author_name": user_name,
-            "text": message.text,
-            "timestamp_utc": timestamp_utc,
-            "message_id": message.message_id,
-        }
-
-        # Freeze this actionable message for later processing
-        await save_pending_message(user_id, "telegram", msg_data)
 
         # Check cooldown — don't spam user if they recently ignored/abandoned an invite
         cooldown = get_dm_onboarding_cooldown()

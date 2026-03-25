@@ -174,6 +174,7 @@ async def detect_event(
     sender_name = current_msg.get("author_name", "Unknown")
     anchor = current_msg.get("timestamp_utc", "")
     current_text = current_msg.get("text", "")
+    detection_only = send_fn is None and edit_fn is None and delete_fn is None
 
     # Build Context
     system_text = get_system_prompt()
@@ -193,10 +194,13 @@ async def detect_event(
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
     import uuid
     
-    # Isolate tests cleanly in SQLite Database
+    # Detection-only onboarding checks must not pollute the persisted chat thread
+    # with fake "published" tool results. We run them on an isolated thread while
+    # preserving the in-memory snapshot context passed from process_message().
     thread_id = f"{platform}_{chat_id}"
-    if platform == "eval":
-        thread_id = f"eval_{uuid.uuid4().hex[:8]}"
+    use_snapshot_context = platform == "eval" or detection_only
+    if use_snapshot_context:
+        thread_id = f"{platform}_ephemeral_{uuid.uuid4().hex[:8]}"
 
     config = {
         "configurable": {
@@ -222,10 +226,10 @@ async def detect_event(
             graph = build_agent_graph()
             app = graph.compile(checkpointer=checkpointer)
 
-            # Input for LangGraph: ONLY the current human message in prod.
-            # History is automatically handled by AsyncSqliteSaver via thread_id.
-            # For evaluations, we prepend the manually crafted `snapshot` history.
-            if platform == "eval":
+            # For prod chat threads we rely on the persisted LangGraph thread state.
+            # For eval and detection-only onboarding checks we seed the graph from the
+            # provided snapshot so the run remains side-effect free for the real chat.
+            if use_snapshot_context:
                 input_messages = snapshot + [human_msg] if snapshot else [human_msg]
             else:
                 input_messages = [human_msg]
@@ -286,6 +290,7 @@ async def detect_event(
                     message_id = await send_fn(await build_reply_wrapper(result_points))
                 
                 parsed["reasoning"] = reasoning
+                parsed["message_published"] = bool(message_id)
                 if not parsed.get("reflections"):
                     parsed["reflections"] = _parse_reflections_from_text(reasoning)
                 return parsed
@@ -305,6 +310,7 @@ async def detect_event(
                 "points": result_points,
                 "tool_used": tool_used,
                 "message_id": message_id,
+                "message_published": bool(message_id),
                 "event_ref": event_ref,
                 "comment": comment,
             }
@@ -320,4 +326,5 @@ async def detect_event(
             "city": [],
             "event_type": [],
             "points": [],
+            "message_published": False,
         }

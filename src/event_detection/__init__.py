@@ -133,9 +133,10 @@ async def process_message(
             ctx_logger=ctx_logger,
         )
 
-        # If an event was detected, record a compact bot summary in history.
-        # Includes message_id so the edit tool can find it later.
-        if result.get("event") and result.get("points"):
+        # Record a compact bot summary only when a chat message was actually
+        # published or updated. Detection-only onboarding checks must not create
+        # fake BOT history entries before the user completes setup.
+        if result.get("event") and result.get("points") and result.get("message_published"):
             points = result["points"]
             summary_parts = [
                 f"{p.get('event_type', 'event')} \u2192 {p['time']}"

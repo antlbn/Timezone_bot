@@ -5,7 +5,6 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    ReactionTypeEmoji,
 )
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -13,12 +12,8 @@ from aiogram.fsm.context import FSMContext
 from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
 from src.storage.pending import (
-    get_and_delete_pending_messages,
     clear_dm_invite,
-    set_on_expire_callback,
 )
-from src.event_detection.history import append_to_history
-from src.event_detection import process_message
 from src import geo
 from src.logger import get_logger
 from src.commands.states import SetTimezone
@@ -204,14 +199,6 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
 
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
-
-    # Discard pending messages (Experiment: Lazy Onboarding)
-    discarded = await get_and_delete_pending_messages(user_id, "telegram")
-    if discarded:
-        logger.info(
-            f"User {user_id} ({user_name}) declined onboarding. Discarded {len(discarded)} messages."
-        )
-
 
 # ---------------------------------------------------------------------------
 # Settings Menu — Registered Users
@@ -545,130 +532,8 @@ async def _save_and_finish(
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
 
-    # Process all pending messages — send results to the source group chat
-    if is_dm and source_chat_id:
-        await _process_pending_queue_dm(message.bot, user_id, source_chat_id, user_name)
-    else:
-        await _process_pending_queue(message, user_id, user_name)
-
     log_suffix = " (retry)" if is_retry else ""
     log_chat = source_chat_id if (is_dm and source_chat_id) else message.chat.id
     logger.info(
         f"[chat:{log_chat}] User {user_id} -> {location['timezone']}{log_suffix}"
     )
-
-
-async def _process_pending_queue(message: Message, user_id: int, user_name: str):
-    """Helper to drain the pending queue for a user (group-chat context)."""
-    pending_list = await get_and_delete_pending_messages(user_id, "telegram")
-    if not pending_list:
-        return
-
-    logger.info(
-        f"[chat:{message.chat.id}] Draining {len(pending_list)} pending messages for user {user_id}"
-    )
-    await _drain_pending_messages(message.bot, user_id, pending_list)
-
-
-async def _process_pending_queue_dm(
-    bot, user_id: int, source_chat_id: int, user_name: str
-):
-    """Helper to drain the pending queue for a user (DM context)."""
-    pending_list = await get_and_delete_pending_messages(user_id, "telegram")
-    if not pending_list:
-        return
-
-    logger.info(
-        f"Draining {len(pending_list)} pending messages for user {user_id} (Success/Decline)"
-    )
-    await _drain_pending_messages(bot, user_id, pending_list)
-
-
-async def _handle_expired_messages(
-    bot, user_id: int, platform: str, messages: list[dict]
-):
-    """
-    Callback triggered by pending.py cleanup_loop when onboarding expires.
-    We process these messages 'as is' without waiting for registration.
-    """
-    if not messages:
-        return
-
-    # Experiment: In Lazy Onboarding, we discard messages if user ignores/declines
-    logger.info(
-        f"Failsafe: User {user_id} ({platform}) ignored onboarding. Discarding {len(messages)} messages."
-    )
-    # No action needed - messages are already removed from the pending storage by the cleanup loop
-
-
-async def _drain_pending_messages(bot, user_id: int, messages: list[dict]):
-    """Internal helper to group messages by chat_id and process them group by group."""
-    if not messages:
-        return
-
-    # Group messages by chat_id to drain efficiently
-    by_chat = {}
-    for m in messages:
-        c_id = int(m.get("chat_id", 0))
-        if c_id:
-            by_chat.setdefault(c_id, []).append(m)
-
-    for c_id, chat_messages in by_chat.items():
-        await _drain_to_chat(bot, user_id, c_id, chat_messages)
-
-
-async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
-    """Internal helper to process a list of messages and send results to a specific chat."""
-    user_record = await get_user_cached(user_id, platform="telegram")
-
-    for pending in messages:
-
-        async def send_reply_fn(text: str, _pending=pending) -> str | None:
-            try:
-                msg = await bot.send_message(
-                    chat_id=chat_id,
-                    text=text,
-                    reply_to_message_id=_pending.get("message_id"),
-                )
-                return str(msg.message_id)
-            except Exception as e:
-                from src.logger import get_logger
-                get_logger().warning(f"Failed to send pending reply: {e}")
-                return None
-                
-        async def edit_reply_fn(msg_id: str, text: str) -> None:
-            await bot.edit_message_text(
-                text=text,
-                chat_id=chat_id,
-                message_id=int(msg_id)
-            )
-            try:
-                await bot.set_message_reaction(
-                    chat_id=chat_id,
-                    message_id=int(msg_id),
-                    reaction=[ReactionTypeEmoji(emoji="✍")]
-                )
-            except Exception as e:
-                from src.logger import get_logger
-                get_logger().debug(f"Failed to set edit reaction: {e}")
-
-        snapshot = append_to_history("telegram", str(chat_id), pending)
-
-        await process_message(
-            message_text=pending["text"],
-            chat_id=str(chat_id),
-            user_id=str(user_id),
-            platform="telegram",
-            author_name=pending.get("author_name", "User"),
-            timestamp_utc=pending.get("timestamp_utc", ""),
-            sender_db=user_record,
-            send_fn=send_reply_fn,
-            edit_fn=edit_reply_fn,
-            skip_history_append=True,
-            skip_aging=True,
-            precomputed_snapshot=snapshot,
-        )
-
-
-# Register the exploration callback for pending storage
-set_on_expire_callback(_handle_expired_messages)

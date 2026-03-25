@@ -1,9 +1,8 @@
 """
 Tests for remaining uncovered Discord adapter scenarios:
 
-- _process_discord_pending: loop-closure fix, multi-message, pipeline error isolation
 - cmd_members: non-empty list, guild-only guard
-- OnboardingMenuView.decline: clears pending, sets declined status
+- OnboardingMenuView.decline: sets declined status
 - on_guild_remove: storage cleared on bot kick
 - cleanup_inactive_users: disabled when days <= 0, runs when enabled
 """
@@ -37,162 +36,6 @@ def mock_interaction():
     interaction.followup.send = AsyncMock()
     interaction.message = None
     return interaction
-
-
-# ---------------------------------------------------------------------------
-# _process_discord_pending
-# ---------------------------------------------------------------------------
-
-
-class TestProcessDiscordPending:
-    """Tests for the pending-message processing helper."""
-
-    @pytest.mark.asyncio
-    async def test_no_pending_returns_early(self, mock_interaction, monkeypatch):
-        """If there are no pending messages, we return immediately without touching process_message."""
-        monkeypatch.setattr(
-            "src.discord.commands.get_and_delete_pending_messages",
-            AsyncMock(return_value=[]),
-        )
-        process_mock = AsyncMock()
-        monkeypatch.setattr("src.discord.commands.process_message", process_mock)
-
-        from src.discord.commands import _process_discord_pending
-
-        await _process_discord_pending(mock_interaction)
-
-        process_mock.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_single_pending_message_processed(self, mock_interaction, monkeypatch):
-        """A single pending message is fully processed with the correct args."""
-        pending = {
-            "chat_id": "9999",
-            "channel_id": "111",
-            "text": "Meeting at 15:00",
-            "author_name": "Alice",
-            "timestamp_utc": "2026-01-01T12:00:00Z",
-            "message_id": 777,
-            "snapshot": None,
-        }
-        monkeypatch.setattr(
-            "src.discord.commands.get_and_delete_pending_messages",
-            AsyncMock(return_value=[pending]),
-        )
-        monkeypatch.setattr(
-            "src.discord.commands.get_user_cached",
-            AsyncMock(return_value={"timezone": "Europe/Berlin"}),
-        )
-        process_mock = AsyncMock()
-        monkeypatch.setattr("src.discord.commands.process_message", process_mock)
-        # Bot.get_channel returns a working channel
-        mock_channel = AsyncMock()
-        monkeypatch.setattr("src.discord.commands.bot.get_channel", MagicMock(return_value=mock_channel))
-
-        from src.discord.commands import _process_discord_pending
-
-        await _process_discord_pending(mock_interaction)
-
-        process_mock.assert_called_once()
-        call_kwargs = process_mock.call_args[1]
-        assert call_kwargs["message_text"] == "Meeting at 15:00"
-        assert call_kwargs["skip_history_append"] is True
-        assert call_kwargs["skip_aging"] is True
-
-    @pytest.mark.asyncio
-    async def test_multiple_pending_all_processed_independently(self, mock_interaction, monkeypatch):
-        """Multiple pending messages are each processed; one error doesn't skip the rest."""
-        pending_list = [
-            {
-                "chat_id": "9999", "channel_id": "111", "text": f"msg {i}",
-                "author_name": "Alice", "timestamp_utc": "2026-01-01T12:00:00Z",
-                "message_id": i, "snapshot": None,
-            }
-            for i in range(3)
-        ]
-        monkeypatch.setattr(
-            "src.discord.commands.get_and_delete_pending_messages",
-            AsyncMock(return_value=pending_list),
-        )
-        monkeypatch.setattr(
-            "src.discord.commands.get_user_cached",
-            AsyncMock(return_value={"timezone": "UTC"}),
-        )
-        monkeypatch.setattr("src.discord.commands.bot.get_channel", MagicMock(return_value=AsyncMock()))
-
-        call_count = 0
-        async def process_side_effect(**kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 2:
-                raise RuntimeError("LLM error on second message")
-
-        monkeypatch.setattr("src.discord.commands.process_message", process_side_effect)
-
-        from src.discord.commands import _process_discord_pending
-
-        # Should NOT raise — errors are caught per-message
-        await _process_discord_pending(mock_interaction)
-
-        # All 3 attempted despite the middle one failing
-        assert call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_closure_captures_correct_pending_per_iteration(
-        self, mock_interaction, monkeypatch
-    ):
-        """
-        Validates the loop-closure fix: each send_fn must reply to its own channel,
-        not always the last pending's channel.
-        """
-        pending_list = [
-            {
-                "chat_id": "9999", "channel_id": f"10{i}", "text": f"msg {i}",
-                "author_name": "Alice", "timestamp_utc": "2026-01-01T12:00:00Z",
-                "message_id": i, "snapshot": None,
-            }
-            for i in range(2)
-        ]
-        monkeypatch.setattr(
-            "src.discord.commands.get_and_delete_pending_messages",
-            AsyncMock(return_value=pending_list),
-        )
-        monkeypatch.setattr(
-            "src.discord.commands.get_user_cached",
-            AsyncMock(return_value={"timezone": "UTC"}),
-        )
-
-        # Track which channel ids the send_fn calls resolve to
-        resolved_channel_ids = []
-
-        def get_channel(channel_id):
-            resolved_channel_ids.append(channel_id)
-            ch = AsyncMock()
-            ch.send = AsyncMock()
-            return ch
-
-        monkeypatch.setattr("src.discord.commands.bot.get_channel", get_channel)
-
-        captured_send_fns = []
-
-        async def capture_send_fn(**kwargs):
-            captured_send_fns.append(kwargs["send_fn"])
-
-        monkeypatch.setattr("src.discord.commands.process_message", capture_send_fn)
-
-        from src.discord.commands import _process_discord_pending
-
-        await _process_discord_pending(mock_interaction)
-
-        # Now call each captured send_fn and verify it resolves to its own channel
-        resolved_channel_ids.clear()
-        for fn in captured_send_fns:
-            await fn("hello")
-
-        # First fn → channel 100, second fn → channel 101. Not both 101.
-        assert resolved_channel_ids == [100, 101], (
-            f"Loop closure bug: expected [100, 101], got {resolved_channel_ids}"
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -267,21 +110,18 @@ class TestOnboardingDecline:
     def _get_mocks(self, monkeypatch):
         """Shared mock setup for decline button tests."""
         storage_mock = AsyncMock()
-        pending_mock = AsyncMock(return_value=[])
 
         import src.storage as storage_module
         import src.storage.user_cache as cache_module
-        import src.storage.pending as pending_module
 
         monkeypatch.setattr(storage_module, "storage", storage_mock)
         monkeypatch.setattr(cache_module, "invalidate_user_cache", MagicMock())
-        monkeypatch.setattr(pending_module, "get_and_delete_pending_messages", pending_mock)
-        return storage_mock, pending_mock
+        return storage_mock
 
     @pytest.mark.asyncio
     async def test_decline_sets_declined_status(self, mock_interaction, monkeypatch):
         """Decline saves `onboarding_declined=True` to storage."""
-        storage_mock, _ = self._get_mocks(monkeypatch)
+        storage_mock = self._get_mocks(monkeypatch)
 
         from src.discord.ui import OnboardingMenuView
 
@@ -293,18 +133,6 @@ class TestOnboardingDecline:
         call_kwargs = storage_mock.set_user.call_args[1]
         assert call_kwargs.get("onboarding_declined") is True
         assert call_kwargs.get("user_id") == 12345
-
-    @pytest.mark.asyncio
-    async def test_decline_clears_pending_messages(self, mock_interaction, monkeypatch):
-        """Decline removes any pending messages for the user."""
-        _, pending_mock = self._get_mocks(monkeypatch)
-
-        from src.discord.ui import OnboardingMenuView
-
-        view = OnboardingMenuView(target_user_id=12345, guild_id=9999)
-        await view.decline.callback(mock_interaction)
-
-        pending_mock.assert_called_once_with(12345, "discord")
 
     @pytest.mark.asyncio
     async def test_decline_edits_message_with_farewell_embed(self, mock_interaction, monkeypatch):

@@ -187,7 +187,6 @@ class OnboardingMenuView(ui.View):
     async def decline(self, interaction: discord.Interaction, button: ui.Button):
         from src.storage import storage
         from src.storage.user_cache import invalidate_user_cache
-        from src.storage.pending import get_and_delete_pending_messages
 
         # Save declined status
         await storage.set_user(
@@ -198,9 +197,6 @@ class OnboardingMenuView(ui.View):
             onboarding_declined=True
         )
         invalidate_user_cache(interaction.user.id, platform="discord")
-        
-        # Clear any pending messages
-        await get_and_delete_pending_messages(interaction.user.id, "discord")
 
         embed = discord.Embed(
             title="🚫 Onboarding Declined",

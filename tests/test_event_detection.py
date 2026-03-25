@@ -2,7 +2,7 @@ import pytest
 import asyncio
 import datetime
 from unittest.mock import AsyncMock, patch
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from src.event_detection import process_message
 from src.event_detection.history import _message_history, _chat_locks
 from src.config import get_max_message_age
@@ -238,3 +238,106 @@ async def test_message_aging_post_lock():
 
             assert res["event"] is False
             assert "stale" in res.get("reason", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_process_message_detection_only_does_not_append_fake_bot_history():
+    """Detection-only onboarding checks must not create BOT summaries before publish."""
+    detect_result = {
+        "event": True,
+        "points": [{"time": "15:00", "city": None, "event_type": "meeting"}],
+        "sender_id": "u1",
+        "sender_name": "John",
+        "message_published": False,
+    }
+
+    with (
+        patch("src.event_detection.detect_event", AsyncMock(return_value=detect_result)),
+        patch("src.event_detection.append_to_history") as mock_append,
+    ):
+        await process_message(
+            message_text="Meet at 15:00",
+            chat_id="chat1",
+            user_id="u1",
+            platform="telegram",
+            author_name="John",
+            timestamp_utc="2026-03-05T10:00:00Z",
+            skip_aging=True,
+        )
+
+    assert mock_append.call_count == 1
+    first_call = mock_append.call_args_list[0].args[2]
+    assert first_call["author_id"] == "u1"
+
+
+@pytest.mark.asyncio
+async def test_detect_event_detection_only_uses_ephemeral_thread_and_snapshot():
+    """Unregistered onboarding detection must use snapshot context without polluting the chat thread."""
+    from src.event_detection.detector import detect_event
+
+    captured = {}
+
+    class FakeApp:
+        async def ainvoke(self, payload, config):
+            captured["payload"] = payload
+            captured["config"] = config
+            return {
+                "messages": [
+                    AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "name": "publish_event",
+                                "args": {
+                                    "points": [
+                                        {"time": "15:00", "city": None, "event_type": "meeting"}
+                                    ]
+                                },
+                                "id": "tc1",
+                                "type": "tool_call",
+                            }
+                        ],
+                    ),
+                    ToolMessage(content="✅ Event published. event_ref: 1234", tool_call_id="tc1"),
+                ]
+            }
+
+    class FakeGraph:
+        def compile(self, checkpointer=None):
+            return FakeApp()
+
+    class FakeSaver:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def setup(self):
+            return None
+
+    with (
+        patch("src.event_detection.graph.build_agent_graph", return_value=FakeGraph()),
+        patch("langgraph.checkpoint.sqlite.aio.AsyncSqliteSaver.from_conn_string", return_value=FakeSaver()),
+    ):
+        result = await detect_event(
+            current_msg={
+                "author_id": "u1",
+                "author_name": "John",
+                "text": "Meet at 15:00",
+                "timestamp_utc": "2026-03-05T10:00:00Z",
+            },
+            snapshot=[HumanMessage(content="[prev]: earlier context")],
+            sender_db={},
+            send_fn=None,
+            edit_fn=None,
+            delete_fn=None,
+            platform="telegram",
+            chat_id="chat1",
+        )
+
+    thread_id = captured["config"]["configurable"]["thread_id"]
+    assert thread_id.startswith("telegram_ephemeral_")
+    assert len(captured["payload"]["messages"]) == 2
+    assert result["event"] is True
+    assert result["message_published"] is False

@@ -72,11 +72,6 @@ def get_inactive_user_retention_days() -> int:
     return get_config().get("storage", {}).get("inactive_user_retention_days", 30)
 
 
-def get_onboarding_timeout() -> int:
-    """Get onboarding timeout in seconds from config."""
-    return get_config().get("event_detection", {}).get("onboarding_timeout_seconds", 60)
-
-
 def get_dm_onboarding_cooldown() -> int:
     """Get cooldown before re-prompting a user who ignored/abandoned DM onboarding."""
     return (

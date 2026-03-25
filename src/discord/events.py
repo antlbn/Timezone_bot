@@ -7,7 +7,6 @@ import discord
 from src.discord import bot
 from src.storage import storage
 from src.storage.user_cache import get_user_cached
-from src.storage.pending import save_pending_message
 from src.logger import get_logger
 from src.event_detection import process_message
 
@@ -120,18 +119,6 @@ async def on_message(message: discord.Message):
             delete_after=get_settings_cleanup_timeout() or 60,
         )
 
-        # 5.1 Save to In-Memory storage for later processing (Frozen)
-        msg_data = {
-            "platform": PLATFORM,
-            "chat_id": chat_id,
-            "channel_id": str(message.channel.id),
-            "author_id": str(message.author.id),
-            "author_name": user_name,
-            "text": message.content,
-            "timestamp_utc": timestamp_utc,
-            "message_id": message.id,
-        }
-        await save_pending_message(message.author.id, PLATFORM, msg_data)
 
 
 @bot.event
