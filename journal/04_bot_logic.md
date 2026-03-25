@@ -1,179 +1,208 @@
-# 🤖 Technical Spec: Bot Logic Module
+# Technical Spec: Bot Logic
 
-## 1. Architecture Overview
-
-```
-┌─────────────────┐
-│  Telegram API   │
-└────────┬────────┘
-         │ message
-         ▼
-┌────────────────────────────────────────────────────────┐
-│                     BOT CORE                           │
-│                                                        │
-│  ┌────────────────────┐      ┌────────────────────┐    │
-│  │  Event Detector    │      │ DB Lookup (User)   │    │
-│  │  (LLM)             │─────▶│ YES → Transform    │    │
-│  └─────────┬──────────┘      │ NO  → Onboard      │    │
-│            │                 └─────────┬──────────┘    │
-│            ▼                           ▼               │
-│        trigger=false             ┌──────────────┐      │
-│            │                     │ Response     │      │
-│         (history)                │ (Vertical)   │      │
-│                                  └──────────────┘      │
-│                                                        │
-│  ┌──────────────────────────────────────────────┐    │
-│  │              Storage (SQLite)                 │    │
-│  │  users, chats, members, pending_queue         │    │
-│  └──────────────────────────────────────────────┘    │
-└────────────────────────────────────────────────────────┘
-         │
-         ▼ reply
-┌─────────────────┐
-│  Telegram Chat  │
-└─────────────────┘
-```
-
-### Integration Note
-We leverage the standard **Telegram Bot API** via the **aiogram** library.
-This ensures reliability and follows standard practices for handling:
-- Message objects & updates (Long Polling)
-- User & Chat entities
-- Asynchronous event loop
-- **ForceReply**: Auto-opens reply mode when bot asks for user input (improves UX)
+This document describes the runtime behavior of Timezone Bot across Telegram and Discord.
 
 ---
 
-## 2. Core Workflow
+## 1. Purpose
 
-### Trigger
-Bot listens to all messages in group chats. For each message:
-1. **LLM Gate**: Send the message window to the **Event Detector LLM** (`14_llm_module.md`).
-2. **Continues only if** LLM returns `trigger=true`. Otherwise the message is silently saved to history.
-3. **DB lookup**: Check if the sender exists in SQLite.
-   - If **found** → proceed to Conversion.
-   - If **not found** → Trigger **Lazy Onboarding** (Freeze message, send DM invite).
-4. LLM output provides `times[]` (extracted times) and optional `event_location`.
+The bot watches normal chat messages, detects coordination times, and publishes timezone conversions for tracked members of the same chat.
 
-> **Note**: `capture.py` (regex) is no longer used for prefiltering or time extraction. Times are extracted by the LLM.
+Core product rules:
 
-### Flow: Happy Path (user exists in DB)
+- Users do not need to invoke a conversion command.
+- Time detection is LLM-driven.
+- Conversion output is deterministic once `points` are extracted.
+- Unregistered users do not trigger immediate chat replies; they receive onboarding prompts instead.
+- After successful onboarding, the bot starts working from the user's **next** message. Old messages are not replayed.
 
+---
+
+## 2. Runtime Shape
+
+```mermaid
+flowchart LR
+    User["Chat user"] --> Adapter["Telegram / Discord adapter"]
+    Adapter --> Orchestrator["process_message(...)"]
+    Orchestrator --> Agent["LangGraph event detector"]
+    Agent -->|points| Reply["formatter.py + transform.py"]
+    Reply --> Adapter
+    Adapter --> Chat["Original chat"]
+
+    Orchestrator --> Storage[("SQLite")]
+    Agent -.-> LLM["LLM provider"]
+    Reply --> Storage
 ```
-1. [DB LOOKUP]   → sender found in SQLite
-2. [LLM GATE]    → Event Detection LLM called with full message window:
-                   - if trigger=false → stop (no reply)
-                   - if trigger=true  → continue
-### Key Principles
-- **Passive Discovery**: Registration of chat members is passive (captured from regular messages).
-- **DM for Personal Setup**: Setup and settings dialogues are moved to private messages (Telegram) or Modals (Discord) to prevent group spam.
-- **LLM-First Architecture**: Every message is analyzed by the LLM orchestrator; no regular expression pre-filtering is used.
 
 ---
 
-## 2. Platform Nuances
+## 3. Main Message Lifecycle
 
-### 2.1 Telegram
-Uses `aiogram`'s middleware for passive collection. Onboarding is triggered via a DM invite message in the group with an auto-cleanup TTL.
+### 3.1 Every incoming group/guild message
 
-### 2.2 Discord
-Uses `discord.py`'s `on_message` for passive collection. Onboarding is triggered via ephemeral buttons and Modals.
+For every normal non-bot message:
+
+1. Update user activity in storage.
+2. Determine whether the sender already has a timezone.
+3. Call `process_message(...)`.
+4. If the sender is registered:
+   - pass `send_fn`, `edit_fn`, `delete_fn`;
+   - allow real `publish_event` / `update_previous_event`.
+5. If the sender is not registered:
+   - run detection-only mode;
+   - do not allow real publish side effects;
+   - if the message is actionable, show onboarding prompt if cooldown allows.
+
+### 3.2 Detection-only mode
+
+Detection-only mode exists only to answer:
+
+- “Is this message actionable enough to justify onboarding?”
+
+It must not:
+
+- publish a reply,
+- edit a previous bot message,
+- leave a fake published event in the real persisted agent thread.
+
+### 3.3 Real publish/update mode
+
+For registered users:
+
+1. The agent extracts one or more `points`.
+2. The action layer selects `publish_event` or `update_previous_event`.
+3. The reply builder converts extracted times to all tracked members.
+4. The adapter posts the final chat message or edits a previous one.
 
 ---
 
-## 3. Core Message Processing Lifecycle
+## 4. Onboarding Logic
+
+### 4.1 Telegram
+
+Telegram onboarding is DM-based:
+
+1. User writes an actionable message in a group.
+2. Bot runs detection-only pass.
+3. If cooldown allows, bot posts a single group invite with a deep link to DM.
+4. User completes city/timezone setup in DM.
+5. Bot confirms success and explicitly tells the user that conversion starts from the **next** message.
+
+If the user ignores onboarding:
+
+- nothing is replayed later;
+- the bot may re-invite only after cooldown expires and another actionable message appears.
+
+If the user declines:
+
+- `onboarding_declined=True` is stored;
+- future auto-invites stop until the user explicitly sets timezone again.
+
+### 4.2 Discord
+
+Discord onboarding is component/modal-based:
+
+1. User writes an actionable message in a guild.
+2. Bot runs detection-only pass.
+3. Bot shows a targeted onboarding prompt with button.
+4. User completes city/timezone setup via modal or manual time fallback.
+5. Bot confirms success and explicitly says conversion starts from the **next** message.
+
+Decline semantics match Telegram:
+
+- explicit decline disables future auto-invites,
+- incomplete onboarding does not replay old messages.
+
+---
+
+## 5. Conversion Logic
+
+Once `points` are extracted, conversion is deterministic:
+
+1. Resolve source timezone:
+   - use `point.city` override if present and resolvable;
+   - otherwise use sender's stored timezone.
+2. Load tracked members of the chat.
+3. Convert each point from source timezone to every member timezone.
+4. Format grouped, human-readable output.
+
+Important invariant:
+
+- the LLM decides **what** time points exist;
+- the conversion layer decides **how** those points are transformed and rendered.
+
+---
+
+## 6. Message Update Logic
+
+The bot supports in-place edits for follow-up clarifications.
+
+High-level rule:
+
+- if a new message refines an existing event, the agent may choose `update_previous_event(event_ref=...)`;
+- the action layer decides between:
+  - edit in place,
+  - delete + republish.
+
+This decision depends on:
+
+- edit feature flag,
+- distance from the original event in the chat thread.
+
+---
+
+## 7. Sequence Diagram
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Bot as Platform Adapter
-    participant LLM as Event Detector
-    participant DB as SQLite Storage
-
-    User->>Bot: "Sync at 18:00 tomorrow"
-    Bot->>DB: Update last_active_at (Passive Collection)
-    Bot->>LLM: process_message(history + current)
-    LLM-->>Bot: JSON {event: true, points: [...]}
-    
-    Bot->>DB: get_user(sender_id)
-    alt User NOT set up
-        Bot->>User: Invite to DM / Open Modal
-        Note over Bot: Message added to Onboarding Buffer (Frozen)
-    else User IS set up
-        Bot->>Bot: execute_convert_time(points)
-        Bot->>User: Formatted conversion reply
-    end
-```
-
-### 3.1 Onboarding Buffer (The "Frozen" Message)
-If a user is not registered, their current coordination message is "frozen" in memory (`pending.py`). Once they complete their setup in DM/Modal, the bot automatically releases this message and performs the conversion in the original group chat.
-
----
-
-## 4. Configuration Timers
-- `settings_cleanup_timeout_seconds`: 30s (Default)
-- `onboarding_timeout_seconds`: 120s (Default)
-- `dm_onboarding_cooldown_seconds`: 600s (Default)
-
-#### Sequence Diagram: event_location Override
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant B as Bot
-    participant LLM as Event Detector LLM
-    participant G as Geocoding
+    participant Adapter
+    participant Core as process_message
+    participant Agent as LangGraph agent
     participant DB as SQLite
+    participant Chat
 
-    U->>B: "Давайте в 12:00 по ньюйорку"
-    B->>DB: get_user(user_id)
-    DB-->>B: {tz: "Europe/Paris"}
-    B->>LLM: detect(window, sender_tz="Europe/Paris")
-    LLM-->>B: {trigger:true, times:["12:00"], event_location:"New York"}
-    Note over B: event_location overrides source TZ
-    B->>G: geocode("New York")
-    G-->>B: {tz: "America/New_York"}
-    B->>DB: get_chat_members(chat_id)
-    DB-->>B: [members with timezones]
-    Note over B: Convert 12:00 America/New_York → all zones
-    B->>U: "Anton Lubny:
-           12:00 New York 🇺🇸
-           18:00 Paris 🇫🇷
-           20:00 Moscow 🇷🇺"
-```
+    User->>Adapter: "Let's meet at 15:00"
+    Adapter->>DB: update_activity(user_id)
+    Adapter->>Core: process_message(...)
+    Core->>Agent: detect_event(...)
 
-#### Sequence Diagram: Fallback Flow (City Not Found)
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant B as Bot
-    participant G as Geocoding
-
-    U->>B: "xyzabc" (invalid city)
-    B->>G: geocode("xyzabc")
-    G-->>B: null (not found)
-    B->>U: "City not found. Reply with time (14:30) or try another city:"
-
-    alt User enters time
-        U->>B: "14:30"
-        Note over B: Calculate UTC offset
-        Note over B: offset = user_time - UTC_now
-        B->>U: "Set Anton: UTC+3 🌐"
-    else User enters city
-        U->>B: "Paris"
-        B->>G: geocode("Paris")
-        G-->>B: {tz: "Europe/Paris", flag: "🇫🇷"}
-        B->>U: "Set Anton: Paris 🇫🇷 (Europe/Paris)"
+    alt Sender not registered
+        Agent-->>Core: event=true, message_published=false
+        Core-->>Adapter: actionable but onboarding required
+        Adapter->>Chat: onboarding invite / button / modal
+    else Sender registered
+        Agent->>DB: get_chat_members(chat_id)
+        Agent-->>Core: event=true, points=[...]
+        Core-->>Adapter: formatted publish / update instruction
+        Adapter->>Chat: send or edit bot message
     end
 ```
 
 ---
 
-## 3. Resolved Questions
+## 8. Operational Notes
 
-- [x] ~~Rate limiting for bot responses?~~ → `cooldown_seconds` in config (default: 0 = off)
-- [x] ~~Private chats vs group chats?~~ → Group only. Private not needed.
-- [x] ~~Regex prefilter?~~ → Removed. Every message goes to LLM.
-- [x] ~~Who extracts times?~~ → LLM returns `times[]` in output JSON.
-- [x] ~~event_location updates DB?~~ → No. One-time pivot override only.
+### 8.1 Per-chat serialization
+
+Each chat is processed under a dedicated lock. This prevents concurrent corruption of agent memory, but means a burst in one chat is serialized.
+
+### 8.2 Stale-drop behavior
+
+If a message waits too long in the per-chat queue, it may be dropped by the message-age guard instead of being processed late.
+
+### 8.3 Snapshot timing nuance
+
+Short-term history snapshotting currently happens before lock acquisition. Under extreme burst load, snapshot timing and execution order can diverge slightly.
+
+---
+
+## 9. Rebuild Checklist
+
+If this file were used to rebuild the runtime logic, the implementation must preserve:
+
+1. Detection-only onboarding for unregistered users.
+2. No replay of old pre-onboarding messages.
+3. Per-chat serialized LLM processing.
+4. Deterministic conversion after LLM extraction.
+5. Publish vs update split with edit-or-republish logic.

@@ -1,106 +1,86 @@
-# Technical Spec: City → Timezone Mapping
+# 06. City to Timezone Resolution
 
-## 1. Overview
+This document specifies the geo-resolution layer that maps user input to an IANA timezone.
 
-Module for determining IANA timezone by city name.
-Uses geocoding (Nominatim/OSM) + TimezoneFinder.
+## 1. Purpose
 
----
+The resolver handles two kinds of input:
 
-## 2. Technology Stack
+- city text such as `Berlin` or `Paris, France`,
+- fallback manual time such as `14:30`.
 
-| Library | Purpose |
-|---------|---------|
-| `geopy` | Geocoding (OpenStreetMap Nominatim) |
-| `timezonefinder` | Coordinates → IANA timezone |
+Its output is a normalized location record:
 
-### Country Flags
+- `city`
+- `timezone`
+- `flag`
+- optional metadata such as `country_code`
 
-Nominatim returns `country_code` (DE, US, JP). Mapping to emoji:
+## 2. Current Runtime Design
 
-```python
-def get_country_flag(country_code: str) -> str:
-    return "".join(chr(ord(c) + 127397) for c in country_code.upper())
-# "DE" → 🇩🇪, "US" → 🇺🇸, "JP" → 🇯🇵
-```
+The implementation uses:
 
----
+- `geopy.Nominatim` for geocoding,
+- `timezonefinder` for coordinates -> IANA timezone,
+- a small offset-to-timezone map for manual-time fallback.
 
-## 3. Workflow
+## 3. Resolution Order
 
+`resolve_timezone_from_input(...)` follows this order:
 
-```
-User enters city
-       │
-       ▼
-   Geocoding
-       │
-   ┌───┴───┐
-   ▼   ▼   ▼
-   0   1   >1  results
-   │   │    │
-   ▼   ▼    ▼
-Fallback Save Inline buttons
-```
+1. try to parse the input as a time,
+2. if successful, derive a rough UTC offset and map it to a representative timezone,
+3. otherwise treat the input as a city and geocode it.
 
-### Logic:
+This ordering avoids false city matches for inputs like `19:53`.
 
-1. **0 results** → Fallback (ask for system time)
-2. **1+ results** → MVP: Take the first (Best Match), save timezone, confirm to user. (Disambiguation — Future Scope).
+## 4. City Resolution Contract
 
----
+`get_timezone_by_city(city_name)` should:
 
-## 4. Disambiguation (Multiple Cities)
-If a search returns multiple locations (e.g. «Paris»), the system currently selects the **first result** provided by Nominatim. Support for disambiguation via inline buttons is planned for future releases.
+1. geocode the city name,
+2. extract coordinates,
+3. resolve an IANA timezone from coordinates,
+4. derive country flag from the country code,
+5. return a normalized record.
 
----
+If no location is found, return `None`.
 
-## 5. Implementation Notes
+If the external geocoder is unavailable, return an error-shaped result that can be logged and handled gracefully by callers.
 
-### Rate Limiting (L87)
-Nominatim requires an identification header (User-Agent) and recommends limited RPS. The current implementation uses a single-request pattern with a **5s timeout**. High-load deployments should consider `geopy.RateLimiter`.
+## 5. Current Limitations
 
----
+### 5.1 First-result policy
 
-## 6. Fallback: System Time
+If the geocoder returns multiple valid places, the current system uses the first match.
 
-If city is not found:
+This is acceptable for MVP, but it is not a strong disambiguation strategy.
 
-1. Bot asks: `"City not found. Reply with your current time (e.g. 14:30) or try another city name:"`
-2. User can reply with:
-   - **Time** (e.g. "14:30") → Calculate UTC offset, save as "UTC+X 🌐"
-   - **City** (retry) → Attempt geocoding again
-3. If neither recognized → repeat prompt
+### 5.2 Manual-time fallback is approximate
 
----
+Manual time fallback maps an offset to one representative timezone. It is a recovery mechanism, not a precise geographic identity model.
 
-## 6. Rate Limiting
+### 5.3 Runtime bottleneck risk
 
-Nominatim requires:
-- Max 1 request/second
-- Mandatory User-Agent
+The current geocoding implementation is synchronous and runs in the application path. Under load, this can block the event loop and slow unrelated chat processing.
 
-Use `RateLimiter` from geopy.
+This is one of the main architectural weak points of the current system.
 
----
+## 6. Performance and Reliability Requirements
 
-## 7. Edge Cases
+For a stronger production version, preserve the same functional contract but improve execution strategy:
 
-| Case | Handling |
-|------|----------|
-| Typo in name | Nominatim often finds fuzzy match |
-| City in different languages | Nominatim is multilingual |
-| Empty input | Repeat the question |
-| Fallback time '14:00' matched as toponym | fallback -> check REGEX first, then geocoding |
----
+1. isolate blocking geocoding from the main async event loop,
+2. add local caching for repeated city lookups,
+3. respect external provider rate limits,
+4. keep timeouts explicit,
+5. make failure visible in logs.
 
-## 8. Out of Scope (MVP)
+## 7. Rebuild Notes
 
-- **Inline buttons disambiguation** — when >1 result, take the first
-- **RateLimiter** — Nominatim timeout=5s is sufficient for MVP
-- **`get_multiple_locations()`** — function exists but not used
+If the geo layer is rebuilt:
 
----
-
-## 9. Future Improvements
-
+1. preserve the two-mode input contract: city or manual time,
+2. preserve IANA timezone output,
+3. preserve regex-first handling for manual time,
+4. do not silently collapse all failures into one guessed timezone.

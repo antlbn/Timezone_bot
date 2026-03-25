@@ -40,7 +40,7 @@
 - переживает рестарт процесса, пока доступен sqlite checkpoints DB.
 
 > Важно: short-term history и LangGraph thread state связаны, но не идентичны.  
-> Первый слой нужен для local snapshot / queueing semantics, второй — для agent-native memory.
+> Первый слой нужен для local snapshot / processing semantics, второй — для agent-native memory.
 
 ---
 
@@ -189,7 +189,7 @@ sequenceDiagram
 - Не видит финальный platform-formatted reply как source of truth.
 - Не использует platform `message_id` как primary semantic key; для update semantics используется `event_ref`.
 - Не replay'ит старые onboarding-era сообщения после setup.
-- Не опирается на pending queue: она была удалена из актуальной архитектуры.
+- Не использует backlog replay или очередь старых onboarding-сообщений.
 
 ---
 

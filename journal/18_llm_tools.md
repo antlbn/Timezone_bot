@@ -1,76 +1,177 @@
 # Technical Spec: LLM Tools
 
-> **Version**: 1.0 — LangGraph Native Tools
+This document specifies the two tools available to the event-detection agent.
 
 ---
 
-## 1. Overview
+## 1. Why tools exist
 
-The event detection agent uses two primary tools to interact with the chat: `publish_event` for initial announcements and `update_previous_event` for refining or overriding previously stated times without flooding the chat.
+The agent should not emit free-form “answers” directly as its primary contract.
 
-Both tools share a common schema for extracted data points but differ in their execution logic and historical tracking.
+Instead it must produce one of two explicit intentions:
+
+- create a new event reply,
+- update a previously published event reply.
+
+That contract is expressed as tool calls.
 
 ---
 
-## 2. Tool Schemas
+## 2. Shared Data Structure
 
-### 2.1 Common Data Structure: `Point`
+Each tool works with a list of `points`.
 
-Each "point" extracted by the LLM represents a single time-location event.
+### 2.1 `Point`
 
-| Field | Type | Required | Description |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
-| `time` | `string` | Yes | **Strictly `HH:MM`** (24h). No timezones or suffixes. |
-| `city` | `string \| null` | Yes | IANA city name or geographical location. |
-| `event_type` | `string` | Yes | Short name of the event (e.g., "call", "deadline" "sync"). |
+| `time` | `string \| null` | Yes | Strict `HH:MM` 24h time. |
+| `city` | `string \| null` | Yes | Optional city/location override for source timezone. |
+| `event_type` | `string` | Yes | Short event label such as `call`, `sync`, `deadline`. |
 
-### 2.2 `publish_event`
+### 2.2 Validation rule
 
-Called when a new event is detected or a previous event cannot be updated.
+Before side effects are executed, points are validated.
 
-**Arguments:**
-- `reasoning` (string): Brief internal analysis.
-- `points` (List[Point]): One or more event points.
+Current hard rule:
 
-**Logic:**
-1. Increments the per-chat event counter (`#N`).
-2. Formats a full reply message using `formatter.format_multi_conversion`.
-3. Replies to the user's message in the chat.
-4. Appends a `ToolMessage` to history: `✅ Published event #N: {summary}`.
+- `time` must match `^\d{1,2}:\d{2}$`
 
-### 2.3 `update_previous_event`
+If no valid times remain after validation:
 
-Called when a user refines or overrides a time previously handled by the bot.
-
-**Arguments:**
-- `reasoning` (string): Explanation of the change.
-- `event_ref` (int): The event number to update (from history).
-- `points` (List[Point]): The updated points.
-
-**Logic:**
-1. Finds the previous bot message for `#event_ref` in the history.
-2. Checks the "distance" (number of messages since the original).
-3. **If distance ≤ limit**: Edits the original bot message in-place and adds a `🤖` reaction (robot emoji).
-4. **If distance > limit**: Deletes the old message and sends a new one (republish).
-5. Appends a `ToolMessage` to history: `✅ Published event #N (updated): {summary}`.
+- nothing is published,
+- the tool path returns a corrective ToolMessage instead.
 
 ---
 
-## 3. Strict Constraints
+## 3. `publish_event`
 
-### 3.1 Time Format
-The `time` field **MUST** match the regex `^\d{1,2}:\d{2}$`. Any other format (e.g., "14:00Z", "2pm", "None") will trigger a validation error and force the LLM to retry.
+### 3.1 Intent
 
-### 3.2 Update Visibility
-When calling `update_previous_event`, the LLM is instructed to append `[UPDATED]` to the `event_type` string (e.g., `"созвон [UPDATED]"`) to ensure users notice the change in the edited message.
+Use `publish_event` when the current message introduces a new actionable event for the chat.
 
-### 3.3 Zulu Context
-While the LLM extracts `HH:MM` for tools, it uses the **Zulu-formatted** `ANCHOR` time and message timestamps in history to resolve relative terms (e.g., "in an hour").
+### 3.2 Inputs
+
+- `points: list[Point]`
+- `comment: str = ""`
+
+### 3.3 Runtime behavior
+
+When `publish_event` is executed:
+
+1. validate `points`;
+2. generate a unique 4-digit `event_ref`;
+3. build the final formatted reply;
+4. call platform `send_fn`;
+5. write a ToolMessage into LangGraph state.
+
+Typical ToolMessage content:
+
+```text
+✅ Event published. event_ref: 4821. Summary: sync → 14:00, call → 16:30
+```
+
+If a user-facing `comment` exists, it is appended to the ToolMessage and to the formatted reply footer.
 
 ---
 
-## 4. Implementation Reference
+## 4. `update_previous_event`
 
-- **Schema & Prompt**: `src/event_detection/prompts.py`
-- **Orchestration**: `src/event_detection/graph.py` (via `action_node`)
-- **Execution**: `src/event_detection/tools.py`
+### 4.1 Intent
+
+Use `update_previous_event` when the current message refines or overrides a previously published event.
+
+### 4.2 Inputs
+
+- `event_ref: int`
+- `points: list[Point]`
+- `comment: str = ""`
+
+### 4.3 Runtime behavior
+
+When `update_previous_event` is executed:
+
+1. validate `points`;
+2. locate the previous ToolMessage by `event_ref`;
+3. build the new reply text;
+4. decide:
+   - edit existing bot message,
+   - or delete + republish;
+5. remove the old AI+Tool pair from graph state;
+6. write a fresh ToolMessage for the updated event.
+
+Typical ToolMessage content:
+
+```text
+✅ Event updated. event_ref: 4821. Summary: sync → 15:00
+```
+
+If the referenced event cannot be found:
+
+- the action layer falls back to new publication.
+
+Fallback ToolMessage:
+
+```text
+✅ Event published. event_ref: 5932 (fallback). Summary: sync → 15:00
+```
+
+---
+
+## 5. Edit vs Republish
+
+`update_previous_event` does not always edit in place.
+
+The action layer decides based on:
+
+- whether edit-in-place is enabled,
+- how many human messages have passed since the original event.
+
+Rule:
+
+| Condition | Action |
+|---|---|
+| edit enabled and distance within threshold | edit existing bot message |
+| otherwise | delete old message and publish a new one |
+
+This keeps the chat readable when the original reply is already too far above in the conversation.
+
+---
+
+## 6. Relationship to the rest of the system
+
+The tools do **not** perform the actual timezone math themselves.
+
+Their job is to express event intent.
+
+The deterministic layers then do the rest:
+
+1. resolve source timezone,
+2. load chat members,
+3. convert times,
+4. format output,
+5. call platform APIs.
+
+---
+
+## 7. Detection-only onboarding behavior
+
+During onboarding detection-only passes:
+
+- the model may still conceptually choose publish/update,
+- but real chat side effects must not occur,
+- and fake published state must not leak into the real persisted chat thread.
+
+That is enforced by running such passes in an isolated ephemeral thread.
+
+---
+
+## 8. Rebuild Checklist
+
+To recreate the tool layer faithfully, preserve:
+
+1. Two-tool contract only: `publish_event`, `update_previous_event`.
+2. Strict time validation before side effects.
+3. Random unique `event_ref` generation.
+4. Remove-and-replace semantics for updated events in graph state.
+5. Edit-vs-republish policy based on message distance.

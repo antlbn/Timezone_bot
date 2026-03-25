@@ -1,133 +1,129 @@
-# Technical Spec: Telegram Commands & UI
+# 08. Telegram Commands and UI
 
-## 1. Overview
+This document specifies the Telegram-specific command surface and user interaction model.
 
-Bot commands for managing settings and chat members.
-Each bot response displays `/tb_help` text at the bottom.
+## 1. Purpose
 
----
+Telegram uses two distinct UX layers:
+
+- group-chat interactions for normal conversation and lightweight prompts,
+- private-chat interactions for onboarding and personal settings.
+
+The group should stay clean. Stateful setup belongs in DM whenever possible.
 
 ## 2. Commands
 
-| Command | Description |
-|---------|-------------|
-| `/tb_help` | Show command menu |
-| `/tb_me` | Show your current location |
-| `/tb_settz` | Change your timezone |
-| `/tb_members` | List chat members from DB |
-| `/tb_remove` | Remove stale member (left chat while bot offline) |
+| Command | Context | Purpose |
+|---|---|---|
+| `/tb_help` | group or DM | Show help and the right next step for the current context. |
+| `/tb_me` | group or DM | Show the user's saved location/timezone. |
+| `/tb_settz` | group or DM | Open or continue timezone setup. In groups it redirects to DM; in DM it opens the settings/onboarding flow. |
+| `/tb_members` | group only | Show tracked members for the current chat. |
+| `/tb_remove` | group only | Remove a stale member from the current chat's tracked membership list. |
 
----
+## 3. Group UX
 
-## 3. Response Footer
+### 3.1 Normal time mention
 
-Each bot response ends with the line:
+1. User writes a normal message.
+2. Adapter forwards it to the shared processing pipeline.
+3. If the sender is registered, the bot may publish or update a conversion message.
+4. If the sender is not registered and the message is actionable, the bot may send one onboarding invite if cooldown allows.
 
-```
-14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵
-/tb_help
-```
+### 3.2 `/tb_help`
 
----
+In a group, help should not dump a full personal setup wizard into the chat.
 
-## 4. Command Flows
+Expected behavior:
 
-Commands are divided into three logical modules:
+- explain what the bot does,
+- show chat-management commands,
+- provide a DM link or settings entry point.
 
-- **settings.py** — personal settings management (`/tb_settz`, `/tb_me`) and FSM `SetTimezone`.
-- **members.py** — chat member list management (`/tb_members`, `/tb_remove`) and FSM `RemoveMember`.
-- **common.py** — common functions (`/tb_help`), time mention handling and system events (`on_bot_kicked`).
+### 3.3 `/tb_settz`
 
+In a group, `/tb_settz` does not run a long setup flow inline.
 
+Expected behavior:
 
-### /tb_help
+- send one short reply with a deep link to the bot's DM,
+- let the actual setup happen in private chat.
 
-```
-User: /tb_help
+### 3.4 `/tb_members`
 
-Bot:
-🕐 Timezone Bot Commands
+Lists tracked members known for the current chat. This is a DB-backed operational view, not a live platform roster.
 
-/tb_me     - your location
-/tb_settz  - change TZ  
-/tb_members - members
-/tb_remove - remove
-```
+### 3.5 `/tb_remove`
 
-### /tb_me
+Used when chat membership in storage is stale and someone should be removed manually.
 
-```
-User: /tb_me
+Current interaction model:
 
-Bot: Berlin 🇩🇪 (Europe/Berlin)
-```
+1. bot prints a numbered list,
+2. user replies with a number,
+3. bot removes the selected stored member from `chat_members`.
 
-### /tb_settz
+If the reply is not a number, the temporary removal state is cleared and the message falls back to normal time-message handling.
 
-```
-User: /tb_settz
+## 4. DM UX
 
-Bot: "What city are you in?"
+### 4.1 `/start` with onboarding deep link
 
-User: /Wait for user to click button/type city name.
-    - **Step 2:** Resolved timezone saved.
-    - **Step 3:** Bot sends confirmation: "Set: Berlin 🇩🇪 (Europe/Berlin)".
-```
+If the payload is `onboard_{user_id}_{chat_id}`:
 
-### /tb_members
+1. validate that the clicking user matches `user_id`,
+2. show the onboarding welcome,
+3. offer:
+   - `Set my city`
+   - `No thanks`
+   - `Data Privacy`
 
-```
-User: /tb_members
+### 4.2 `/tb_settz` in DM
 
-Bot:
-Chat members:
+This is the normal settings entry point for an already known user and also the recovery path for a user who previously declined onboarding.
 
-1. @john - Berlin 🇩🇪
-2. @alice - New York 🇺🇸
-3. @bob - New York 🇺🇸
-4. @yuki - Tokyo 🇯🇵
+Expected behavior:
 
-/tb_remove
-```
+- if timezone exists: show settings menu,
+- if timezone does not exist: show onboarding welcome.
 
----
+### 4.3 City entry
 
-### 4. /tb_remove (Remove Member)
-If someone left the group but the bot hasn't noticed yet, they can be removed manually from the list.
+City entry uses FSM state in DM:
 
-1.  **Command:** `/tb_remove`
-2.  **State:** `RemoveMember`
-3.  **Prompt:** "Select a member to remove from this group:" (Shows inline buttons/list).
-4.  **Confirm:** "Removed member #123456."
+1. bot asks for city,
+2. user sends free text,
+3. bot resolves timezone,
+4. bot saves the record,
+5. bot confirms the result and explicitly says:
+   `I'll start converting times from your next message.`
 
----
+### 4.4 Decline path
 
-## 5. Metadata & Response Format
-All commands that provide information (members, me, help) trigger the conversion-style formatting (Vertical groups) where applicable, but **no longer include the `/tb_help` footer** to keep the chat clean.
+If the user taps `No thanks`:
 
-For code clarity and separation of concerns, helper modules are introduced:
-- **src/middleware.py**: Contains logic affecting all incoming messages (member collection).
-- **src/states.py**: Contains state classes (FSM) for setup and removal scenarios.
+- persist `onboarding_declined=True`,
+- stop future automatic invites,
+- keep manual recovery via `/tb_settz` or settings menu.
 
-- Commands are split into three files in the src/commands directory
+## 5. Cleanup Rules
 
-## 6. Permissions
+Telegram cleanup is intentionally asymmetric:
 
-| Action | Who can do |
-|--------|------------|
-| Change own TZ | Any user (self only) |
-| View list | Any user |
-| Remove member | Any user (anyone) |
+- group invites and helper messages are temporary,
+- DM onboarding and settings messages may remain for reference,
+- the bot should not litter active groups with multi-step setup dialogue.
 
-**Note:** Removal by anyone — for cases when bot missed user exit. Affects bot DB only, not actual chat membership.
+Config knobs:
 
----
+- `settings_cleanup_timeout_seconds`
+- `dm_onboarding_cooldown_seconds`
 
-## 7. Edge Cases
+## 6. Rebuild Notes
 
-| Case | Bot Response |
-|------|--------------|
-| Empty member list | "No registered members in this chat yet" |
-| Invalid number | "No member with that number" |
-| Remove self | Allowed, with confirmation |
+If Telegram is rebuilt from scratch, preserve these invariants:
 
+1. onboarding-heavy interaction belongs in DM, not group chat;
+2. group `/tb_settz` is a redirect, not a full wizard;
+3. no replay of old pre-onboarding messages after setup;
+4. decline suppresses future automatic invites until the user opts in manually.

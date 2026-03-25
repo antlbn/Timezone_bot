@@ -1,95 +1,229 @@
 # Technical Spec: LLM Module
 
-> **Version**: 3.0 — LangGraph & Native Tools
+This document specifies the event-detection module that powers Timezone Bot.
 
 ---
 
-## 1. Overview
+## 1. Purpose
 
-The LLM module coordinate the event detection pipeline through a structured **Agentic Graph** (powered by LangGraph). Unlike a simple classifier, the LLM acts as an autonomous agent that can decide to "publish" findings or "update" previous ones using native tool-calling capabilities.
+The LLM module answers one question for each incoming chat message:
 
-### Why this shape?
+> Does this message create or refine a coordination event with one or more time points?
 
-| Old Approach (JSON Mode) | New Approach (LangGraph + Tools) |
-|---|---|
-| Manual JSON parsing/validation | Native tool schemas with built-in validation |
-| Fixed sequence (Detection → Extraction) | Dynamic branching (LLM decides tool vs talk) |
-| Snapshot-only history | Native `BaseMessage` state with automated reducers |
-| Hardcoded update logic | `update_previous_event` tool with smart history scanning |
+If yes, it must return structured tool arguments that the deterministic layers can safely execute.
+
+The LLM module does **not** perform timezone conversion itself.
 
 ---
 
-## 2. Core Architecture
+## 2. Responsibilities
 
-### 2.1 State Management (`GraphState`)
-The agent maintains a state consisting of a message list (`Annotated[list[BaseMessage], add_messages]`). This list persists within the chat's lifecycle and includes:
-- **SystemMessage**: The behavioral prompt.
-- **HumanMessage**: User messages with embedded timestamps (Zulu).
-- **AIMessage**: LLM responses, including tool call definitions.
-- **ToolMessage**: Result of tool executions (e.g., "✅ Published event #1").
+The module is responsible for:
 
-### 2.2 The Graph Flow
+- interpreting natural-language time mentions,
+- extracting structured `points`,
+- deciding between:
+  - `publish_event`
+  - `update_previous_event`
+  - no tool call
+- preserving agent memory inside a chat thread,
+- avoiding false publish side effects during onboarding detection-only passes.
+
+The module is not responsible for:
+
+- final chat formatting,
+- membership loading,
+- city fallback UI,
+- onboarding UI logic.
+
+---
+
+## 3. Architecture
+
+### 3.1 Entry point
+
+`process_message(...)` in `src/event_detection/__init__.py` is the orchestration boundary.
+
+It handles:
+
+- message aging,
+- per-chat serialization,
+- snapshotting short-term history,
+- calling `detect_event(...)`,
+- appending BOT summary after real publish/update.
+
+### 3.2 Agent runtime
+
+`detect_event(...)` in `src/event_detection/detector.py`:
+
+- builds the current message context,
+- injects callbacks (`send_fn`, `edit_fn`, `delete_fn`),
+- compiles and invokes the LangGraph workflow,
+- normalizes the result for callers.
+
+### 3.3 Graph
+
+The LangGraph workflow in `src/event_detection/graph.py` has three conceptual stages:
+
 ```mermaid
 graph LR
     START --> pre_process
     pre_process --> llm
     llm -->|tool_call| action
-    action -->|validation_error| llm
-    action -->|success| END
     llm -->|no_tool| END
-```
-- **`pre_process`**: JIT history cleanup (token trimming and old message removal).
-- **`llm`**: Invokes the model with the current context and tool definitions.
-- **`action`**: Executes `publish_event` or `update_previous_event` and handles side effects (chat replies/edits).
-
----
-
-## 3. Module File Map
-
-```
-src/
-└── event_detection/
-    ├── __init__.py         # Entry point: process_message(...)
-    ├── client.py           # Model initialization & API config
-    ├── graph.py            # LangGraph definition, nodes, and tool implementations
-    ├── history.py          # Short-term in-memory history snapshotting
-    ├── prompts.py          # System prompt & Tool schemas (docs-centric)
-    └── tools.py            # Business logic for conversions & formatting
+    action --> END
 ```
 
----
+#### `pre_process`
 
-## 4. Inputs & Context
+- trims old messages if needed;
+- keeps graph state bounded.
 
-### 4.1 Input Normalization
-Before entering the graph, messages are normalized to include standard metadata:
-- **`timestamp_utc`**: ISO 8601 Zulu (`YYYY-MM-DDTHH:MM:SSZ`).
-- **`anchor_timestamp_utc`**: The context pivot point for relative time resolution.
-- **`sender_db`**: User's timezone and location from the persistent storage.
+#### `llm`
 
-### 4.2 Context Window
-The graph uses a dual-layered trimming strategy:
-1. **Configurable Count**: `context_messages` (default: 5) limits the number of recent chat messages.
-2. **Token Limit**: A failsafe just-in-time trimmer (`max_tokens` in `configuration.yaml`) ensures the total prompt context (system + history + current) stays within limits.
+- calls the model with current context and tool schemas.
 
----
+#### `action`
 
-## 5. Execution Logic
-
-### 5.1 Tool Dispatch
-The LLM selects one of the tools documented in [18_llm_tools.md](18_llm_tools.md).
-
-### 5.2 Registration Gate (Lazy Onboarding)
-If an event is detected but the user is unregistered, the pipeline performs a **detection-only** pass and stops before any real publish side effect. The user may receive an onboarding invite if cooldown allows, and the bot will only process future messages after setup is complete.
+- validates tool arguments,
+- executes publish/update side effects,
+- writes `ToolMessage` state back into the graph.
 
 ---
 
-## 6. History Persistence
-History is kept in an in-memory `defaultdict` of LangChain history objects. 
-- **Volatile**: Cleared on bot restart.
-- **Distance-Aware**: The `update_previous_event` logic scans this history to find the correct `message_id` for in-place edits.
+## 4. Inputs
+
+Every processed message enters the module with:
+
+| Field | Meaning |
+|---|---|
+| `message_text` | Raw incoming text |
+| `chat_id` | Platform chat/guild ID |
+| `user_id` | Sender ID |
+| `platform` | `telegram`, `discord`, or special eval mode |
+| `author_name` | Sender display name |
+| `timestamp_utc` | ISO-8601 UTC timestamp |
+| `sender_db` | User timezone/city snapshot, if known |
+
+Optional callbacks:
+
+- `send_fn`
+- `edit_fn`
+- `delete_fn`
+
+These callbacks are what make the difference between:
+
+- **real publish/update mode**, and
+- **detection-only mode** for onboarding.
 
 ---
 
-## 7. Monitoring & Logging
-The pipeline utilizes `logging.LoggerAdapter` to inject `platform` and `chat_id` into every log entry, ensuring total traceability of agent decisions across Discord and Telegram.
+## 5. Memory Model
+
+### 5.1 Real chat thread
+
+For registered users, the agent uses a persisted LangGraph thread:
+
+- thread key: usually `"{platform}_{chat_id}"`;
+- storage: `data/graph_checkpoints.db`;
+- purpose: remember previously published/updated events.
+
+### 5.2 Detection-only onboarding pass
+
+For unregistered users:
+
+- the module may still detect `event=True`,
+- but it must use an **ephemeral thread id**,
+- and must not pollute the real chat thread with fake ToolMessages.
+
+### 5.3 Short-term snapshot
+
+The separate `history.py` layer provides:
+
+- local process memory,
+- snapshots around incoming messages,
+- per-chat locks,
+- compact BOT summaries after real publish/update.
+
+For a deeper memory breakdown, see `17_llm_memory_model.md`.
+
+---
+
+## 6. Execution Rules
+
+### 6.1 If no event is found
+
+- no tool is called,
+- the message remains only as context.
+
+### 6.2 If a new event is found
+
+- the model should call `publish_event(points=[...])`.
+
+### 6.3 If a previously published event is being refined
+
+- the model should call `update_previous_event(event_ref=..., points=[...])`.
+
+### 6.4 If the sender is not onboarded
+
+- the module may compute `event=True`,
+- but must not trigger real publish side effects,
+- and the product flow continues with onboarding UX instead of conversion output.
+
+---
+
+## 7. Constraints
+
+### 7.1 Time format
+
+Tool arguments must use strict `HH:MM` format.
+
+### 7.2 Deterministic downstream behavior
+
+Once `points` are produced, downstream processing must be deterministic.
+
+The LLM decides:
+
+- which points exist,
+- whether this is a publish or update.
+
+The deterministic layers decide:
+
+- source timezone resolution,
+- member conversion,
+- output rendering,
+- actual chat API calls.
+
+### 7.3 Safe failure
+
+If validation fails or the model output is malformed:
+
+- do not publish broken chat output,
+- prefer returning `event=False` or forcing a retry path inside the graph.
+
+---
+
+## 8. Files
+
+```text
+src/event_detection/
+├── __init__.py      # process_message(...)
+├── detector.py      # detect_event(...)
+├── graph.py         # LangGraph nodes, routing, tool side effects
+├── history.py       # short-term history + locks
+├── prompts.py       # system prompt
+├── client.py        # model selection
+└── tools.py         # helper conversion routines
+```
+
+---
+
+## 9. Rebuild Checklist
+
+To rebuild this module faithfully, preserve:
+
+1. Tool-calling agent shape (`publish_event` / `update_previous_event`).
+2. Persisted per-chat thread memory via LangGraph checkpoints.
+3. Detection-only onboarding pass with isolated ephemeral thread.
+4. Per-chat serialized execution in `process_message(...)`.
+5. Deterministic conversion/rendering outside the LLM.

@@ -185,8 +185,6 @@ sequenceDiagram
     participant Geo as Geo resolver
     participant Reply as Formatter + Transform
     participant Chat as Chat API
-    participant Pending as Pending queue
-
     User->>Adapter: Normal chat message with time mention
     Adapter->>Cache: get_user_cached(user_id, platform)
     Adapter->>History: process_message(...)<br/>append snapshot + acquire lock
@@ -222,7 +220,7 @@ sequenceDiagram
 ### Why this sequence matters
 
 - The **adapter** owns platform I/O and injects callbacks for send/edit/delete.
-- `process_message()` is the **orchestration boundary**: queueing, aging, snapshotting, then handoff to the agent.
+- `process_message()` is the **orchestration boundary**: aging checks, snapshotting, serialization, then handoff to the agent.
 - The **agent** decides whether the message creates a new event or updates an earlier one.
 - The final published message is assembled only after combining:
   - extracted `points` from the LLM,

@@ -1,118 +1,105 @@
-# Technical Spec: Response Format
+# 07. Response Format
 
-## 1. Overview
+This document defines the user-facing format of conversion replies.
 
-Bot response format for time conversion.
+## 1. Goals
 
----
+Replies must be:
 
-## 2. Basic Format
+- readable on mobile,
+- compact in active chats,
+- deterministic,
+- consistent across Telegram and Discord.
 
-**Default (without usernames):**
-```
+## 2. Structural Rules
+
+### 2.1 One event -> one bot message
+
+If a message contains multiple time points for the same event, the bot should publish one combined reply rather than several separate replies.
+
+### 2.2 Vertical layout
+
+Each time point is formatted as a vertical block. Blocks are separated by a blank line.
+
+### 2.3 Sender/source line first
+
+For each point, the first line represents the source time and source city.
+
+Example:
+
+```text
 14:00 Berlin 🇩🇪
 08:00 New York 🇺🇸
 22:00 Tokyo 🇯🇵
 ```
 
-**With usernames (optional):**
-```
-14:00 Berlin 🇩🇪 @john
-08:00 New York 🇺🇸 @alice, @bob
-22:00 Tokyo 🇯🇵 @yuki
-```
+## 3. Grouping Rules
 
+1. Group participants by timezone.
+2. For each timezone group, render one line.
+3. If `show_usernames=true`, append usernames for members in that timezone group.
+4. Sort groups by UTC offset.
 
----
+If multiple members share the same timezone, they should not create duplicate lines.
 
-## 3. Configuration
+## 4. Day Offset Markers
 
-```yaml
-bot:
-  show_usernames: false  # default: disabled
-```
+When converted local date differs from the source local date:
 
----
+- next day -> `⁺¹`
+- previous day -> `⁻¹`
 
-## 4. Grouping Rules
+Example:
 
-- If multiple users in same location → **one entry**, names comma-separated
-- No duplicates of timezone/city
-- Sorting: by UTC offset (from smallest to largest)
-
-**Grouping example:**
-```
-# 2 users in New York → one entry
-08:00 New York 🇺🇸 @alice, @bob
-```
-
----
-
-## 5. Day Transition
-
-If time transitions to another day:
-
-```
+```text
 14:00 Berlin 🇩🇪
 08:00 New York 🇺🇸
 22:00⁺¹ Tokyo 🇯🇵
 ```
 
-| Marker | Meaning |
-|--------|---------|
-| `⁺¹` | Next day |
-| `⁻¹` | Previous day |
+## 5. Multi-Point Output
 
----
+For multiple points in one event, format as:
 
-## 6. Multiple Times
-
-If a message contains multiple times, the bot aggregates them into a **single, multi-line result** with indentation to align with the sender's name.
-
-**Example:**
-```
-Alice: 
+```text
+call
 10:30 Sarajevo 🇧🇦
 09:30 London 🇬🇧
 
+deadline
 15:00 Sarajevo 🇧🇦
 14:00 London 🇬🇧
-
-/tb_help
 ```
 
-This prevents chat clutter and keeps all relevant conversions in one atomic block.
+An optional sender prefix may wrap the whole body:
 
----
-
-## 7. Display Limit
-
-From `configuration.yaml`:
-```yaml
-bot:
-  display_limit_per_chat: 10
+```text
+Alice: call
+10:30 Sarajevo 🇧🇦
+09:30 London 🇬🇧
 ```
 
-If more users than limit:
-```
-14:00 Berlin 🇩🇪
-08:00 New York 🇺🇸
-... +5 more
-```
+## 6. Display Limit
 
----
+The formatter honors `bot.display_limit_per_chat`.
 
-## 8. Empty State
+- `0` means "show all"
+- otherwise only the first `N` non-sender members are shown
+- if truncated, append:
+  `... +X more`
 
-If only the sender is in the chat:
-```
-14:00 Berlin 🇩🇪
-```
+## 7. Footer
 
----
+The action layer may append a short footer when the tool call contains a user-facing comment.
 
-## 9. Country Flags
+This footer is emphasized and belongs to the reply body, not to a command footer like `/tb_help`.
 
-Flags are determined by country from geocoding result.
-Mapping country code → emoji flag.
+## 8. Rebuild Notes
 
+If the formatter is rebuilt:
+
+1. keep output vertical,
+2. keep timezone-group aggregation,
+3. keep day-offset markers,
+4. keep multi-point aggregation in a single message,
+5. do not append command help text to normal conversion replies.

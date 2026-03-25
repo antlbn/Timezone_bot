@@ -1,43 +1,70 @@
-# Technical Spec: Logging
+# 09. Logging
 
-## 1. Overview (MVP)
-Minimalistic strategy:
-- **Output**: Standard output (`stdout`) — ideal for Docker.
-- **Library**: Built-in Python `logging`.
-- **No external services** (Sentry, etc. — out of scope).
+This document defines the runtime logging contract.
 
----
+## 1. Goals
 
-## 2. Configuration
+Logging should make it possible to:
 
-`configuration.yaml`:
-```yaml
-logging:
-  level: INFO   # DEBUG — for development, INFO — for production
-```
+- diagnose platform failures,
+- understand onboarding behavior,
+- inspect event-processing decisions,
+- detect bottlenecks and slow external dependencies.
 
----
+## 2. Base Strategy
 
-## 3. Log Levels
+Current implementation uses Python `logging` to `stdout`.
 
-| Level | Usage |
-|-------|-------|
-| `DEBUG` | Raw Telegram updates (JSON) |
-| `INFO` | Main events: "Bot started", "Converted time for user X" |
-| `WARNING` | Non-standard situations (API timeout, DB lock), operation continues |
-| `ERROR` | Critical errors (Traceback) |
+That is sufficient for local runs, Docker logs, and simple production deployments.
 
----
+## 3. Levels
 
-## 4. Simple Context
-In log messages, simply add chat ID if available:
-`[chat:123] Timezone set to Europe/Berlin`
+| Level | Use |
+|---|---|
+| `DEBUG` | detailed control flow, prompt/context diagnostics, cache details |
+| `INFO` | normal lifecycle events and successful high-level actions |
+| `WARNING` | degraded behavior with recovery, such as edit failures or API timeouts |
+| `ERROR` | failed operations that prevented expected behavior |
 
-Starting from **2026-03-16**, the LLM pipeline uses `logging.LoggerAdapter` to automatically inject `[platform:chat_id]` into all logs within the pipeline context.
+## 4. Required Context
 
----
+Log lines should include enough context to correlate behavior:
 
-## 5. Exception Handling
-We do **not hide** errors.
-- **Failures**: All exceptions in `except` blocks (Geo API, DB) must be logged as `WARNING` or `ERROR`.
-- **Silent Failures**: `except: pass` is **prohibited** for critical logic.
+- platform when relevant,
+- chat or guild id,
+- user id when helpful,
+- operation name or phase.
+
+The event-processing pipeline already uses contextual logging adapters inside the orchestration path.
+
+## 5. External Dependency Logging
+
+Calls that touch external systems must log failures explicitly:
+
+- LLM provider
+- geocoding provider
+- platform API edits/deletes/sends
+- SQLite operational errors
+
+Silent failure for core logic is not acceptable.
+
+## 6. Performance-Relevant Logging
+
+Because the bot is async and can bottleneck on slow dependencies, logging should make latency issues diagnosable.
+
+Recommended signals:
+
+- slow geocoding calls,
+- repeated geocoding failures,
+- dropped stale messages,
+- lock/backlog pressure per chat,
+- LLM invocation failures and retries.
+
+## 7. Rebuild Notes
+
+If logging is rebuilt:
+
+1. keep stdout as the default sink,
+2. keep structured context in message text or adapters,
+3. preserve explicit logging around external dependency failures,
+4. add timing metrics before adding heavy observability infrastructure.

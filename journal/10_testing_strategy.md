@@ -1,84 +1,82 @@
-# Technical Spec: Testing Strategy
+# 10. Testing Strategy
 
-## 1. Philosophy (MVP)
-We follow a **Pragmatic approach**:
-1.  **Logic First**: Automatically test only complex business logic (Regex, time math).
-2.  **Manual UI**: Test Telegram interactions (buttons, commands) manually.
-3.  **Zero External Deps**: Use standard library `unittest` (or simple `pytest` without complex plugins).
+This document defines the quality strategy for the current system.
 
----
+## 1. Goal
 
-## 2. Test Pyramid (Telegram + Discord)
+The test suite must protect the parts of the bot that are easy to break and expensive to debug:
 
-| Layer | Type | Scope | Automation | Tool |
-|-------|------|-------|------------|------|
-| **L1** | **Unit** | `src/event_detection/` (LLM output parsing, golden fixtures)<br>`src/transform.py` (Time math)<br>`src/geo.py` (Geocoding) | ✅ Automated | `pytest` |
-| **L1.5** | **Handlers** | `src/commands/*.py` (Telegram)<br>`src/discord/commands.py` (Discord) | ✅ Automated | `pytest` + `mock` |
-| **L2** | **Integration** | `src/storage/`, `middleware`, events | ✅ Automated | `pytest` |
-| **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App, Discord |
+- event detection contract,
+- onboarding behavior,
+- storage invariants,
+- platform adapter handlers,
+- publish/update semantics.
 
+## 2. Test Layers
 
----
+| Layer | Scope | Purpose |
+|---|---|---|
+| Unit | pure logic modules | Validate parsing, transformation, formatting, and local decisions. |
+| Handler tests | Telegram / Discord command and event handlers | Verify adapter behavior, branching, and side effects with mocks. |
+| Storage tests | SQLite-backed data access | Verify schema and persistence contracts. |
+| Integration-focused runtime tests | event processing and onboarding flows | Verify multi-module behavior without real network calls. |
+| Manual verification | real Telegram / Discord UX | Check platform-specific interaction details that mocks cannot fully capture. |
 
-## 3. Automated Logic Tests (L1)
+## 3. Automated Coverage Priorities
 
-These tests should run before every commit.
+Highest priority:
 
-### Scope:
-1. **Event Detection (LLM)**:
-    - Golden test cases from `tests/fixtures/event_detection_cases.yaml`
-    - Verify `trigger`, `polarity`, `times[]`, `event_location` for each fixture
-    - Test JSON schema validation
-2. **Transformation Logic**:
-    - UTC → Target TZ conversion
-    - `source_tz` override (event_location path)
-    - Day change handling (Day +1 / -1)
-    - Response string formatting
-3. **Resilience (L2)**:
-    - API error handling (Geo timeout, LLM error)
-    - Database stability (Middleware catch)
-    - Garbage data parsing
-4. **Handlers (L1.5)**:
-    - Unit tests for commands (`cmd_me`, `cmd_settz`)
-    - Mocking `aiogram.types.Message` and `storage`
-    - Verify `message.answer` is called with expected text
+1. detection-only onboarding behavior for unregistered users,
+2. no fake publish traces in real chat thread memory,
+3. no replay of pre-onboarding messages,
+4. correct persistence of `onboarding_declined`,
+5. `publish_event` vs `update_previous_event` behavior,
+6. member cleanup and membership reads,
+7. city/timezone resolution fallbacks,
+8. stale-message dropping under age guards.
 
-### Location:
-- `tests/test_event_detection.py` — LLM output parsing + golden fixtures
-- `tests/test_transform.py` — UTC-pivot logic + source_tz override
-- `tests/test_formatter.py` — Reply formatting
-- `tests/test_geo.py` — Geocoding and timezone resolution
-- `tests/test_storage.py` — Database operations (platform separation)
-- `tests/test_handlers.py` — Telegram handlers
-- `tests/test_discord_handlers.py` — Discord handlers
-- `tests/test_discord_events.py` — Discord events (auto-cleanup)
-- `tests/test_exceptions_logging.py` — Error handling
+## 4. Test Inventory
 
----
+Current suite is organized roughly like this:
 
-## 4. Manual Verification Logic (L2 & L3)
+| File | Focus |
+|---|---|
+| `tests/test_event_detection.py` | detection pipeline, structured outputs, publish/update behavior |
+| `tests/test_lazy_onboarding.py` | Telegram onboarding trigger behavior |
+| `tests/test_soft_onboarding_new.py` | Telegram DM onboarding, decline, cooldown, settings flow |
+| `tests/test_handlers.py` | Telegram commands and handler behavior |
+| `tests/test_discord_on_message.py` | Discord message-path onboarding and detection behavior |
+| `tests/test_discord_handlers.py` | Discord commands and UI integration points |
+| `tests/test_discord_events.py` | Discord member removal and scheduled cleanup |
+| `tests/test_discord_extended.py` | broader Discord UX and edge behaviors |
+| `tests/test_storage_pending.py` | invite cooldown state only |
 
-For integration and UI verification, use a checklist (`task.md` Phase 4).
+## 5. Manual Verification
 
-**Key scenarios:**
-1.  **Startup**: Bot starts, DB is created.
-2.  **New User Flow**: `/tb_settz` → enter city → save.
-3.  **Group Chat**:
-    -   User A (Berlin) writes "15:00"
-    -   User B (NY) sees "09:00 New York"
-4.  **Error Handling**: Enter non-existent city (fallback should work).
+Manual checks are still required for:
 
----
+- Telegram deep links,
+- message auto-cleanup timing,
+- Discord button/modal UX,
+- embed rendering,
+- permission and visibility behavior on real platforms.
 
-## 5. Continuous Integration (Future)
-In the future (Post-MVP) add GitHub Actions:
-- Linting (`ruff`)
-- Running tests (`python -m unittest discover tests`)
+Minimum manual scenarios:
 
----
+1. new Telegram user triggers onboarding invite from group,
+2. Telegram DM setup succeeds and bot starts from the next message,
+3. Telegram decline suppresses future automatic invites,
+4. new Discord user receives button-based onboarding,
+5. Discord modal success stores timezone and confirms future-message behavior,
+6. follow-up event edits or republishes correctly in a busy chat.
 
-## 6. Database in Tests
-**Important:** Running tests does **not require** the `data/bot.db` file.
-- **L1.5 (Handlers)**: Use `unittest.mock` (don't touch disk at all).
-- **L2 (Integration)**: Tests in `test_storage.py` automatically create and delete a **temporary DB file** (`tests/test_bot.db`).
-This guarantees that tests can run on a clean machine right after `git clone`.
+## 6. Test Philosophy
+
+1. Prefer deterministic tests over brittle end-to-end automation.
+2. Mock platform APIs aggressively.
+3. Keep real external services out of CI.
+4. Treat docs and tests as enforcement of product invariants, not just implementation detail.
+
+## 7. Rebuild Notes
+
+If the system is rebuilt, restore the tests around onboarding and memory boundaries early. They protect the architecture, not just the UI.

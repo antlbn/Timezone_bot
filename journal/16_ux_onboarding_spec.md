@@ -15,7 +15,7 @@ This document defines the user experience guidelines and implementations for the
 
 ## 2. Current Implementation (Target Behavior)
 
-Since the project moved from the old "single-pass LLM + local history" model to a **LangGraph agent with persisted thread state**, onboarding now has one critical architectural rule:
+The current architecture uses a **LangGraph agent with persisted thread state**, and onboarding follows one critical rule:
 
 > **Before the user completes onboarding, the bot may run detection, but it must not leave a fake "published event" trace in the real chat thread memory.**
 
@@ -33,7 +33,7 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 1. **Trigger:** A new user (timezone missing) sends a message in a group. The bot performs a **detection-only LangGraph pass**:
    - If **no time event** is detected → the message remains only as ordinary chat context; onboarding is not shown.
    - If **time event** is detected → onboarding is triggered (Lazy Onboarding), but no chat reply is published yet.
-2. **Cooldown Check:** The bot checks if a DM invite was already sent within the `dm_onboarding_cooldown_seconds` window (default: 600s). If so, the message is only queued — no new invite is sent.
+2. **Cooldown Check:** The bot checks if a DM invite was already sent within the `dm_onboarding_cooldown_seconds` window (default: 600s). If cooldown is still active, the bot does nothing further for that message and waits for a later actionable message.
 4. **Invite:** If cooldown allows, the bot sends a minimal message to the group:
    > "Hi {Name}! Tap the button to quickly set up your timezone 👇"
    > **Button:** `[📍 Set up timezone]` ← URL button to `t.me/bot?start=onboard_{userId}_{chatId}`
@@ -50,7 +50,7 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
    - If the user declines, they are marked as `onboarding_declined=True`.
    - If they ignore or abandon the flow, nothing is replayed later; the bot will only re-invite after the onboarding cooldown expires and a new actionable message appears.
 9. **Security:** The deep-link payload is validated. If another user tries to use it, the bot ignores it.
-10. **Memory boundary:** The initial detection-only pass is **not allowed** to create a fake published event in the persisted LangGraph chat thread. The real thread history is updated only during the replay after successful setup.
+10. **Memory boundary:** The initial detection-only pass is **not allowed** to create a fake published event in the persisted LangGraph chat thread. Real publish/update traces are written only when a registered user is processed normally.
 
 #### ⭐ UX Principles & Cleanup Rules
 - **Non-disruptive**: No intrusive dialogs in the group. All setup happens "behind the scenes" in DM.
@@ -70,8 +70,8 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 #### Runtime Notes
 
 - **Invite cooldown storage**: `src/storage/pending.py`
-- **Telegram replay path**: `src/commands/settings.py`
-- **Discord replay path**: `src/discord/commands.py`
+- **Telegram onboarding/settings flow**: `src/commands/settings.py`
+- **Discord onboarding/settings flow**: `src/discord/commands.py` + `src/discord/ui.py`
 - **Detection-only pass**: `src/event_detection/detector.py`
 - **Real publish pass**: `src/event_detection/__init__.py` + `src/event_detection/graph.py`
 
@@ -122,15 +122,3 @@ Discord offers native Ephemeral Messages and Modals, allowing for a strictly tar
 - **Multi-chat awareness:** If a user has already set their timezone in one group, skip onboarding in other groups.
 
 ---
-
-## 5. Historical Context: What We Tried & Discarded
-
-> [!NOTE]
-> This section documents past design decisions to prevent repeating old mistakes.
-
-| Feature Attempted | Why We Discarded It | The Solution We Built |
-| :--- | :--- | :--- |
-| **Strict ForceReply in Telegram** | Users frequently ignored or forgot to use the Telegram reply function. They would just type "London" in the chat, leading to a locked `FSMContext` state. | Relaxed the check. If the user is in the `waiting_for_city` state, the bot accepts their next text message as the city input. |
-| **Leaving Bot Prompts in the Chat** | In active Telegram groups, leaving "What city are you in?" and the user's "London" messages severely cluttered the conversation with onboarding noise. | Implemented **Auto-Cleanup**. The bot deletes temporary onboarding artifacts in group flows; the DM onboarding path leaves only the minimal invite in the group. |
-| **Inline Buttons + ForceReply in Group Chat (v1)** | Even with auto-cleanup, the onboarding dialogue (buttons, city input, fallback prompts) polluted the group chat. Multiple messages were exchanged in the shared space before cleanup could run. | Moved the entire onboarding dialogue to **DM via deep links**. The group chat only ever sees a single auto-deleting invite message. |
-| **Persisting fake publishes before setup** | After the switch to LangGraph, a detection-only pass could accidentally leave a trace in the real chat thread as if the event had already been published. That breaks future update semantics. | Detection before setup must run in an **isolated ephemeral thread**. No old message is replayed after setup; the bot simply starts from the next user message. |

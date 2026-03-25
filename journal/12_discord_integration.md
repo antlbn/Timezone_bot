@@ -1,147 +1,120 @@
 # 12. Discord Integration
 
-> [!NOTE]
-> **Status: Implemented**
+This document specifies how the bot behaves on Discord and how the Discord adapter differs from Telegram.
 
-## 1. Overview
+## 1. Role of the Discord Adapter
 
-Bot extension to support Discord servers. Uses **discord.py** — async library with slash commands support.
+Discord is a thin platform adapter over the shared core.
 
-### Architecture: Parallel Adapters
+It is responsible for:
 
-```
-┌─────────────────┐     ┌─────────────────┐
-│  Telegram API   │     │  Discord API    │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐
-│ src/commands/   │     │ src/discord/    │
-│ (Telegram)      │     │ (Discord)       │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         └───────────┬───────────┘
-                     ▼
-         ┌───────────────────────────────────┐
-         │            SHARED CORE            │
-         │  event_detection, transform,      │
-         │  storage, geo, formatter          │
-         └───────────────────────────────────┘
-```
+- receiving guild messages,
+- exposing slash commands,
+- rendering Discord-native onboarding UI,
+- providing send/edit/delete callbacks to the shared event-processing pipeline,
+- performing Discord-specific membership cleanup.
 
-**Principle:** Platform adapters (Telegram/Discord) — thin layers. All logic in shared core.
+It should not duplicate business logic that already exists in the shared core.
 
----
+## 2. Why Discord UX Is Different
 
-## 2. Technology Stack
+Discord gives the bot better targeted interaction primitives than Telegram groups:
 
-| Component | Library | Notes |
-|-----------|---------|-------|
-| **Discord API** | `discord.py` (2.x) | Async, slash commands, intents |
-| **Commands** | Slash Commands | Modern Discord UX |
-| **Storage** | Existing SQLite | `platform='discord'` |
+- buttons,
+- modals,
+- ephemeral responses.
 
----
+Because of that, Discord onboarding stays inside Discord. It does not require DM deep links.
 
-## 3. Discord vs Telegram: Key Differences
+## 3. Runtime Flow
 
-| Aspect | Telegram | Discord |
-|--------|----------|---------|
-| **Set Timezone UX** | DM-based URL button | Button → Modal (form) |
-| **Fallback (city not found)** | Text reply with time | Buttons: "Try Again" / "Enter Time" |
-| **Button security** | N/A | Only target user can click |
-| **Stale user removal** | Manual `/tb_remove` | Auto-cleanup on time mention |
-| **User exit detection** | Bot doesn't know (unless admin) | `on_member_remove` event |
+### 3.1 Registered user
 
-### Button-Based Timezone Flow
+1. guild message arrives,
+2. adapter loads sender snapshot,
+3. adapter calls `process_message(...)` with real `send_fn`, `edit_fn`, `delete_fn`,
+4. shared core may publish or update a conversion message.
 
-In Discord, interactive elements are used instead of text responses:
+### 3.2 Unregistered user
 
-1. **Unregistered user** mentions time → bot responds with a message containing **"Set Timezone"** button.
-2. **Button is protected** — only the target user can click it (others get "This button is not for you!").
-3. **Click** opens a modal window (form) for entering city.
-4. **If city not found** — two buttons appear: "Try Again" and "Enter Time" (manual time input).
+1. guild message arrives,
+2. adapter calls `process_message(...)` in detection-only mode by passing no publish callbacks,
+3. if the message is actionable, the adapter shows the onboarding prompt,
+4. no real chat conversion is published,
+5. after setup, the bot starts from the user's next message.
 
-> [!IMPORTANT]
-> Under the hood, the same function `geo.resolve_timezone_from_input()` is used as in Telegram.
+## 4. Onboarding Contract
 
----
+### 4.1 Trigger
 
-## 4. Commands
+When an unregistered user writes an actionable time-coordination message, the bot replies with a short onboarding prompt and a `Set Timezone` button.
 
-| Command | Description |
-|---------|-------------|
-| `/tb_settz` | Set timezone (opens modal) |
-| `/tb_me` | Show my timezone |
-| `/tb_members` | List server members |
-| `/tb_help` | Help message |
+### 4.2 Security
 
-> [!NOTE]
-> `/tb_remove` is- **Passive Collection**: `on_message` captures metadata (ID, Nickname, Platform) and updates records before LLM analysis.
-- **Auto-Cleanup**: Instead of per-mention loops, Discord relies on a **24h Background Task** (sync_and_cleanup) that verifies if users are still in the guild and prunes historical data for those who left.
-- **DM Integration**: Not used for onboarding in Discord due to better native support for Ephemeral Modals.
-- This solves the problem of "stuck" users without manual intervention.
+The onboarding view is user-targeted. If another user presses the button, they should get a refusal message and must not be able to alter someone else's setup.
 
-```python
-# events.py - auto-cleanup logic
-for m in db_members:
-    if not message.guild.get_member(m["user_id"]):
-        await storage.remove_chat_member(...)  # Auto-remove stale user
+### 4.3 Success path
 
-# tasks.py - Scheduled Sync (Implemented 2026-03-15)
-# Daily task to catch members who left while bot was offline.
-async def sync_discord_members():
-    ...
-```
+On success:
 
-### 4.2 Server Removal
-When the bot is removed from a guild (`on_guild_remove`), it triggers `clear_chat_members(guild_id)` to purge all associated participant data for that server.
+- timezone is saved,
+- user is added to the current guild membership set,
+- success response confirms the saved timezone,
+- success response explicitly says:
+  `I'll start converting times from your next message.`
 
----
+### 4.4 Decline path
 
-## 5. File Structure
+If the user explicitly declines:
 
-```
-src/discord/
-├── __init__.py      # Bot instance, intents setup
-├── commands.py      # Slash commands + handlers
-├── ui.py            # UI components (Views, Modals)
-└── events.py        # on_message (with auto-cleanup), on_member_remove
-```
+- persist `onboarding_declined=True`,
+- suppress future automatic invites,
+- allow later manual recovery through `/tb_settz`.
 
----
+### 4.5 Invalid city fallback
 
-## 6. Configuration
+If city resolution fails, Discord uses native follow-up UI:
 
-**.env:**
-```
-TELEGRAM_TOKEN=...   # If set, Telegram bot starts
-DISCORD_TOKEN=...    # If set, Discord bot starts
-```
+- `Try Again`
+- `Enter Time`
 
-**Startup Logic (both platforms):**
-- Token present → Bot starts
-- Token missing → Skip with warning (no crash)
+This keeps the user inside the onboarding flow without polluting the guild chat.
 
-This approach allows running only needed bots — just set or remove the token.
+## 5. Commands
 
----
+| Command | Purpose |
+|---|---|
+| `/tb_help` | Show help text. |
+| `/tb_me` | Show the caller's current timezone. |
+| `/tb_settz` | Set timezone by city input. |
+| `/tb_members` | Show tracked guild members. |
 
-## 7. Shared Core (No Changes Required)
+There is currently **no implemented Discord slash command** for manual member removal. Discord relies on event-driven cleanup plus daily reconciliation instead.
 
-| Module | Discord Compatibility |
-|--------|----------------------|
-| `event_detection/` | ✅ Works as-is (platform-agnostic LLM call) |
-| `transform.py` | ✅ Works as-is |
-| `storage/` | ✅ `platform='discord'` supported |
-| `geo.py` | ✅ Works as-is |
-| `formatter.py` | ✅ Works as-is |
+## 6. Membership Maintenance
 
----
+Discord has two cleanup paths:
 
-## 8. Resolved Questions
+1. immediate cleanup on `on_member_remove`,
+2. scheduled daily reconciliation in `src/discord/tasks.py` for users who left while the bot was offline.
 
-- [x] **Separate codebase?** → No. Shared core, platform adapters.
-- [x] **Bot per server?** → No. One bot instance, multi-server.
-- [x] **Storage changes?** → No. `platform` column already exists.
-- [x] **/tb_remove needed?** → No. Auto-cleanup handles stale users.
+This is stronger than Telegram, because Discord exposes more reliable guild membership signals.
+
+## 7. File Ownership
+
+| File | Responsibility |
+|---|---|
+| `src/discord/events.py` | message handling, onboarding trigger, member leave handling |
+| `src/discord/commands.py` | slash commands and shared command handlers |
+| `src/discord/ui.py` | buttons, modals, fallback views |
+| `src/discord/tasks.py` | daily member sync and inactive-user cleanup |
+
+## 8. Rebuild Notes
+
+If Discord support is rebuilt:
+
+1. keep the adapter thin,
+2. keep onboarding inside Discord UI primitives,
+3. preserve detection-only behavior before registration,
+4. do not replay old pre-onboarding messages,
+5. preserve daily guild reconciliation in addition to event-driven cleanup.
