@@ -275,9 +275,10 @@ async def _execute_update(
     )
 
     result_messages: list = []
-    old_ai_msg = messages[old_ai_idx]
-    if old_ai_msg.id is not None:
-        result_messages.append(RemoveMessage(id=old_ai_msg.id))
+    if old_ai_idx >= 0:
+        old_ai_msg = messages[old_ai_idx]
+        if old_ai_msg.id is not None:
+            result_messages.append(RemoveMessage(id=old_ai_msg.id))
     if old_tool_idx >= 0 and messages[old_tool_idx].id is not None:
         result_messages.append(RemoveMessage(id=messages[old_tool_idx].id))
 

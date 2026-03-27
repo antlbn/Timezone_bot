@@ -255,8 +255,6 @@ async def detect_event(
         comment = None
 
         if last_msg and isinstance(last_msg, ToolMessage):
-            tool_used = last_msg.name
-
             # Retrieve the tool call arguments and reasoning from the previous AIMessage
             for i in range(len(messages) - 2, -1, -1):
                 if isinstance(messages[i], AIMessage) and messages[i].tool_calls:
