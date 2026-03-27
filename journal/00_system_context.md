@@ -101,7 +101,7 @@ flowchart LR
 | **Shared application core** | Python modules in `src/` | Orchestrates message handling, event detection, lazy onboarding, reply building, and publish/update behavior. |
 | **SQLite** | `aiosqlite` | Persistent source of truth for users and chat membership. |
 | **LangGraph checkpoints** | SQLite via `AsyncSqliteSaver` | Persists graph state per chat thread for the event-detection agent. |
-| **In-memory runtime state** | Python memory | Holds short-term chat history, per-chat locks, onboarding invite cooldown state, and cached user snapshots. |
+| **In-memory runtime state** | Python memory | Holds per-chat locks, per-invocation action contexts, onboarding invite cooldown state, and cached user snapshots. |
 | **LLM provider** | OpenAI-compatible chat API | Chooses `publish_event` or `update_previous_event` and returns extracted time points. |
 | **Nominatim + TimezoneFinder** | `geopy`, `timezonefinder` | Converts user-entered city data into canonical timezone data. |
 
@@ -118,7 +118,7 @@ flowchart LR
 
     subgraph Core["Shared application core"]
         Orchestrator["Message orchestrator<br/>process_message()"]
-        History["Short-term memory<br/>history snapshot + per-chat lock"]
+        History["Runtime coordination<br/>per-chat lock + action context"]
         Agent["Event detection agent<br/>detector.py + graph.py + prompts.py"]
         Reply["Reply builder<br/>formatter.py + transform.py"]
         InviteState["Invite cooldown state<br/>storage/pending.py"]
@@ -159,9 +159,9 @@ flowchart LR
 
 | Component | Responsibility |
 |---|---|
-| **Platform adapters** | Translate Telegram/Discord events into a normalized call to `process_message(...)`; provide platform-specific `send_fn`, `edit_fn`, `delete_fn`. |
-| **Message orchestrator** | Applies aging checks, appends history, serializes processing with per-chat locks, and delegates to the event-detection agent. |
-| **Short-term memory** | Maintains recent chat context and message references used for update-in-place behavior. |
+| **Platform adapters** | Translate Telegram/Discord events into a normalized call to `process_message(...)`; provide platform-specific send/edit/delete hooks. |
+| **Message orchestrator** | Applies aging checks, serializes processing with per-chat locks, and delegates to the event-detection agent. |
+| **Runtime coordination** | Owns per-chat locks and temporary action-context wiring for one graph invocation. |
 | **Event detection agent** | Builds prompt context, invokes the LLM with tool schemas, validates tool args, and executes `publish_event` / `update_previous_event`. |
 | **Reply builder** | Converts source time into participant-local times and formats the final chat message. |
 | **Invite cooldown state** | Prevents repeated onboarding prompts for the same user within the cooldown window. |
@@ -187,13 +187,13 @@ sequenceDiagram
     participant Chat as Chat API
     User->>Adapter: Normal chat message with time mention
     Adapter->>Cache: get_user_cached(user_id, platform)
-    Adapter->>History: process_message(...)<br/>append snapshot + acquire lock
+    Adapter->>History: process_message(...)<br/>acquire lock
     History->>Agent: detect_event(current_msg, snapshot, sender_db, send/edit fns)
     Agent->>LLM: prompt + recent history + tool schemas
     LLM-->>Agent: tool call<br/>publish_event or update_previous_event
 
     alt Sender is not registered
-        Agent-->>Adapter: event detected, but no publish fn
+        Agent-->>Adapter: app-logic marker in persisted thread<br/>no real publish side effect
         Adapter->>Chat: Send onboarding prompt / button / modal
     else Sender is registered
         Agent->>Store: get_chat_members(chat_id)

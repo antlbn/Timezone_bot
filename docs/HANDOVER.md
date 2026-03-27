@@ -19,7 +19,8 @@ User time → Sender's TZ → UTC (pivot) → Each member's TZ
 The bot uses a **per-chat queuing system** to handle high-frequency messages without losing context or wasting tokens:
 - **Individual Locks**: Every chat (`chat_id`) has its own `asyncio.Lock`. Messages within one chat are processed sequentially.
 - **Cross-Chat Parallelism**: Different chats (e.g., Telegram Chat A and Discord Server B) are processed in parallel.
-- **Singleton Client**: A single `AsyncOpenAI` client handles all requests, maximizing connection reuse.
+- **Cached LLM Runtime**: A cached `ChatOpenAI` client and a cached tool-bound runnable are reused across calls.
+- **Shared Graph Runtime**: LangGraph is compiled once per process and reused with a shared `AsyncSqliteSaver` connection.
 
 ---
 
@@ -83,18 +84,18 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 **Discord:** Uses same approach for consistency + `on_member_remove` event for cleanup.
 
-### 3.4 Why 4-Layer "Clean Memory" Over Redis?
+### 3.4 Why Shared Runtime + Persisted Graph Memory Over Redis?
 
-The bot implements a custom in-memory architecture to handle state without external dependencies:
+The bot keeps only lightweight runtime state in memory and stores agent reasoning memory in LangGraph checkpoints:
 1.  **Users Cache**: Read-through **LRU snapshots** (Limit: 10k users) of SQLite data.
-2.  **Chat Context**: Rolling history for LLM awareness.
+2.  **Graph Runtime**: Shared compiled LangGraph app + shared SQLite checkpointer.
 3.  **LLM Queue**: Async locks per chat with **20s aging** to prevent stale responses.
-4.  **Onboarding Buffer**: Deferral of messages from unregistered users (60s TTL).
+4.  **Invite Cooldown State**: In-process timestamps that prevent repeated onboarding prompts.
 
 | Factor | Decision |
 |--------|----------|
 | **Complexity** | Zero config — no Redis server required. |
-| **UX** | Zero-Friction — any message triggers onboarding and is processed later. |
+| **UX** | Lazy onboarding — actionable unregistered messages can trigger setup, but old messages are never replayed later. |
 | **Safety** | Per-chat locks prevent data race and LLM token waste. |
 
 ### 3.5 Why SQLite Over PostgreSQL?
@@ -118,7 +119,7 @@ To ensure perfect alignment between production adapters and evaluation test case
 
 | Module | Purpose |
 |--------|---------|
-| `src/event_detection/` | LLM Orchestrator, History, and Locking |
+| `src/event_detection/` | LLM orchestration, LangGraph runtime, persisted thread memory, and per-chat locking |
 | `src/transform.py` | UTC-Pivot conversions, IANA timezone database |
 | `src/geo.py` | City → Coordinates → Timezone (Nominatim + TimezoneFinder) |
 | `src/storage/` | SQLite + **In-Memory Caches & Pending Storage** |
@@ -173,4 +174,4 @@ Detailed specifications in `journal/`:
 - [01_scope_and_MVP.md](../journal/01_scope_and_MVP.md) — Project scope, tech stack
 - [05_storage.md](../journal/05_storage.md) — DB schema, Clean Memory architecture
 - [14_llm_module.md](../journal/14_llm_module.md) — LLM Event Detection pipeline
-- [15_onboarding_capture.md](../journal/15_onboarding_capture.md) — Zero-Friction deferral logic
+- [15_onboarding_capture.md](../journal/15_onboarding_capture.md) — Lazy onboarding boundary and no-replay rule

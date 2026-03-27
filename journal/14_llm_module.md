@@ -56,8 +56,9 @@ It handles:
 `detect_event(...)` in `src/event_detection/detector.py`:
 
 - builds the current message context,
-- injects callbacks (`send_fn`, `edit_fn`, `delete_fn`),
-- compiles and invokes the LangGraph workflow,
+- prepares side-effect dependencies (`send_fn`, `edit_fn`, `delete_fn`, reply builder),
+- registers those dependencies in a process-local runtime context keyed by `thread_id`,
+- reuses a shared compiled LangGraph workflow,
 - normalizes the result for callers.
 
 ### 3.3 Graph
@@ -80,12 +81,13 @@ graph LR
 
 #### `llm`
 
-- calls the model with current context and tool schemas.
+- calls a cached tool-bound `ChatOpenAI` runnable with current context and tool schemas.
 
 #### `action`
 
 - validates tool arguments,
 - executes publish/update side effects,
+- reads side-effect dependencies from runtime context rather than `RunnableConfig.configurable`,
 - writes `ToolMessage` state back into the graph.
 
 ---
@@ -110,7 +112,9 @@ Optional callbacks:
 - `edit_fn`
 - `delete_fn`
 
-These callbacks are what make the difference between:
+These callbacks are adapter-owned side-effect hooks. They are not serialized into LangGraph config; instead they are wrapped into a runtime `ActionContext`.
+
+That separation is what makes the difference between:
 
 - **real publish/update mode**, and
 - **app-logic gated mode** for onboarding.
@@ -125,6 +129,7 @@ For registered users, the agent uses a persisted LangGraph thread:
 
 - thread key: usually `"{platform}_{chat_id}"`;
 - storage: `data/graph_checkpoints.db`;
+- runtime: one shared compiled graph app per process;
 - purpose: remember previously published/updated events.
 
 ### 5.2 Unregistered sender behavior
@@ -141,6 +146,7 @@ For unregistered users:
 The runtime still uses lightweight process-local helpers for:
 
 - per-chat locks,
+- per-invocation `ActionContext` registry,
 - invite cooldowns,
 - user snapshot cache.
 
@@ -210,10 +216,9 @@ src/event_detection/
 ├── __init__.py      # process_message(...)
 ├── detector.py      # detect_event(...)
 ├── graph.py         # LangGraph nodes, routing, tool side effects
-├── runtime.py       # per-chat locks
+├── runtime.py       # per-chat locks, shared graph runtime, action-context registry
 ├── prompts.py       # system prompt
-├── client.py        # model selection
-└── tools.py         # helper conversion routines
+└── client.py        # cached ChatOpenAI + bound-tool runnable
 ```
 
 ---
@@ -227,3 +232,4 @@ To rebuild this module faithfully, preserve:
 3. App-logic gated onboarding behavior for unregistered users.
 4. Per-chat serialized execution in `process_message(...)`.
 5. Deterministic conversion/rendering outside the LLM.
+6. Shared graph runtime instead of compile-per-message.

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import logging
 
@@ -81,7 +81,7 @@ async def test_middleware_db_failure_logging(caplog):
     """Test that middleware doesn't crash bot if DB fails."""
     # Mock storage to raise exception
     with patch(
-        "src.storage.storage.get_user",
+        "src.commands.middleware.get_user_cached",
         side_effect=Exception("Database connection missing"),
     ):
         middleware = PassiveCollectionMiddleware()
@@ -105,3 +105,29 @@ async def test_middleware_db_failure_logging(caplog):
             # Error should be logged
             assert "Middleware storage error" in caplog.text
             assert "Database connection missing" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_middleware_uses_cached_user_lookup_and_tracks_known_member():
+    """Known users should be resolved via cache before adding chat membership."""
+    middleware = PassiveCollectionMiddleware()
+
+    async def dummy_handler(event, data):
+        return "OK"
+
+    event = MagicMock(spec=Message)
+    event.chat = Chat(id=-100, type="group")
+    event.from_user = User(id=123, is_bot=False, first_name="Test")
+
+    with (
+        patch(
+            "src.commands.middleware.get_user_cached",
+            AsyncMock(return_value={"user_id": 123, "timezone": "Europe/Berlin"}),
+        ) as mock_cache,
+        patch("src.commands.middleware.storage.add_chat_member", AsyncMock()) as mock_add,
+    ):
+        result = await middleware(dummy_handler, event, {})
+
+    assert result == "OK"
+    mock_cache.assert_awaited_once_with(123, platform="telegram")
+    mock_add.assert_awaited_once_with(-100, 123, platform="telegram")

@@ -55,6 +55,14 @@ Use `publish_event` when the current message introduces a new actionable event f
 - `points: list[Point]`
 - `comment: str = ""`
 
+### 3.2.1 Schema-only declaration
+
+In code, the LangChain tools are declared as schema-only functions.
+
+They exist to define the tool contract for the model.
+
+Real execution happens in the LangGraph action layer, not inside the tool function body itself.
+
 ### 3.3 Runtime behavior
 
 When `publish_event` is executed:
@@ -151,6 +159,8 @@ The deterministic layers then do the rest:
 3. convert times,
 4. format output,
 5. call platform APIs.
+
+In the current implementation, those platform API hooks are supplied by adapters and carried through a process-local action context rather than serialized graph config.
 
 ---
 

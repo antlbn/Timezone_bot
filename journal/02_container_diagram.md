@@ -44,12 +44,12 @@ graph TD
 
 | Container | Technology | Responsibility |
 |---|---|---|
-| Telegram adapter | Python, `aiogram` | Normalizes Telegram updates, commands, deep-link onboarding, and injects platform send/edit/delete callbacks. |
-| Discord adapter | Python, `discord.py` | Normalizes guild messages, slash commands, button/modal onboarding, and injects platform send/edit/delete callbacks. |
+| Telegram adapter | Python, `aiogram` | Normalizes Telegram updates, commands, deep-link onboarding, and passes platform side-effect callbacks into shared processing. |
+| Discord adapter | Python, `discord.py` | Normalizes guild messages, slash commands, button/modal onboarding, and passes platform side-effect callbacks into shared processing. |
 | Shared application core | Python modules in `src/` | Runs orchestration, event detection, transformation, formatting, and onboarding policy. |
 | `bot.db` | SQLite | Stores users, chat membership, and activity metadata. |
 | `graph_checkpoints.db` | SQLite via LangGraph saver | Stores persisted agent thread state per chat. |
-| In-memory runtime state | Python memory | Keeps recent chat history, per-chat locks, invite cooldown timestamps, and user cache entries. |
+| In-memory runtime state | Python memory | Keeps per-chat locks, per-invocation action contexts, invite cooldown timestamps, and user cache entries. |
 | LLM provider | OpenAI-compatible API | Produces structured event-detection decisions and tool calls. |
 | Geocoding / timezone services | `geopy`, `timezonefinder` | Resolves user-entered city names or fallback time hints into IANA timezones. |
 
@@ -60,8 +60,8 @@ graph TD
 3. `bot.db` and LangGraph checkpoints solve different problems:
    - `bot.db` is product data,
    - checkpoints are agent thread memory.
-4. Short-term history is in-memory only and is not reconstructed after restart.
-5. Detection for unregistered users runs in isolation and must not pollute the real persisted chat thread.
+4. Conversational reasoning memory lives in LangGraph checkpoints, not in ephemeral in-memory history.
+5. Detection for unregistered users uses the real persisted chat thread, but the action layer must write an app-logic marker instead of executing real side effects.
 
 ## 4. Rebuild Notes
 
