@@ -32,14 +32,15 @@ logger = get_logger()
 async def dm_onboarding_start(
     message: Message, command: CommandObject, state: FSMContext
 ):
-    """
-    Handle /start in DM.
-    If payload is 'onboard_{user_id}_{chat_id}', it's a deep link from a group chat.
-    Otherwise, it's a direct user interaction.
-    """
+    """Handle `/start` in DM and route to onboarding or the settings menu."""
+    payload = command.args if command else None
+    return await show_onboarding_or_settings(message, state, payload=payload)
+
+
+async def _resolve_onboarding_chat_id(message: Message, payload: str | None) -> int:
+    """Resolve the source chat id from an onboarding deep-link payload."""
     user_id = message.from_user.id
-    payload = command.args
-    chat_id = 0  # Default to 0 (no source chat)
+    chat_id = 0
 
     if payload and payload.startswith("onboard_"):
         try:
@@ -50,9 +51,27 @@ async def dm_onboarding_start(
             # Security: only the target user can trigger their own onboarding deep link
             if user_id != target_user_id:
                 await message.answer("This link is not for you! 😊")
-                return
+                return -1
         except (IndexError, ValueError):
             logger.warning(f"Invalid onboarding deep link payload: {payload}")
+
+    return chat_id
+
+
+async def show_onboarding_or_settings(
+    message: Message,
+    state: FSMContext,
+    payload: str | None = None,
+):
+    """
+    Show either the DM onboarding flow or the settings menu.
+
+    `payload` is an optional deep-link payload like `onboard_{user_id}_{chat_id}`.
+    """
+    user_id = message.from_user.id
+    chat_id = await _resolve_onboarding_chat_id(message, payload)
+    if chat_id < 0:
+        return
 
     user_name = message.from_user.first_name or "User"
 

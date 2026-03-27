@@ -89,7 +89,7 @@ async def test_cmd_me_not_exists(mock_storage_and_cache, mock_message):
 async def test_cmd_settz_start(mock_message, mock_state):
     """Test /tb_settz entry point."""
     mock_message.chat.type = "private"
-    with patch("src.commands.settings.dm_onboarding_start", AsyncMock()) as mock_start:
+    with patch("src.commands.settings.show_onboarding_or_settings", AsyncMock()) as mock_start:
         await cmd_settz(mock_message, mock_state)
         mock_start.assert_called_once()
 

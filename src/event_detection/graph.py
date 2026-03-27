@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from src.logger import get_logger
 from src.event_detection.client import get_bound_chat_llm
+from src.event_detection.runtime import ActionContext, get_action_context
 logger = get_logger()
 
 # ── 1. Define State ────────────────────────────────────────────────────────
@@ -38,13 +39,13 @@ class EventPoint(BaseModel):
 
 @tool
 def publish_event(points: list[EventPoint], comment: str = "") -> str:
-    """Create NEW event. Do NOT use if already published in history."""
-    pass
+    """Create NEW event. Schema-only tool; real execution happens in action_node."""
+    raise RuntimeError("Schema-only tool. Execution is implemented in action_node().")
 
 @tool
 def update_previous_event(event_ref: int, points: list[EventPoint], comment: str = "") -> str:
-    """Update event from history ('✅ Event published. event_ref: N')."""
-    pass
+    """Update event from history. Schema-only tool; real execution happens in action_node."""
+    raise RuntimeError("Schema-only tool. Execution is implemented in action_node().")
 
 tools_list = [publish_event, update_previous_event]
 
@@ -105,6 +106,195 @@ def _find_event_by_ref(messages: list, event_ref: int) -> tuple[int, int] | None
     return None
 
 
+def _get_action_context(config: RunnableConfig) -> tuple[str, ActionContext | None]:
+    configurable = config.get("configurable", {})
+    thread_id = configurable.get("thread_id", "")
+    return thread_id, get_action_context(thread_id)
+
+
+def _normalize_points(points: list) -> list[dict]:
+    time_pattern = re.compile(r"^\d{1,2}:\d{2}$")
+    points_dicts = [p.model_dump() if hasattr(p, "model_dump") else p.dict() if hasattr(p, "dict") else p for p in points]
+    return [
+        p for p in points_dicts
+        if isinstance(p, dict)
+        and isinstance(p.get("time"), str)
+        and time_pattern.match(p["time"].strip())
+    ]
+
+
+def _build_validation_error(tool_call_id: str) -> dict:
+    err_msg = (
+        "Error: no extractable time found. Do NOT call tools for vague times like "
+        "'evening'. If meeting today, give HH:MM format."
+    )
+    return {"messages": [ToolMessage(content=err_msg, tool_call_id=tool_call_id)]}
+
+
+def _build_registration_gate(tool_call_id: str, tool_name: str, summary: str) -> dict:
+    return {
+        "messages": [
+            ToolMessage(
+                content=(
+                    "No event action executed due to app logic. "
+                    "Reason: sender not registered; onboarding required. "
+                    f"Detected intent: {tool_name}. Summary: {summary}"
+                ),
+                tool_call_id=tool_call_id,
+            )
+        ]
+    }
+
+
+async def _send_reply(
+    action_ctx: ActionContext,
+    points: list[dict],
+    comment: str,
+) -> str | None:
+    if not action_ctx.build_reply_fn:
+        return None
+
+    reply = await action_ctx.build_reply_fn(points, comment or None)
+    if reply and action_ctx.send_fn:
+        return await action_ctx.send_fn(reply)
+    return None
+
+
+async def _execute_publish(
+    messages: list,
+    tool_call: dict,
+    action_ctx: ActionContext,
+    valid_points: list[dict],
+    comment: str,
+    summary: str,
+) -> dict:
+    event_num = _generate_event_ref(messages)
+    message_id = await _send_reply(action_ctx, valid_points, comment)
+
+    tool_output = f"✅ Event published. event_ref: {event_num}. Summary: {summary}"
+    if comment:
+        tool_output += f". Comment: {comment}"
+
+    return {
+        "messages": [
+            ToolMessage(
+                content=tool_output,
+                tool_call_id=tool_call["id"],
+                additional_kwargs={"message_id": message_id} if message_id else {},
+            )
+        ]
+    }
+
+
+async def _apply_update_side_effects(
+    messages: list,
+    action_ctx: ActionContext,
+    valid_points: list[dict],
+    comment: str,
+    old_ai_idx: int,
+    prev_msg_id: str | None,
+    event_ref: int,
+) -> str | None:
+    if not action_ctx.build_reply_fn:
+        return None
+
+    reply = await action_ctx.build_reply_fn(valid_points, comment or None)
+    if not reply:
+        return None
+
+    from src.config import get_republish_edited_message_after_distance, get_edit_in_place_enabled
+
+    distance = sum(1 for m in messages[old_ai_idx:] if isinstance(m, HumanMessage))
+    limit = get_republish_edited_message_after_distance()
+    edit_enabled = get_edit_in_place_enabled()
+
+    if not edit_enabled or distance > limit:
+        logger.info(
+            f"[chat:{action_ctx.chat_id}] update event #{event_ref} "
+            f"(edit_enabled={edit_enabled}, distance={distance}). Delete+republish."
+        )
+        if action_ctx.delete_fn and prev_msg_id:
+            await action_ctx.delete_fn(prev_msg_id)
+        if action_ctx.send_fn:
+            return await action_ctx.send_fn(reply)
+        return None
+
+    logger.info(
+        f"[chat:{action_ctx.chat_id}] update event #{event_ref} {distance} msgs away. Editing in place."
+    )
+    if action_ctx.edit_fn and prev_msg_id:
+        try:
+            await action_ctx.edit_fn(prev_msg_id, reply)
+            return prev_msg_id
+        except Exception as exc:
+            logger.warning(f"Edit failed: {exc}. Falling back to publish.")
+
+    if action_ctx.send_fn:
+        return await action_ctx.send_fn(reply)
+    return None
+
+
+async def _execute_update(
+    messages: list,
+    tool_call: dict,
+    action_ctx: ActionContext,
+    valid_points: list[dict],
+    comment: str,
+    summary: str,
+) -> dict:
+    event_ref = tool_call["args"].get("event_ref", 0)
+    ref_result = _find_event_by_ref(messages, event_ref)
+
+    if ref_result is None:
+        logger.warning(f"[chat:{action_ctx.chat_id}] event_ref #{event_ref} not found. Falling back to publish.")
+        message_id = await _send_reply(action_ctx, valid_points, comment)
+        event_num = _generate_event_ref(messages)
+        return {
+            "messages": [
+                ToolMessage(
+                    content=f"✅ Event published. event_ref: {event_num} (fallback). Summary: {summary}",
+                    tool_call_id=tool_call["id"],
+                    additional_kwargs={"message_id": message_id} if message_id else {},
+                )
+            ]
+        }
+
+    old_ai_idx, old_tool_idx = ref_result
+    prev_msg_id = None
+    if old_tool_idx >= 0:
+        prev_msg_id = messages[old_tool_idx].additional_kwargs.get("message_id")
+
+    message_id = await _apply_update_side_effects(
+        messages=messages,
+        action_ctx=action_ctx,
+        valid_points=valid_points,
+        comment=comment,
+        old_ai_idx=old_ai_idx,
+        prev_msg_id=prev_msg_id,
+        event_ref=event_ref,
+    )
+
+    result_messages: list = []
+    old_ai_msg = messages[old_ai_idx]
+    if old_ai_msg.id is not None:
+        result_messages.append(RemoveMessage(id=old_ai_msg.id))
+    if old_tool_idx >= 0 and messages[old_tool_idx].id is not None:
+        result_messages.append(RemoveMessage(id=messages[old_tool_idx].id))
+
+    tool_output = f"✅ Event updated. event_ref: {event_ref}. Summary: {summary}"
+    if comment:
+        tool_output += f". Comment: {comment}"
+
+    result_messages.append(
+        ToolMessage(
+            content=tool_output,
+            tool_call_id=tool_call["id"],
+            additional_kwargs={"message_id": message_id} if message_id else {},
+        )
+    )
+    return {"messages": result_messages}
+
+
 # ── 3. Define Nodes ────────────────────────────────────────────────────────
 
 async def pre_process_node(state: GraphState, config: RunnableConfig) -> dict:
@@ -136,7 +326,7 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     """
     Invokes the LLM with the current list of messages.
     """
-    llm_with_tools = get_bound_chat_llm(tuple(tools_list))
+    llm_with_tools = get_bound_chat_llm()
     
     # Expose strict Context Limit
     from src.config import get_context_messages_limit
@@ -195,165 +385,41 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
 
 async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     """
-    Executes the chosen tool and handles the side effects (sending/editing msgs).
-    Uses callback functions injected via config.
-
-    Key design:
-    - publish_event: sends new message, records "✅ Published event #N: ..."
-    - update_previous_event: finds event by event_ref, edits/replaces in chat,
-      REMOVES old AI+Tool pair from state so only the updated version remains.
+    Executes the chosen tool and handles the side effects.
     """
-    callbacks = config.get("configurable", {})
-    send_fn = callbacks.get("send_fn")
-    edit_fn = callbacks.get("edit_fn")
-    delete_fn = callbacks.get("delete_fn")
-    build_reply_fn = callbacks.get("build_reply_fn")
-    chat_id = callbacks.get("chat_id")
-    sender_registered = callbacks.get("sender_registered", True)
-    
+    thread_id, action_ctx = _get_action_context(config)
+    chat_id = config.get("configurable", {}).get("chat_id", "")
     messages = state["messages"]
     last_msg = messages[-1]
-    
+
     if not isinstance(last_msg, AIMessage) or not last_msg.tool_calls:
         return {}
-        
+
+    if action_ctx is None:
+        logger.error(f"[chat:{chat_id}] Missing action context for thread_id={thread_id}")
+        return {"messages": [ToolMessage(content="Error: missing action context.", tool_call_id=last_msg.tool_calls[0]["id"])]}
+
     tc = last_msg.tool_calls[0]
     tool_name = tc["name"]
     points = tc["args"].get("points", [])
-    comment = tc["args"].get("comment", "") # Extract user-facing comment
-    
-    # ── VALIDATION ───────────────────────────────────────────────────────
-    import re
-    time_pattern = re.compile(r"^\d{1,2}:\d{2}$")
-    points_dicts = [p.dict() if hasattr(p, "dict") else p for p in points]
-    
-    valid_points = []
-    for p in points_dicts:
-        t = p.get("time")
-        if isinstance(t, str) and time_pattern.match(t.strip()):
-            valid_points.append(p)
-            
-    if not valid_points:
-        logger.warning(f"[chat:{chat_id}] No valid times extracted by LLM (points={points_dicts})")
-        err_msg = (
-            "No extractable time found. Do NOT call tools for vague times like 'evening'. "
-            "If meeting today, give HH:MM format."
-        )
-        return {"messages": [ToolMessage(content=err_msg, tool_call_id=tc["id"])]}
-        
-    summary = _format_event_summary(valid_points)
-    
-    message_id = None
-    result_messages: list = []  # messages to return (ToolMessage + optional RemoveMessages)
+    comment = tc["args"].get("comment", "")
 
-    # Registration gate: preserve the model's intent in thread memory, but do not
-    # execute event side effects until the sender has completed onboarding.
-    if not sender_registered:
-        result_messages.append(
-            ToolMessage(
-                content=(
-                    "No event action executed due to app logic. "
-                    "Reason: sender not registered; onboarding required. "
-                    f"Detected intent: {tool_name}. Summary: {summary}"
-                ),
-                tool_call_id=tc["id"],
-            )
-        )
-        return {"messages": result_messages}
-    
-    # ── PUBLISH ──────────────────────────────────────────────────────────
+    valid_points = _normalize_points(points)
+    if not valid_points:
+        logger.warning(f"[chat:{chat_id}] No valid times extracted by LLM (points={points})")
+        return _build_validation_error(tc["id"])
+
+    summary = _format_event_summary(valid_points)
+    if not action_ctx.sender_registered:
+        return _build_registration_gate(tc["id"], tool_name, summary)
+
     if tool_name == "publish_event":
-        event_num = _generate_event_ref(messages)
-        
-        if build_reply_fn and send_fn:
-            reply = await build_reply_fn(valid_points, footer=comment)
-            if reply:
-                message_id = await send_fn(reply)
-        
-        tool_output = f"✅ Event published. event_ref: {event_num}. Summary: {summary}"
-        if comment:
-            tool_output += f". Comment: {comment}"
-            
-        result_messages.append(ToolMessage(
-            content=tool_output,
-            tool_call_id=tc["id"],
-            additional_kwargs={"message_id": message_id} if message_id else {},
-        ))
-    
-    # ── UPDATE ───────────────────────────────────────────────────────────
-    elif tool_name == "update_previous_event":
-        event_ref = tc["args"].get("event_ref", 0)
-        ref_result = _find_event_by_ref(messages, event_ref)
-        
-        if ref_result is None:
-            logger.warning(f"[chat:{chat_id}] event_ref #{event_ref} not found. Falling back to publish.")
-            # Fallback: treat as new publish
-            if build_reply_fn and send_fn:
-                reply = await build_reply_fn(valid_points, footer=comment)
-                if reply:
-                    message_id = await send_fn(reply)
-            event_num = _generate_event_ref(messages)
-            tool_output = f"✅ Event published. event_ref: {event_num} (fallback). Summary: {summary}"
-            result_messages.append(ToolMessage(
-                content=tool_output,
-                tool_call_id=tc["id"],
-                additional_kwargs={"message_id": message_id} if message_id else {},
-            ))
-        else:
-            old_ai_idx, old_tool_idx = ref_result
-            # Get the message_id of the old published message (stored in ToolMessage)
-            prev_msg_id = None
-            if old_tool_idx >= 0:
-                prev_msg_id = messages[old_tool_idx].additional_kwargs.get("message_id")
-            
-            # Execute side effect: edit or delete+republish in chat
-            if build_reply_fn:
-                reply = await build_reply_fn(valid_points, footer=comment)
-                if reply:
-                    # Count HumanMessages since the old event to decide edit vs delete+republish
-                    from src.config import get_republish_edited_message_after_distance, get_edit_in_place_enabled
-                    distance = sum(1 for m in messages[old_ai_idx:] if isinstance(m, HumanMessage))
-                    limit = get_republish_edited_message_after_distance()
-                    edit_enabled = get_edit_in_place_enabled()
-                    
-                    if not edit_enabled or distance > limit:
-                        logger.info(f"[chat:{chat_id}] update event #{event_ref} (edit_enabled={edit_enabled}, distance={distance}). Delete+republish.")
-                        if delete_fn and prev_msg_id:
-                            await delete_fn(prev_msg_id)
-                        if send_fn:
-                            message_id = await send_fn(reply)
-                    else:
-                        logger.info(f"[chat:{chat_id}] update event #{event_ref} {distance} msgs away. Editing in place.")
-                        if edit_fn and prev_msg_id:
-                            try:
-                                await edit_fn(prev_msg_id, reply)
-                                message_id = prev_msg_id
-                            except Exception as e:
-                                logger.warning(f"Edit failed: {e}. Falling back to publish.")
-                                if send_fn:
-                                    message_id = await send_fn(reply)
-                        elif send_fn:
-                            message_id = await send_fn(reply)
-            
-            # Remove old AI+Tool pair from state so the model sees only the updated version
-            old_ai_msg = messages[old_ai_idx]
-            if old_ai_msg.id is not None:
-                result_messages.append(RemoveMessage(id=old_ai_msg.id))
-            if old_tool_idx >= 0 and messages[old_tool_idx].id is not None:
-                result_messages.append(RemoveMessage(id=messages[old_tool_idx].id))
-            
-            # Record the updated event with the SAME event_ref number
-            tool_output = f"✅ Event updated. event_ref: {event_ref}. Summary: {summary}"
-            if comment:
-                tool_output += f". Comment: {comment}"
-                
-            result_messages.append(ToolMessage(
-                content=tool_output,
-                tool_call_id=tc["id"],
-                additional_kwargs={"message_id": message_id} if message_id else {},
-            ))
-    
-    return {"messages": result_messages}
+        return await _execute_publish(messages, tc, action_ctx, valid_points, comment, summary)
+
+    if tool_name == "update_previous_event":
+        return await _execute_update(messages, tc, action_ctx, valid_points, comment, summary)
+
+    return {"messages": [ToolMessage(content=f"Error: unsupported tool '{tool_name}'.", tool_call_id=tc["id"])]}
 
 
 # ── 4. Build Graph ─────────────────────────────────────────────────────────

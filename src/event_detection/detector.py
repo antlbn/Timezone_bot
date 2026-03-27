@@ -17,7 +17,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 from src.logger import get_logger
 from src.event_detection.prompts import get_system_prompt
-from src.event_detection.runtime import get_graph_app
+from src.event_detection.runtime import ActionContext, get_graph_app, register_action_context, unregister_action_context
 
 logger = get_logger()
 
@@ -212,10 +212,6 @@ async def detect_event(
         "configurable": {
             "thread_id": thread_id,
             "system_prompt": system_text,
-            "send_fn": send_fn,
-            "edit_fn": edit_fn,
-            "delete_fn": delete_fn,
-            "build_reply_fn": build_reply_wrapper,
             "chat_id": chat_id,
             "platform": platform,
             "sender_registered": sender_registered,
@@ -225,6 +221,18 @@ async def detect_event(
 
     try:
         app = await get_graph_app()
+        register_action_context(
+            thread_id,
+            ActionContext(
+                send_fn=send_fn,
+                edit_fn=edit_fn,
+                delete_fn=delete_fn,
+                build_reply_fn=build_reply_wrapper,
+                chat_id=chat_id,
+                platform=platform,
+                sender_registered=sender_registered,
+            ),
+        )
 
         # For production chat threads we rely on the persisted LangGraph thread
         # state. Eval mode can still seed a temporary thread from a supplied snapshot.
@@ -327,3 +335,5 @@ async def detect_event(
             "points": [],
             "message_published": False,
         }
+    finally:
+        unregister_action_context(thread_id)

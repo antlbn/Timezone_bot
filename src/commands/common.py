@@ -30,6 +30,120 @@ logger = get_logger()
 _last_reply: dict[int, float] = {}
 
 
+async def _build_platform_callbacks(message: Message, chat_id: int):
+    """Build Telegram-specific side-effect callbacks for the event pipeline."""
+
+    async def send_fn(text: str) -> str | None:
+        try:
+            msg = await message.answer(text, parse_mode="Markdown")
+            try:
+                await message.bot.set_message_reaction(
+                    chat_id=chat_id,
+                    message_id=msg.message_id,
+                    reaction=[ReactionTypeEmoji(emoji="🤖")],
+                )
+            except Exception as exc:
+                logger.warning(f"Reaction failed (send_fn): {exc}")
+            return str(msg.message_id)
+        except Exception as exc:
+            logger.warning(f"Failed to send message: {exc}")
+            return None
+
+    async def edit_fn(msg_id: str, text: str) -> None:
+        try:
+            await message.bot.edit_message_text(
+                text=text,
+                chat_id=chat_id,
+                message_id=int(msg_id),
+                parse_mode="Markdown",
+            )
+            try:
+                await message.bot.set_message_reaction(
+                    chat_id=chat_id,
+                    message_id=int(msg_id),
+                    reaction=[ReactionTypeEmoji(emoji="🤖")],
+                )
+            except Exception as exc:
+                logger.warning(f"Reaction failed (edit_fn): {exc}")
+        except Exception as exc:
+            logger.warning(f"Failed to edit message: {exc}")
+            raise
+
+    async def delete_fn(msg_id: str) -> None:
+        try:
+            await message.bot.delete_message(chat_id=chat_id, message_id=int(msg_id))
+        except Exception as exc:
+            logger.warning(f"Failed to delete message {msg_id}: {exc}")
+
+    async def filter_members_fn(members: list[dict]) -> list[dict]:
+        """Drop stale Telegram members before formatting a conversion reply."""
+        live_members = []
+        for member in members:
+            member_user_id = int(member["user_id"])
+            try:
+                chat_member = await message.bot.get_chat_member(chat_id, member_user_id)
+                status = getattr(chat_member, "status", "")
+                if status in {"left", "kicked"}:
+                    await storage.remove_chat_member(
+                        chat_id, member_user_id, platform="telegram"
+                    )
+                    logger.info(
+                        f"[chat:{chat_id}] Pruned stale Telegram member {member_user_id} during reply build"
+                    )
+                    continue
+            except Exception as exc:
+                logger.warning(
+                    f"[chat:{chat_id}] Telegram member verification failed for {member_user_id}: {exc}"
+                )
+            live_members.append(member)
+        return live_members
+
+    return {
+        "send_fn": send_fn,
+        "edit_fn": edit_fn,
+        "delete_fn": delete_fn,
+        "filter_members_fn": filter_members_fn,
+    }
+
+
+async def _trigger_onboarding_invite_if_needed(
+    message: Message,
+    sender: dict | None,
+    result: dict,
+    user_id: int,
+    user_name: str,
+    chat_id: int,
+) -> None:
+    """Send the lazy onboarding invite when an unregistered user mentions an event."""
+    if not result.get("event"):
+        return
+
+    if sender and sender.get("onboarding_declined"):
+        logger.debug(f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite")
+        return
+
+    cooldown = get_dm_onboarding_cooldown()
+    if not await should_send_dm_invite(user_id, "telegram", cooldown):
+        logger.debug(f"[chat:{chat_id}] DM invite on cooldown for user {user_id}, skipping")
+        return
+
+    link = await create_start_link(message.bot, f"onboard_{user_id}_{chat_id}")
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="📍 Set up timezone", url=link)]]
+    )
+
+    invite_msg = await message.reply(
+        f"Hi {user_name}! Tap the button to quickly set up your timezone 👇",
+        reply_markup=kb,
+    )
+
+    await mark_dm_invite_sent(user_id, "telegram")
+
+    cleanup_timeout = get_settings_cleanup_timeout()
+    if cleanup_timeout > 0:
+        asyncio.create_task(delete_message_after(invite_msg, cleanup_timeout))
+
+
 @router.message(Command("tb_help"))
 @auto_cleanup(delete_bot_msg=True, keep_bot_msg_in_dm=True)
 async def cmd_help(message: Message):
@@ -102,11 +216,9 @@ async def cmd_settz(message: Message, state: FSMContext):
     is_dm = message.chat.type == "private"
 
     if is_dm:
-        # Re-use the DM onboarding/settings logic
-        from src.commands.settings import dm_onboarding_start
+        from src.commands.settings import show_onboarding_or_settings
 
-        # We simulate a /start call but without arguments
-        return await dm_onboarding_start(message, None, state)
+        return await show_onboarding_or_settings(message, state)
 
     # In Group: Show JIT invite (or trigger the flow if we want, but JIT is preferred)
     # Actually, JIT invite is exactly what handle_time_mention does.
@@ -146,74 +258,9 @@ async def handle_time_mention(
     # 2. Update activity timestamp (for all active users)
     await storage.update_activity(user_id, "telegram")
 
-    # 3. Define send_fn and edit_fn for the LLM pipeline
-    # 3. Define send_fn and edit_fn for the LLM pipeline
-    async def send_fn(text: str) -> str | None:
-        try:
-            msg = await message.answer(text, parse_mode="Markdown")
-            try:
-                await message.bot.set_message_reaction(
-                    chat_id=chat_id,
-                    message_id=msg.message_id,
-                    reaction=[ReactionTypeEmoji(emoji="🤖")]
-                )
-            except Exception as re:
-                logger.warning(f"Reaction failed (send_fn): {re}")
-            return str(msg.message_id)
-        except Exception as e:
-            logger.warning(f"Failed to send message: {e}")
-            return None
+    callbacks = await _build_platform_callbacks(message, chat_id)
 
-    async def edit_fn(msg_id: str, text: str) -> None:
-        try:
-            await message.bot.edit_message_text(
-                text=text,
-                chat_id=chat_id,
-                message_id=int(msg_id),
-                parse_mode="Markdown"
-            )
-            try:
-                await message.bot.set_message_reaction(
-                    chat_id=chat_id,
-                    message_id=int(msg_id),
-                    reaction=[ReactionTypeEmoji(emoji="🤖")]
-                )
-            except Exception as e:
-                logger.warning(f"Reaction failed (edit_fn): {e}")
-        except Exception as e:
-            logger.warning(f"Failed to edit message: {e}")
-            raise
-
-    async def delete_fn(msg_id: str) -> None:
-        try:
-            await message.bot.delete_message(chat_id=chat_id, message_id=int(msg_id))
-        except Exception as e:
-            logger.warning(f"Failed to delete message {msg_id}: {e}")
-
-    async def filter_members_fn(members: list[dict]) -> list[dict]:
-        """Drop stale Telegram members before formatting a conversion reply."""
-        live_members = []
-        for member in members:
-            member_user_id = int(member["user_id"])
-            try:
-                chat_member = await message.bot.get_chat_member(chat_id, member_user_id)
-                status = getattr(chat_member, "status", "")
-                if status in {"left", "kicked"}:
-                    await storage.remove_chat_member(chat_id, member_user_id, platform="telegram")
-                    logger.info(
-                        f"[chat:{chat_id}] Pruned stale Telegram member {member_user_id} during reply build"
-                    )
-                    continue
-            except Exception as e:
-                logger.warning(
-                    f"[chat:{chat_id}] Telegram member verification failed for {member_user_id}: {e}"
-                )
-            live_members.append(member)
-        return live_members
-
-    # 4. LLM pipeline — detection + tool dispatch
-
-    # 4. LLM pipeline — detection + tool dispatch
+    # 3. LLM pipeline — detection + tool dispatch
     # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion
     result = await process_message(
         message_text=message.text,
@@ -223,10 +270,10 @@ async def handle_time_mention(
         author_name=user_name,
         timestamp_utc=timestamp_utc,
         sender_db=sender,
-        send_fn=send_fn if is_registered else None,
-        edit_fn=edit_fn if is_registered else None,
-        delete_fn=delete_fn if is_registered else None,
-        filter_members_fn=filter_members_fn if is_registered else None,
+        send_fn=callbacks["send_fn"] if is_registered else None,
+        edit_fn=callbacks["edit_fn"] if is_registered else None,
+        delete_fn=callbacks["delete_fn"] if is_registered else None,
+        filter_members_fn=callbacks["filter_members_fn"] if is_registered else None,
         skip_aging=skip_aging,
     )
 
@@ -235,43 +282,15 @@ async def handle_time_mention(
         f"points={len(result.get('points', []))}"
     )
 
-    # 5. Lazy Onboarding Trigger
-    # We only prompt for registration if an event was detected AND the user is unknown
-    if not is_registered and result.get("event"):
-        # Check if they already declined — if so, we don't nag them
-        if sender and sender.get("onboarding_declined"):
-            logger.debug(
-                f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite"
-            )
-            return
-
-        # Check cooldown — don't spam user if they recently ignored/abandoned an invite
-        cooldown = get_dm_onboarding_cooldown()
-        if not await should_send_dm_invite(user_id, "telegram", cooldown):
-            logger.debug(
-                f"[chat:{chat_id}] DM invite on cooldown for user {user_id}, skipping"
-            )
-            return
-
-        # Generate deep link to bot's DM with onboarding payload
-        link = await create_start_link(message.bot, f"onboard_{user_id}_{chat_id}")
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="📍 Set up timezone", url=link)]
-            ]
+    if not is_registered:
+        await _trigger_onboarding_invite_if_needed(
+            message=message,
+            sender=sender,
+            result=result,
+            user_id=user_id,
+            user_name=user_name,
+            chat_id=chat_id,
         )
-
-        invite_msg = await message.reply(
-            f"Hi {user_name}! Tap the button to quickly set up your timezone 👇",
-            reply_markup=kb,
-        )
-
-        await mark_dm_invite_sent(user_id, "telegram")
-
-        # Auto-cleanup the invite from the group chat
-        cleanup_timeout = get_settings_cleanup_timeout()
-        if cleanup_timeout > 0:
-            asyncio.create_task(delete_message_after(invite_msg, cleanup_timeout))
 
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER))

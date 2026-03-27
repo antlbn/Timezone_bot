@@ -36,10 +36,12 @@ def get_chat_llm() -> ChatOpenAI:
     )
 
 
-@lru_cache(maxsize=8)
-def get_bound_chat_llm(tools: tuple) -> object:
-    """Returns a cached tool-bound runnable for the provided tool schema."""
-    return get_chat_llm().bind_tools(list(tools))
+@lru_cache(maxsize=1)
+def get_bound_chat_llm() -> object:
+    """Returns the cached tool-bound runnable used by the event detection graph."""
+    from src.event_detection.graph import tools_list
+
+    return get_chat_llm().bind_tools(tools_list)
 
 
 def reset_llm_cache() -> None:
