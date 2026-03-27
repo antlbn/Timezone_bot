@@ -212,7 +212,6 @@ sequenceDiagram
             Agent->>Chat: edit_fn(message_id, reply)<br/>or delete + republish
         end
 
-        Agent->>History: append BOT summary with message_id
         Agent-->>Adapter: structured result
     end
 ```
@@ -245,4 +244,4 @@ Under high load, message handling is serialized **per chat** via a chat-level lo
 - A burst of messages in the same chat is processed one by one, not truly in parallel.
 - If the queue grows, older messages may be dropped by the message-age guard instead of being answered late.
 
-There is also one nuance to monitor if traffic grows substantially: short-term history is appended before the processing lock is acquired. In normal operation this is acceptable, but under very heavy burst traffic the **snapshot timing** and the **execution order** may diverge slightly. If this ever becomes user-visible, the first place to tighten is the `append_to_history(...)` / snapshot boundary in [__init__.py](/Users/johnwunderbellen/Timezone_bot/src/event_detection/__init__.py).
+There is also one nuance to monitor if traffic grows substantially: processing is serialized per chat via a runtime lock, but persisted thread state still has no freshness cutoff after long inactivity. If old thread context starts hurting quality, the first place to tighten is thread retention/freshness policy in the event-detection layer.

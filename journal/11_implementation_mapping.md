@@ -24,7 +24,7 @@ It is intended to answer three practical questions:
 | `09_logging.md` | `src/logger.py` | Logging and structured diagnostics |
 | `12_discord_integration.md` | `src/discord/` | Discord adapter behavior |
 | `14_llm_module.md` | `src/event_detection/__init__.py`, `src/event_detection/detector.py`, `src/event_detection/graph.py` | LLM orchestration and agent runtime |
-| `17_llm_memory_model.md` | `src/event_detection/history.py`, `src/event_detection/detector.py`, `src/event_detection/__init__.py` | Memory model: snapshots, thread state, BOT summaries |
+| `17_llm_memory_model.md` | `src/event_detection/runtime.py`, `src/event_detection/detector.py`, `src/event_detection/__init__.py` | Memory model: thread state, app-logic markers, runtime locks |
 | `18_llm_tools.md` | `src/event_detection/graph.py` | Tool contracts: `publish_event`, `update_previous_event` |
 | `16_ux_onboarding_spec.md` | `src/commands/settings.py`, `src/commands/common.py`, `src/discord/ui.py`, `src/discord/commands.py` | Onboarding UX, cooldowns, decline behavior |
 
@@ -50,10 +50,10 @@ It is intended to answer three practical questions:
 
 | File | Responsibility |
 |---|---|
-| `src/event_detection/__init__.py` | `process_message(...)`, aging, snapshotting, orchestration |
+| `src/event_detection/__init__.py` | `process_message(...)`, aging, orchestration |
 | `src/event_detection/detector.py` | `detect_event(...)`, mode switching, callbacks, normalization |
 | `src/event_detection/graph.py` | LangGraph nodes, tool schemas, action execution |
-| `src/event_detection/history.py` | In-memory short-term history and per-chat locks |
+| `src/event_detection/runtime.py` | Per-chat runtime locks |
 | `src/event_detection/prompts.py` | System prompt and tool behavior guidance |
 | `src/event_detection/client.py` | Model selection and provider setup |
 
@@ -154,7 +154,7 @@ If only the specs remained and the system had to be recreated, implement in this
 
 ### Stage 3. Agent core
 
-9. `event_detection/history.py`
+9. `event_detection/runtime.py`
 10. `event_detection/prompts.py`
 11. `event_detection/client.py`
 12. `event_detection/graph.py`
@@ -205,9 +205,9 @@ Check:
 
 ### “Where is chat memory?”
 
-Two places:
+Two kinds of state:
 
-- `src/event_detection/history.py` for process-local short-term context
+- `src/event_detection/runtime.py` for process-local locks
 - `data/graph_checkpoints.db` via LangGraph for persisted thread state
 
 ---
@@ -217,7 +217,7 @@ Two places:
 The codebase currently assumes:
 
 1. No regex prefilter before the LLM pipeline.
-2. Unregistered users trigger detection-only onboarding logic.
+2. Unregistered users trigger normal reasoning, but action execution is gated by app logic.
 3. Old messages are not replayed after onboarding.
 4. Per-chat LLM execution is serialized.
 5. Time extraction is probabilistic/LLM-driven, but conversion/rendering is deterministic.

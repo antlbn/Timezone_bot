@@ -24,9 +24,13 @@ This keeps the system simpler and more reliable:
 
 ## 3. Memory Boundary
 
-Detection-only mode may still use recent short-term context to classify the message, but it must not create fake published-event traces in the real persisted chat thread.
+Unregistered-user messages now go through the normal agent reasoning path.
 
-That is why onboarding detection uses an isolated ephemeral thread identity.
+The boundary is enforced in the action layer:
+
+- the model may decide `publish_event` or `update_previous_event`,
+- but real publish/update side effects are blocked,
+- and thread memory gets an explicit app-logic marker instead of a fake publish/update result.
 
 ## 4. Invite State
 

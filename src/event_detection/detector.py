@@ -178,7 +178,7 @@ async def detect_event(
     sender_name = current_msg.get("author_name", "Unknown")
     anchor = current_msg.get("timestamp_utc", "")
     current_text = current_msg.get("text", "")
-    detection_only = send_fn is None and edit_fn is None and delete_fn is None
+    sender_registered = bool(sender_db and sender_db.get("timezone"))
 
     # Build Context
     system_text = get_system_prompt()
@@ -206,11 +206,8 @@ async def detect_event(
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
     import uuid
     
-    # Detection-only onboarding checks must not pollute the persisted chat thread
-    # with fake "published" tool results. We run them on an isolated thread while
-    # preserving the in-memory snapshot context passed from process_message().
     thread_id = f"{platform}_{chat_id}"
-    use_snapshot_context = platform == "eval" or detection_only
+    use_snapshot_context = platform == "eval"
     if use_snapshot_context:
         thread_id = f"{platform}_ephemeral_{uuid.uuid4().hex[:8]}"
 
@@ -224,6 +221,7 @@ async def detect_event(
             "build_reply_fn": build_reply_wrapper,
             "chat_id": chat_id,
             "platform": platform,
+            "sender_registered": sender_registered,
         },
         "recursion_limit": 5, # Limits error loops to 1 retry (llm -> action -> llm -> action -> END)
     }
@@ -238,9 +236,8 @@ async def detect_event(
             graph = build_agent_graph()
             app = graph.compile(checkpointer=checkpointer)
 
-            # For prod chat threads we rely on the persisted LangGraph thread state.
-            # For eval and detection-only onboarding checks we seed the graph from the
-            # provided snapshot so the run remains side-effect free for the real chat.
+            # For production chat threads we rely on the persisted LangGraph thread
+            # state. Eval mode can still seed a temporary thread from a supplied snapshot.
             if use_snapshot_context:
                 input_messages = snapshot + [human_msg] if snapshot else [human_msg]
             else:

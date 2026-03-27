@@ -49,21 +49,20 @@ For every normal non-bot message:
    - pass `send_fn`, `edit_fn`, `delete_fn`;
    - allow real `publish_event` / `update_previous_event`.
 5. If the sender is not registered:
-   - run detection-only mode;
-   - do not allow real publish side effects;
+   - run the same agent reasoning flow;
+   - block real publish side effects in the action layer;
    - if the message is actionable, show onboarding prompt if cooldown allows.
 
-### 3.2 Detection-only mode
+### 3.2 App-logic gated onboarding mode
 
-Detection-only mode exists only to answer:
+For unregistered users the model still reasons in the normal agent flow and may choose
+`publish_event` or `update_previous_event`.
 
-- “Is this message actionable enough to justify onboarding?”
+The difference is in execution:
 
-It must not:
-
-- publish a reply,
-- edit a previous bot message,
-- leave a fake published event in the real persisted agent thread.
+- the action layer blocks real publish/update side effects;
+- instead it writes an app-logic marker into agent memory;
+- onboarding UX is triggered from the returned actionable result.
 
 ### 3.3 Real publish/update mode
 
@@ -83,7 +82,7 @@ For registered users:
 Telegram onboarding is DM-based:
 
 1. User writes an actionable message in a group.
-2. Bot runs detection-only pass.
+2. Bot runs the normal reasoning pass.
 3. If cooldown allows, bot posts a single group invite with a deep link to DM.
 4. User completes city/timezone setup in DM.
 5. Bot confirms success and explicitly tells the user that conversion starts from the **next** message.
@@ -103,7 +102,7 @@ If the user declines:
 Discord onboarding is component/modal-based:
 
 1. User writes an actionable message in a guild.
-2. Bot runs detection-only pass.
+2. Bot runs the normal reasoning pass.
 3. Bot shows a targeted onboarding prompt with button.
 4. User completes city/timezone setup via modal or manual time fallback.
 5. Bot confirms success and explicitly says conversion starts from the **next** message.
@@ -168,7 +167,7 @@ sequenceDiagram
     Core->>Agent: detect_event(...)
 
     alt Sender not registered
-        Agent-->>Core: event=true, message_published=false
+        Agent-->>Core: event=true, message_published=false, tool blocked by app logic
         Core-->>Adapter: actionable but onboarding required
         Adapter->>Chat: onboarding invite / button / modal
     else Sender registered
@@ -201,7 +200,7 @@ Short-term history snapshotting currently happens before lock acquisition. Under
 
 If this file were used to rebuild the runtime logic, the implementation must preserve:
 
-1. Detection-only onboarding for unregistered users.
+1. Unregistered users use app-logic gated execution instead of real publish side effects.
 2. No replay of old pre-onboarding messages.
 3. Per-chat serialized LLM processing.
 4. Deterministic conversion after LLM extraction.

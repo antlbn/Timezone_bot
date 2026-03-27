@@ -223,6 +223,7 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     delete_fn = callbacks.get("delete_fn")
     build_reply_fn = callbacks.get("build_reply_fn")
     chat_id = callbacks.get("chat_id")
+    sender_registered = callbacks.get("sender_registered", True)
     
     messages = state["messages"]
     last_msg = messages[-1]
@@ -258,6 +259,21 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     
     message_id = None
     result_messages: list = []  # messages to return (ToolMessage + optional RemoveMessages)
+
+    # Registration gate: preserve the model's intent in thread memory, but do not
+    # execute event side effects until the sender has completed onboarding.
+    if not sender_registered:
+        result_messages.append(
+            ToolMessage(
+                content=(
+                    "No event action executed due to app logic. "
+                    "Reason: sender not registered; onboarding required. "
+                    f"Detected intent: {tool_name}. Summary: {summary}"
+                ),
+                tool_call_id=tc["id"],
+            )
+        )
+        return {"messages": result_messages}
     
     # ── PUBLISH ──────────────────────────────────────────────────────────
     if tool_name == "publish_event":
@@ -385,4 +401,3 @@ def build_agent_graph() -> StateGraph:
     workflow.add_conditional_edges("action", action_router, {"llm": "llm", END: END})
 
     return workflow
-

@@ -48,7 +48,7 @@ Shared core responsibilities:
 
 1. **Zero-friction chat usage**. Users should write natural messages. No special command syntax is required for normal time conversion.
 2. **Registration before conversion**. A user must have a timezone before their message can produce a real published conversion.
-3. **Detection-only before onboarding**. For unregistered users, the bot may detect that a message is actionable, but must not create fake publish traces in the real chat thread state.
+3. **Gated execution before onboarding**. For unregistered users, the bot may reason about an actionable message, but must not execute real publish/update side effects before setup.
 4. **No replay of old messages**. If a user completes onboarding later, the bot starts from the next message. It does not replay pre-onboarding chat messages.
 5. **Per-chat sequential processing**. Within one chat, message handling is serialized to protect shared thread state.
 6. **UTC-pivot transformation**. Time conversion uses IANA timezones and UTC as the canonical pivot.

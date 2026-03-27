@@ -10,7 +10,7 @@ from src.storage.pending import (
     _dm_invite_timestamps,
 )
 from src.event_detection import process_message
-from src.event_detection.history import get_chat_lock
+from src.event_detection.runtime import get_chat_lock
 
 
 @pytest.fixture(autouse=True)

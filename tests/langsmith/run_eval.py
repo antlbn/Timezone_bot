@@ -26,7 +26,7 @@ from langsmith import Client, aevaluate  # noqa: E402
 from langsmith.schemas import Run, Example  # noqa: E402
 
 from src.event_detection.detector import detect_event  # noqa: E402
-from src.event_detection.history import _message_history, _chat_locks  # noqa: E402
+from src.event_detection.runtime import _chat_locks  # noqa: E402
 
 # Default datasets
 DATASET_CURATED  = "timezone-bot-tool-calls"        # hand-crafted with tool ground truth
@@ -208,7 +208,6 @@ async def target(inputs: dict) -> dict:
     This caused LLM child runs to appear as disconnected top-level runs
     instead of nesting under the evaluate trace.
     """
-    _message_history.clear()
     _chat_locks.clear()
     
     result = await _run_agent(inputs)

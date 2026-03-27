@@ -4,13 +4,12 @@ import datetime
 from unittest.mock import AsyncMock, patch
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from src.event_detection import process_message
-from src.event_detection.history import _message_history, _chat_locks
+from src.event_detection.runtime import _chat_locks
 from src.config import get_max_message_age
 
 
 @pytest.fixture(autouse=True)
 def clear_history():
-    _message_history.clear()
     _chat_locks.clear()
 
 
@@ -268,7 +267,7 @@ async def test_message_aging_post_lock():
 
 @pytest.mark.asyncio
 async def test_process_message_detection_only_does_not_append_fake_bot_history():
-    """Detection-only onboarding checks must not create BOT summaries before publish."""
+    """Unregistered actionable messages must not publish chat side effects."""
     detect_result = {
         "event": True,
         "points": [{"time": "15:00", "city": None, "event_type": "meeting"}],
@@ -277,10 +276,7 @@ async def test_process_message_detection_only_does_not_append_fake_bot_history()
         "message_published": False,
     }
 
-    with (
-        patch("src.event_detection.detect_event", AsyncMock(return_value=detect_result)),
-        patch("src.event_detection.append_to_history") as mock_append,
-    ):
+    with patch("src.event_detection.detect_event", AsyncMock(return_value=detect_result)):
         await process_message(
             message_text="Meet at 15:00",
             chat_id="chat1",
@@ -291,14 +287,10 @@ async def test_process_message_detection_only_does_not_append_fake_bot_history()
             skip_aging=True,
         )
 
-    assert mock_append.call_count == 1
-    first_call = mock_append.call_args_list[0].args[2]
-    assert first_call["author_id"] == "u1"
-
 
 @pytest.mark.asyncio
-async def test_detect_event_detection_only_uses_ephemeral_thread_and_snapshot():
-    """Unregistered onboarding detection must use snapshot context without polluting the chat thread."""
+async def test_detect_event_unregistered_uses_real_thread_and_returns_unpublished_event():
+    """Unregistered users now use the real chat thread; action side effects are blocked by app logic."""
     from src.event_detection.detector import detect_event
 
     captured = {}
@@ -324,7 +316,14 @@ async def test_detect_event_detection_only_uses_ephemeral_thread_and_snapshot():
                             }
                         ],
                     ),
-                    ToolMessage(content="✅ Event published. event_ref: 1234", tool_call_id="tc1"),
+                    ToolMessage(
+                        content=(
+                            "No event action executed due to app logic. "
+                            "Reason: sender not registered; onboarding required. "
+                            "Detected intent: publish_event. Summary: meeting → 15:00"
+                        ),
+                        tool_call_id="tc1",
+                    ),
                 ]
             }
 
@@ -363,7 +362,7 @@ async def test_detect_event_detection_only_uses_ephemeral_thread_and_snapshot():
         )
 
     thread_id = captured["config"]["configurable"]["thread_id"]
-    assert thread_id.startswith("telegram_ephemeral_")
-    assert len(captured["payload"]["messages"]) == 2
+    assert thread_id == "telegram_chat1"
+    assert len(captured["payload"]["messages"]) == 1
     assert result["event"] is True
     assert result["message_published"] is False

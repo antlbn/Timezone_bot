@@ -26,8 +26,8 @@ The test suite must protect the parts of the bot that are easy to break and expe
 
 Highest priority:
 
-1. detection-only onboarding behavior for unregistered users,
-2. no fake publish traces in real chat thread memory,
+1. unregistered-user gated action behavior,
+2. no fake publish/update traces in real chat thread memory,
 3. no replay of pre-onboarding messages,
 4. correct persistence of `onboarding_declined`,
 5. `publish_event` vs `update_previous_event` behavior,

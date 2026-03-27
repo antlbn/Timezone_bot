@@ -54,7 +54,8 @@ event_detection:
   # Whether to edit existing bot messages in place when updating events.
   # If false, the bot will always delete the old message and republish a new one.
   # If true, it uses the distance-based logic below.
-  edit_in_place: true
+  edit_in_place: false
+
 
   # Visibility
   # If an edited event is older than this many messages, the bot will delete the 

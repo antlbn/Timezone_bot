@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.messages import AIMessage
 
 from src.event_detection import process_message
-from src.event_detection.history import _message_history, _chat_locks
+from src.event_detection.runtime import _chat_locks
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -24,11 +24,9 @@ from src.event_detection.history import _message_history, _chat_locks
 
 @pytest.fixture(autouse=True)
 def clear_history():
-    """Reset in-memory history between tests."""
-    _message_history.clear()
+    """Reset runtime locks between tests."""
     _chat_locks.clear()
     yield
-    _message_history.clear()
     _chat_locks.clear()
 
 
@@ -102,6 +100,8 @@ async def test_edit_message_flow_telegram():
         patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
         patch("src.event_detection.graph._generate_event_ref", return_value=1),
+        patch("src.config.get_edit_in_place_enabled", return_value=True),
+        patch("src.config.get_republish_edited_message_after_distance", return_value=8),
     ):
         # ── Message 1: schedule ───────────────────────────────────────────────
         await process_message(
@@ -187,6 +187,8 @@ async def test_edit_message_flow_discord():
         patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
         patch("src.event_detection.graph._generate_event_ref", return_value=1),
+        patch("src.config.get_edit_in_place_enabled", return_value=True),
+        patch("src.config.get_republish_edited_message_after_distance", return_value=8),
     ):
         # ── Message 1: schedule ───────────────────────────────────────────────
         await process_message(

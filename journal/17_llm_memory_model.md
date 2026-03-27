@@ -1,7 +1,7 @@
 # Spec: LLM Chat Memory Model
 
 > **Status**: Updated to current implementation  
-> **Relates to**: `14_llm_module.md`, `src/event_detection/__init__.py`, `src/event_detection/history.py`, `src/event_detection/graph.py`
+> **Relates to**: `14_llm_module.md`, `src/event_detection/__init__.py`, `src/event_detection/runtime.py`, `src/event_detection/graph.py`
 
 ---
 
@@ -9,38 +9,34 @@
 
 Описать, какую именно память использует LLM/event-detection pipeline, что в неё попадает, и где проходят границы между:
 
-- краткоживущим chat context в памяти процесса,
 - persisted LangGraph thread state,
+- process-local runtime helpers,
 - внешними side effects в самом чате.
 
 ---
 
-## 1. Две памяти, а не одна
+## 1. Главная память
 
-В текущей реализации у нас есть **два слоя памяти**:
+В текущей реализации reasoning-память теперь одна:
 
-### 1.1 Short-term chat history (`history.py`)
-
-Это in-memory история процесса:
-
-- хранится в `_message_history`;
-- ключ: `(platform, chat_id)`;
-- типы записей: `HumanMessage`, `AIMessage`;
-- используется как локальный snapshot-контекст вокруг входящего сообщения;
-- очищается при рестарте процесса.
-
-### 1.2 LangGraph thread state (`graph_checkpoints.db`)
+### 1.1 LangGraph thread state (`graph_checkpoints.db`)
 
 Это persisted state агента:
 
 - хранится через `AsyncSqliteSaver`;
 - ключ thread: обычно `"{platform}_{chat_id}"`;
-- для detection-only pass используется **ephemeral thread_id**, чтобы не загрязнять реальный thread;
 - содержит `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `RemoveMessage` semantics;
 - переживает рестарт процесса, пока доступен sqlite checkpoints DB.
 
-> Важно: short-term history и LangGraph thread state связаны, но не идентичны.  
-> Первый слой нужен для local snapshot / processing semantics, второй — для agent-native memory.
+### 1.2 Process-local runtime helpers
+
+Кроме thread state остаются только process-local helpers:
+
+- per-chat `asyncio.Lock`,
+- invite cooldown state,
+- user snapshot cache.
+
+Это не conversational memory.
 
 ---
 
@@ -52,47 +48,20 @@
 2. persisted thread state из LangGraph checkpoints;
 3. текущее сообщение как `HumanMessage`.
 
-При detection-only pass для незарегистрированного пользователя LLM получает:
+При обработке незарегистрированного пользователя LLM получает:
 
 1. system prompt;
-2. snapshot из `history.py`;
-3. текущее сообщение как `HumanMessage`;
-4. **ephemeral thread_id**, чтобы не записывать fake publish/update в реальный thread.
+2. persisted thread state из LangGraph checkpoints;
+3. текущее сообщение как `HumanMessage`.
+
+Разница с зарегистрированным пользователем не в том, что используется другой thread,
+а в том, что **action layer блокирует реальные publish/update side effects**.
 
 ---
 
 ## 3. Какие записи живут в памяти
 
-### 3.1 Пользовательские сообщения
-
-Формат в short-term history:
-
-```text
-[ISO_TIMESTAMP] [Имя]: текст сообщения
-```
-
-Пример:
-
-```text
-[2026-03-21T10:03:00Z] [Оля]: Ребят, созвон сегодня в 10, потом зум в Лондоне в 22:00
-[2026-03-21T10:05:00Z] [Петя]: не смогу в 10, можно в 10:30?
-```
-
-### 3.2 BOT summary в short-term history
-
-После **реального** `publish_event` или `update_previous_event`, если сообщение действительно было отправлено или отредактировано в чате, `process_message(...)` добавляет компактную BOT-запись в `history.py`.
-
-Формат:
-
-```text
-[BOT]: detected: sync → 14:00, call → 16:30 (London)
-```
-
-Дополнительно в `additional_kwargs` хранится `message_id`, чтобы update logic могла найти последнее bot message.
-
-> Detection-only onboarding pass **не должен** создавать такую BOT-запись.
-
-### 3.3 ToolMessage в LangGraph state
+### 3.1 ToolMessage в LangGraph state
 
 В persisted thread state агент работает не с formatted chat reply, а с короткими ToolMessage-записями.
 
@@ -106,6 +75,12 @@
 
 ```text
 ✅ Event updated. event_ref: 4821. Summary: sync → 15:00
+```
+
+Для незарегистрированного отправителя возможен отдельный app-logic marker:
+
+```text
+No event action executed due to app logic. Reason: sender not registered; onboarding required. Detected intent: publish_event. Summary: sync → 15:00
 ```
 
 Если update не нашёл исходное событие:
@@ -128,7 +103,7 @@
 2. строится reply;
 3. вызывается platform `send_fn`;
 4. в LangGraph state пишется `ToolMessage` с `event_ref`;
-5. в short-term history добавляется BOT summary, но только если сообщение реально опубликовано.
+5. platform `message_id` хранится в `ToolMessage.additional_kwargs`.
 
 ### 4.2 `update_previous_event`
 
@@ -138,7 +113,7 @@
 2. агент решает `edit in place` vs `delete + republish` по distance rule;
 3. старая пара `AIMessage + ToolMessage` удаляется через `RemoveMessage`;
 4. в state остаётся только актуальная версия события;
-5. BOT summary в short-term history обновляется через новый append после реального side effect.
+5. в state остаётся только актуальная version trace для этого события.
 
 ---
 
@@ -148,10 +123,11 @@
 
 Если сообщение написал незарегистрированный пользователь:
 
-- агент всё ещё может выполнить detection-only pass;
+- агент всё ещё может прийти к `publish_event` или `update_previous_event`;
 - `event=True` может быть вычислен;
 - но никаких real publish side effects быть не должно;
-- никаких fake ToolMessage / BOT summary не должно попадать в реальный chat thread.
+- вместо fake publish/update в persisted thread пишется **app-logic skip marker**;
+- никаких extra BOT summaries больше не существует.
 
 После успешного onboarding бот **не replay'ит старые сообщения**. Он начинает работать со **следующего** сообщения пользователя.
 
@@ -163,22 +139,19 @@
 sequenceDiagram
     participant Adapter
     participant Orchestrator as process_message
-    participant History as history.py
     participant Agent as LangGraph agent
     participant Chat
 
     Adapter->>Orchestrator: incoming message
-    Orchestrator->>History: append human message + take snapshot
-    Orchestrator->>Agent: detect_event(current_msg, snapshot, send/edit/delete callbacks)
+    Orchestrator->>Agent: detect_event(current_msg, [], send/edit/delete callbacks)
 
-    alt detection-only onboarding pass
+    alt unregistered sender
         Agent-->>Orchestrator: event detected, but message_published = false
-        Note over Agent: uses ephemeral thread_id
+        Note over Agent: tool execution blocked by app logic
     else real publish/update pass
         Agent->>Chat: send/edit/delete
         Chat-->>Agent: message_id
         Agent-->>Orchestrator: message_published = true
-        Orchestrator->>History: append BOT summary with message_id
     end
 ```
 
@@ -202,23 +175,13 @@ sequenceDiagram
 - burst в одном чате обрабатывается по одному сообщению;
 - старые сообщения могут быть отброшены по age guard, если очередь выросла.
 
-### 8.2 Snapshot timing nuance
+### 8.2 Thread freshness
 
-Сейчас `append_to_history(...)` и snapshot происходят **до** входа в per-chat lock.  
-В обычной работе это нормально, но при очень высокой нагрузке snapshot timing и execution order могут слегка разойтись.
-
-Если это станет проблемой, точка ужесточения очевидна:
-
-- перенести `append_to_history(...)` / snapshot внутрь locked section в `process_message(...)`.
-
-### 8.3 Short-term history is still process-local
-
-Хотя LangGraph thread state persisted в SQLite, `history.py` остаётся in-memory и сбрасывается при рестарте процесса.
+Хотя LangGraph thread state persisted в SQLite, сейчас у него всё ещё нет automatic freshness cutoff after long inactivity.
 
 ---
 
 ## 9. Open Questions
 
 - [ ] Нужна ли отдельная memory semantics для явной отмены события, а не только update?
-- [ ] Нужно ли когда-нибудь показывать LLM более структурированную BOT summary вместо строки `detected: ...`?
-- [ ] Если burst-нагрузка вырастет, стоит ли делать snapshot+lock fully atomic?
+- [ ] Нужен ли freshness cutoff для очень старого persisted thread state?

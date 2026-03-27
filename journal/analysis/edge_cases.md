@@ -2,23 +2,23 @@
 
 This file tracks open architectural risks in the current system. It should only describe live concerns, not contradictions from removed designs.
 
-## 1. High-Load Ordering Semantics
+## 1. Thread Freshness After Long Inactivity
 
 ### Gap
 
-Message handling is serialized per chat, but `append_to_history(...)` happens before the chat lock is acquired.
+Persisted LangGraph thread state currently has no freshness cutoff after long inactivity.
 
 ### Why it matters
 
-This means the system guarantees serialized execution, but not a perfectly atomic "append history + snapshot + execute" sequence under burst load.
+After days or weeks of silence, old thread context may still influence the next reasoning pass even when that context is no longer useful.
 
 ### Risk
 
-In a fast burst of messages, context snapshots may be slightly less intuitive than a human would expect, even though thread-state corruption is still prevented.
+Stale semantic context can reduce update/publish quality after long gaps.
 
 ### Recommendation
 
-If load becomes a real problem, consider moving history append and snapshot capture inside the per-chat lock and add burst-ordering tests.
+Introduce a freshness policy for persisted threads or a summary/reset rule after inactivity.
 
 ## 2. Sender-Local Interpretation of Relative Dates
 

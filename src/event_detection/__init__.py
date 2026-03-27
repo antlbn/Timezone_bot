@@ -4,7 +4,7 @@ import dateutil.parser
 from typing import List, Dict, Any, Callable
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
-from src.event_detection.history import append_to_history, get_chat_lock
+from src.event_detection.runtime import get_chat_lock
 from src.event_detection.detector import detect_event
 
 logger = get_logger()
@@ -91,13 +91,13 @@ async def process_message(
     except Exception:
         msg_time = datetime.datetime.now(datetime.timezone.utc)
 
-    if skip_history_append:
-        snapshot = precomputed_snapshot or []
+    # `history.py` has been removed. Snapshot input is kept only for eval-style
+    # callers that explicitly provide synthetic context to detect_event().
+    snapshot = precomputed_snapshot or []
+    if skip_history_append and snapshot:
         logger.debug(
             f"[{platform}:{chat_id}] Using precomputed snapshot (size={len(snapshot)})"
         )
-    else:
-        snapshot = append_to_history(platform, chat_id, msg_data)
 
     # 2. Waiting lock - one LLM call at a time per chat
     lock = get_chat_lock(platform, chat_id)
@@ -134,28 +134,6 @@ async def process_message(
             chat_id=chat_id,
             ctx_logger=ctx_logger,
         )
-
-        # Record a compact bot summary only when a chat message was actually
-        # published or updated. Detection-only onboarding checks must not create
-        # fake BOT history entries before the user completes setup.
-        if result.get("event") and result.get("points") and result.get("message_published"):
-            points = result["points"]
-            summary_parts = [
-                f"{p.get('event_type', 'event')} \u2192 {p['time']}"
-                + (f" ({p['city']})" if p.get("city") else "")
-                for p in points
-            ]
-            bot_msg = {
-                "platform": platform,
-                "chat_id": chat_id,
-                "author_id": "BOT",
-                "author_name": "BOT",
-                "text": "detected: " + ", ".join(summary_parts),
-                "timestamp_utc": timestamp_utc,
-                "message_id": result.get("message_id"),  # ← stored for edit tool
-            }
-            append_to_history(platform, chat_id, bot_msg)
-            ctx_logger.debug(f"Bot detection appended to history: {bot_msg['text']}")
 
     return result
 

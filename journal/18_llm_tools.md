@@ -154,15 +154,13 @@ The deterministic layers then do the rest:
 
 ---
 
-## 7. Detection-only onboarding behavior
+## 7. Unregistered onboarding behavior
 
-During onboarding detection-only passes:
+During onboarding-time passes for unregistered users:
 
-- the model may still conceptually choose publish/update,
+- the model may still choose `publish_event` or `update_previous_event`,
 - but real chat side effects must not occur,
-- and fake published state must not leak into the real persisted chat thread.
-
-That is enforced by running such passes in an isolated ephemeral thread.
+- and the action layer must write an app-logic skip marker instead of a fake publish/update result.
 
 ---
 

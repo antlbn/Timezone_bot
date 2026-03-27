@@ -202,8 +202,8 @@ The following are **not** part of the main SQLite schema:
 
 Those concerns belong elsewhere:
 
-- short-term history: `src/event_detection/history.py`
 - LangGraph checkpoints: `data/graph_checkpoints.db`
+- runtime locks: `src/event_detection/runtime.py`
 - invite cooldown state: `src/storage/pending.py`
 
 ---

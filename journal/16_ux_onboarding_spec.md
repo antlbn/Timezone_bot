@@ -17,12 +17,14 @@ This document defines the user experience guidelines and implementations for the
 
 The current architecture uses a **LangGraph agent with persisted thread state**, and onboarding follows one critical rule:
 
-> **Before the user completes onboarding, the bot may run detection, but it must not leave a fake "published event" trace in the real chat thread memory.**
+> **Before the user completes onboarding, the bot may run the normal agent reasoning flow, but it must not execute real publish/update side effects.**
 
-That means the first pass for an unregistered user is a **detection-only pass**:
-- it may use recent context to decide whether the message is actionable,
+That means the first pass for an unregistered user is an **app-logic gated pass**:
+- it may use the normal persisted chat thread,
 - it may trigger an onboarding invite if cooldown allows,
-- but it must **not** persist a tool result as if the chat reply was already published.
+- but it must **not** persist a fake published/updated event result.
+- instead, if the model chose a tool, thread memory gets a distinct marker such as:
+  `No event action executed due to app logic. Reason: sender not registered; onboarding required.`
 
 After setup completes, the bot starts handling the user's **next** messages normally.
 
@@ -32,6 +34,9 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 #### Onboarding Flow
 1. **Trigger:** A new user (timezone missing) sends a message in a group. The bot performs a **detection-only LangGraph pass**:
    - If **no time event** is detected → the message remains only as ordinary chat context; onboarding is not shown.
+   - If **time event** is detected → onboarding is triggered (Lazy Onboarding), but no chat reply is published yet.
+1. **Trigger:** A new user (timezone missing) sends a message in a group. The bot performs the **normal LangGraph reasoning pass**, but action execution is gated by application logic:
+   - If **no time event** is detected → onboarding is not shown.
    - If **time event** is detected → onboarding is triggered (Lazy Onboarding), but no chat reply is published yet.
 2. **Cooldown Check:** The bot checks if a DM invite was already sent within the `dm_onboarding_cooldown_seconds` window (default: 600s). If cooldown is still active, the bot does nothing further for that message and waits for a later actionable message.
 4. **Invite:** If cooldown allows, the bot sends a minimal message to the group:
@@ -50,7 +55,7 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
    - If the user declines, they are marked as `onboarding_declined=True`.
    - If they ignore or abandon the flow, nothing is replayed later; the bot will only re-invite after the onboarding cooldown expires and a new actionable message appears.
 9. **Security:** The deep-link payload is validated. If another user tries to use it, the bot ignores it.
-10. **Memory boundary:** The initial detection-only pass is **not allowed** to create a fake published event in the persisted LangGraph chat thread. Real publish/update traces are written only when a registered user is processed normally.
+10. **Memory boundary:** The initial onboarding-time pass is **not allowed** to create a fake published event in the persisted LangGraph chat thread. Real publish/update traces are written only when a registered user is processed normally; unregistered actionable messages produce an app-logic skip marker instead.
 
 #### ⭐ UX Principles & Cleanup Rules
 - **Non-disruptive**: No intrusive dialogs in the group. All setup happens "behind the scenes" in DM.
@@ -72,7 +77,7 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 - **Invite cooldown storage**: `src/storage/pending.py`
 - **Telegram onboarding/settings flow**: `src/commands/settings.py`
 - **Discord onboarding/settings flow**: `src/discord/commands.py` + `src/discord/ui.py`
-- **Detection-only pass**: `src/event_detection/detector.py`
+- **App-logic gated pass**: `src/event_detection/detector.py`
 - **Real publish pass**: `src/event_detection/__init__.py` + `src/event_detection/graph.py`
 
 ---
@@ -83,7 +88,7 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 flowchart TD
     A[Incoming group message] --> B{User has timezone?}
     B -- YES --> C[Normal process_message pass<br/>real publish/update allowed]
-    B -- NO --> D[Detection-only LangGraph pass<br/>no real publish side effects]
+    B -- NO --> D[Normal LangGraph reasoning<br/>action side effects blocked]
 
     D -- No event --> E[Stop<br/>keep only ordinary context]
     D -- Event detected --> F[Check onboarding invite cooldown]
@@ -103,7 +108,7 @@ Discord offers native Ephemeral Messages and Modals, allowing for a strictly tar
 
 #### Onboarding Flow
 1. **Trigger:** A new user mentions a time in a guild.
-2. **Detection-only pass:** The bot checks the message with the agent, but before registration it must not persist a fake publish result into the real chat thread.
+2. **App-logic gated pass:** The bot checks the message with the normal agent flow, but before registration it must not persist a fake publish result into the real chat thread.
 3. **Prompt:** If cooldown allows, the bot replies to the user, mentioning them directly:
    > "{Name}, set your timezone to convert times!"
    > **Button:** `[Set Timezone]`

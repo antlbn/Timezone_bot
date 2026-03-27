@@ -27,7 +27,7 @@ The module is responsible for:
   - `update_previous_event`
   - no tool call
 - preserving agent memory inside a chat thread,
-- avoiding false publish side effects during onboarding detection-only passes.
+- avoiding real publish side effects for unregistered users.
 
 The module is not responsible for:
 
@@ -48,9 +48,8 @@ It handles:
 
 - message aging,
 - per-chat serialization,
-- snapshotting short-term history,
 - calling `detect_event(...)`,
-- appending BOT summary after real publish/update.
+- forwarding the normalized result back to the adapter.
 
 ### 3.2 Agent runtime
 
@@ -114,7 +113,7 @@ Optional callbacks:
 These callbacks are what make the difference between:
 
 - **real publish/update mode**, and
-- **detection-only mode** for onboarding.
+- **app-logic gated mode** for onboarding.
 
 ---
 
@@ -128,24 +127,24 @@ For registered users, the agent uses a persisted LangGraph thread:
 - storage: `data/graph_checkpoints.db`;
 - purpose: remember previously published/updated events.
 
-### 5.2 Detection-only onboarding pass
+### 5.2 Unregistered sender behavior
 
 For unregistered users:
 
 - the module may still detect `event=True`,
-- but it must use an **ephemeral thread id**,
-- and must not pollute the real chat thread with fake ToolMessages.
+- it uses the normal persisted chat thread,
+- but the action layer must not execute real publish/update side effects,
+- and it must write a clearly distinct app-logic `ToolMessage` instead of a fake publish/update result.
 
-### 5.3 Short-term snapshot
+### 5.3 Runtime helpers
 
-The separate `history.py` layer provides:
+The runtime still uses lightweight process-local helpers for:
 
-- local process memory,
-- snapshots around incoming messages,
 - per-chat locks,
-- compact BOT summaries after real publish/update.
+- invite cooldowns,
+- user snapshot cache.
 
-For a deeper memory breakdown, see `17_llm_memory_model.md`.
+Conversational reasoning memory itself now lives in persisted LangGraph thread state.
 
 ---
 
@@ -168,6 +167,7 @@ For a deeper memory breakdown, see `17_llm_memory_model.md`.
 
 - the module may compute `event=True`,
 - but must not trigger real publish side effects,
+- the tool result becomes an app-logic skip marker in thread memory,
 - and the product flow continues with onboarding UX instead of conversion output.
 
 ---
@@ -210,7 +210,7 @@ src/event_detection/
 ├── __init__.py      # process_message(...)
 ├── detector.py      # detect_event(...)
 ├── graph.py         # LangGraph nodes, routing, tool side effects
-├── history.py       # short-term history + locks
+├── runtime.py       # per-chat locks
 ├── prompts.py       # system prompt
 ├── client.py        # model selection
 └── tools.py         # helper conversion routines
@@ -224,6 +224,6 @@ To rebuild this module faithfully, preserve:
 
 1. Tool-calling agent shape (`publish_event` / `update_previous_event`).
 2. Persisted per-chat thread memory via LangGraph checkpoints.
-3. Detection-only onboarding pass with isolated ephemeral thread.
+3. App-logic gated onboarding behavior for unregistered users.
 4. Per-chat serialized execution in `process_message(...)`.
 5. Deterministic conversion/rendering outside the LLM.
