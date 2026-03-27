@@ -97,7 +97,7 @@ async def test_edit_message_flow_telegram():
         edited_calls.append((msg_id, new_text))
 
     with (
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
         patch("src.event_detection.graph._generate_event_ref", return_value=1),
         patch("src.config.get_edit_in_place_enabled", return_value=True),
@@ -184,7 +184,7 @@ async def test_edit_message_flow_discord():
         edited_calls.append((msg_id, new_text))
 
     with (
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
         patch("src.event_detection.graph._generate_event_ref", return_value=1),
         patch("src.config.get_edit_in_place_enabled", return_value=True),
@@ -261,7 +261,7 @@ async def test_update_falls_back_to_publish_when_no_history():
         edited_calls.append((msg_id, text))
 
     with (
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=MOCK_MEMBERS)),
     ):
         await process_message(

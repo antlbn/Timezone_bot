@@ -71,7 +71,7 @@ async def test_full_pipeline_integration():
 
     # 4. Execute Pipeline
     with (
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
     ):
         await process_message(

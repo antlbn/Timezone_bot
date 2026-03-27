@@ -175,7 +175,7 @@ async def test_llm_json_dispatch(monkeypatch):
     mock_llm_cls = MagicMock(return_value=mock_llm_instance)
 
     with (
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[mock_member])),
     ):
         result = await detect_event(
@@ -327,24 +327,7 @@ async def test_detect_event_unregistered_uses_real_thread_and_returns_unpublishe
                 ]
             }
 
-    class FakeGraph:
-        def compile(self, checkpointer=None):
-            return FakeApp()
-
-    class FakeSaver:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb):
-            return False
-
-        async def setup(self):
-            return None
-
-    with (
-        patch("src.event_detection.graph.build_agent_graph", return_value=FakeGraph()),
-        patch("langgraph.checkpoint.sqlite.aio.AsyncSqliteSaver.from_conn_string", return_value=FakeSaver()),
-    ):
+    with patch("src.event_detection.detector.get_graph_app", AsyncMock(return_value=FakeApp())):
         result = await detect_event(
             current_msg={
                 "author_id": "u1",

@@ -89,7 +89,7 @@ async def test_dm_onboarding_deep_link_generated():
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
         patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600),
         patch("src.commands.common.get_settings_cleanup_timeout", return_value=10),
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
     ):
         await handle_time_mention(msg, state)
 
@@ -311,7 +311,7 @@ async def test_dm_invite_cooldown():
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
         patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600),
         patch("src.commands.common.get_settings_cleanup_timeout", return_value=10),
-        patch("src.event_detection.graph.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
     ):
         # First message — invite sent
         await handle_time_mention(msg1, state)

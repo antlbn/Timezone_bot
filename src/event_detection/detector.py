@@ -10,7 +10,6 @@ Architecture:
 """
 
 import json
-import os
 import re
 from typing import Any, Callable, Awaitable
 
@@ -18,6 +17,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 from src.logger import get_logger
 from src.event_detection.prompts import get_system_prompt
+from src.event_detection.runtime import get_graph_app
 
 logger = get_logger()
 
@@ -201,9 +201,6 @@ async def detect_event(
             filter_members_fn=filter_members_fn,
         )
 
-    # Compile Graph
-    from src.event_detection.graph import build_agent_graph
-    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
     import uuid
     
     thread_id = f"{platform}_{chat_id}"
@@ -227,102 +224,95 @@ async def detect_event(
     }
 
     try:
-        data_dir = os.path.join(os.getcwd(), "data")
-        os.makedirs(data_dir, exist_ok=True)
-        db_path = os.path.join(data_dir, "graph_checkpoints.db")
-        
-        async with AsyncSqliteSaver.from_conn_string(db_path) as checkpointer:
-            await checkpointer.setup()
-            graph = build_agent_graph()
-            app = graph.compile(checkpointer=checkpointer)
+        app = await get_graph_app()
 
-            # For production chat threads we rely on the persisted LangGraph thread
-            # state. Eval mode can still seed a temporary thread from a supplied snapshot.
-            if use_snapshot_context:
-                input_messages = snapshot + [human_msg] if snapshot else [human_msg]
+        # For production chat threads we rely on the persisted LangGraph thread
+        # state. Eval mode can still seed a temporary thread from a supplied snapshot.
+        if use_snapshot_context:
+            input_messages = snapshot + [human_msg] if snapshot else [human_msg]
+        else:
+            input_messages = [human_msg]
+
+        response_state = await app.ainvoke({"messages": input_messages}, config)
+
+        # Check results
+        messages = response_state.get("messages", [])
+        last_msg = messages[-1] if messages else None
+
+        result_points = []
+        tool_used = ""
+        message_id = None
+        reasoning = ""
+        event_ref = None
+        comment = None
+
+        if last_msg and isinstance(last_msg, ToolMessage):
+            tool_used = last_msg.name
+
+            # Retrieve the tool call arguments and reasoning from the previous AIMessage
+            for i in range(len(messages) - 2, -1, -1):
+                if isinstance(messages[i], AIMessage) and messages[i].tool_calls:
+                    tc = messages[i].tool_calls[0]
+                    if tc["id"] == last_msg.tool_call_id:
+                        result_points = tc["args"].get("points", [])
+                        # Reasoning: prefer structured arg, fallback to AIMessage.content
+                        reasoning = tc["args"].get("reasoning", "") or messages[i].content or ""
+                        # event_ref specific to update_previous_event
+                        event_ref = tc["args"].get("event_ref", None)
+                        comment = tc["args"].get("comment", None)
+                        tool_used = tc["name"]
+                        break
+
+            message_id = last_msg.additional_kwargs.get("message_id")
+        elif last_msg and isinstance(last_msg, AIMessage) and last_msg.content:
+            # LLM outputted JSON string instead of calling tool (fallback scenario)
+            raw = last_msg.content
+            # Use regex or simple check to see if there's text before JSON
+            json_start = raw.find("{")
+            if json_start != -1:
+                reasoning = raw[:json_start].strip()
+                json_str = raw[json_start:]
+                parsed = _parse_llm_json(json_str, ctx_logger)
             else:
-                input_messages = [human_msg]
-            
-            response_state = await app.ainvoke({"messages": input_messages}, config)
-            
-            # Check results
-            messages = response_state.get("messages", [])
-            last_msg = messages[-1] if messages else None
-            
-            result_points = []
-            tool_used = ""
-            message_id = None
-            reasoning = ""
-            event_ref = None
-            comment = None
-            
-            if last_msg and isinstance(last_msg, ToolMessage):
-                tool_used = last_msg.name
-                
-                # Retrieve the tool call arguments and reasoning from the previous AIMessage
-                for i in range(len(messages) - 2, -1, -1):
-                    if isinstance(messages[i], AIMessage) and messages[i].tool_calls:
-                        tc = messages[i].tool_calls[0]
-                        if tc["id"] == last_msg.tool_call_id:
-                            result_points = tc["args"].get("points", [])
-                            # Reasoning: prefer structured arg, fallback to AIMessage.content
-                            reasoning = tc["args"].get("reasoning", "") or messages[i].content or ""
-                            # event_ref specific to update_previous_event
-                            event_ref = tc["args"].get("event_ref", None)
-                            comment = tc["args"].get("comment", None)
-                            tool_used = tc["name"]
-                            break
-                            
-                message_id = last_msg.additional_kwargs.get("message_id")
-            elif last_msg and isinstance(last_msg, AIMessage) and last_msg.content:
-                # LLM outputted JSON string instead of calling tool (fallback scenario)
-                raw = last_msg.content
-                # Use regex or simple check to see if there's text before JSON
-                json_start = raw.find("{")
-                if json_start != -1:
-                    reasoning = raw[:json_start].strip()
-                    json_str = raw[json_start:]
-                    parsed = _parse_llm_json(json_str, ctx_logger)
-                else:
-                    reasoning = raw.strip()
-                    parsed = {
-                        "event": False, 
-                        "points": [],
-                        "reflections": _parse_reflections_from_text(reasoning),
-                        "time": [], "city": [], "event_type": [],
-                        "sender_id": sender_id, "sender_name": sender_name
-                    }
-                
-                if parsed.get("event") and send_fn:
-                    result_points = parsed.get("points", [])
-                    tool_used = "publish_event"
-                    message_id = await send_fn(await build_reply_wrapper(result_points))
-                
-                parsed["reasoning"] = reasoning
-                parsed["message_published"] = bool(message_id)
-                if not parsed.get("reflections"):
-                    parsed["reflections"] = _parse_reflections_from_text(reasoning)
-                return parsed
+                reasoning = raw.strip()
+                parsed = {
+                    "event": False,
+                    "points": [],
+                    "reflections": _parse_reflections_from_text(reasoning),
+                    "time": [], "city": [], "event_type": [],
+                    "sender_id": sender_id, "sender_name": sender_name
+                }
 
-            event_detected = bool(result_points and tool_used)
-            parsed_ref = _parse_reflections_from_text(reasoning)
-            
-            return {
-                "reflections": parsed_ref,
-                "reasoning": reasoning,
-                "event": event_detected,
-                "sender_id": sender_id,
-                "sender_name": sender_name,
-                "time": [p.get("time", "") for p in result_points],
-                "city": [p.get("city") for p in result_points],
-                "event_type": [p.get("event_type", "событие") for p in result_points],
-                "points": result_points,
-                "tool_used": tool_used,
-                "message_id": message_id,
-                "message_published": bool(message_id),
-                "event_ref": event_ref,
-                "comment": comment,
-            }
+            if parsed.get("event") and send_fn:
+                result_points = parsed.get("points", [])
+                tool_used = "publish_event"
+                message_id = await send_fn(await build_reply_wrapper(result_points))
+
+            parsed["reasoning"] = reasoning
+            parsed["message_published"] = bool(message_id)
+            if not parsed.get("reflections"):
+                parsed["reflections"] = _parse_reflections_from_text(reasoning)
+            return parsed
+
+        event_detected = bool(result_points and tool_used)
+        parsed_ref = _parse_reflections_from_text(reasoning)
+
+        return {
+            "reflections": parsed_ref,
+            "reasoning": reasoning,
+            "event": event_detected,
+            "sender_id": sender_id,
+            "sender_name": sender_name,
+            "time": [p.get("time", "") for p in result_points],
+            "city": [p.get("city") for p in result_points],
+            "event_type": [p.get("event_type", "событие") for p in result_points],
+            "points": result_points,
+            "tool_used": tool_used,
+            "message_id": message_id,
+            "message_published": bool(message_id),
+            "event_ref": event_ref,
+            "comment": comment,
+        }
 
     except Exception as exc:
         ctx_logger.error(f"[chat:{chat_id}] Graph Agent error: {exc}")

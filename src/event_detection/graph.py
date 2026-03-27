@@ -3,7 +3,6 @@ graph.py — LangGraph Definition for Timezone Bot
 This module defines the StateGraph, nodes, and tools for the event detection loop.
 """
 
-import os
 import re
 import random
 from typing import Annotated, TypedDict
@@ -11,16 +10,13 @@ from langchain_core.messages import (
     BaseMessage, SystemMessage, HumanMessage, AIMessage, ToolMessage, RemoveMessage
 )
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 
 from src.logger import get_logger
-from src.event_detection.client import get_llm_model
-from src.config import get_bot_settings
-
+from src.event_detection.client import get_bound_chat_llm
 logger = get_logger()
 
 # ── 1. Define State ────────────────────────────────────────────────────────
@@ -140,17 +136,7 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
     """
     Invokes the LLM with the current list of messages.
     """
-    settings = get_bot_settings()
-    temp = settings.get("llm", {}).get("temperature", 0.0)
-    model_name = get_llm_model()
-
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=temp,
-        openai_api_base=os.getenv("LLM_BASE_URL") or None,
-        openai_api_key=os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or "no-key",
-    )
-    llm_with_tools = llm.bind_tools(tools_list)
+    llm_with_tools = get_bound_chat_llm(tuple(tools_list))
     
     # Expose strict Context Limit
     from src.config import get_context_messages_limit

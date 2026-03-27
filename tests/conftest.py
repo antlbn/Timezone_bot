@@ -2,16 +2,26 @@ import asyncio
 import pytest
 import os
 import glob
+from src.event_detection.client import reset_llm_cache
+from src.event_detection.runtime import reset_graph_runtime
 from src.storage import storage
 
+
 @pytest.fixture(autouse=True)
-def clear_graph_checkpoints():
-    """Wipe LangGraph SQLite state before every test to ensure isolation."""
+async def reset_event_detection_runtime():
+    """Ensure shared LangGraph runtime and sqlite state do not leak across tests."""
+    await reset_graph_runtime()
+    reset_llm_cache()
     for db_file in glob.glob("data/graph_checkpoints.db*"):
         try:
             os.remove(db_file)
         except OSError:
             pass
+
+    yield
+
+    await reset_graph_runtime()
+    reset_llm_cache()
 
 
 @pytest.fixture(scope="session", autouse=True)
