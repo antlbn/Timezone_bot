@@ -42,7 +42,10 @@ EXPERIMENT_PREFIX = "agent-v1"   # bump when making big changes
 async def _run_agent(inputs: dict) -> dict:
     """Run detect_event for a single test case, return tool call result."""
     # Minimal sender context (no real timezone lookup — we're testing detection, not formatting)
-    sender_db: dict = {}
+    # Minimal registered sender so action_node doesn't block on the registration gate.
+    # Without this, sender_registered=False and every publish call returns a gate message,
+    # making eval_correct_tool score 0 for all publish-event cases.
+    sender_db = {"timezone": "Europe/Moscow", "city": "Moscow", "flag": "🇷🇺"}
 
     # Capture which tool was invoked and what points it returned
     tool_used: list[str] = []
@@ -318,6 +321,17 @@ def eval_event_ref(run: Run, example: Example) -> dict:
     return {"key": "event_ref", "score": 0, "comment": f"expected={expected_ref} got={actual_ref}"}
 
 
+def eval_no_false_positive(run: Run, example: Example) -> dict:
+    """When event=False is expected, the agent must NOT call any tool."""
+    expected_event = example.outputs.get("event")
+    if expected_event is not False:
+        return {"key": "no_false_positive", "score": 1, "comment": "n/a (event=true)"}
+    tool = (run.outputs or {}).get("tool")
+    score = 1 if not tool else 0
+    return {"key": "no_false_positive", "score": score,
+            "comment": f"tool={tool!r} must be None when event=False"}
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 async def main():
@@ -365,7 +379,8 @@ async def main():
             eval_tool_was_called,
             eval_correct_tool,
             eval_points_extracted,
-            eval_event_ref
+            eval_event_ref,
+            eval_no_false_positive,
         ],
         experiment_prefix=args.prefix,
         client=client
@@ -376,7 +391,7 @@ async def main():
     async for r in results:
         total += 1
         eval_results = r["evaluation_results"]["results"]
-        if len(eval_results) == 5:
+        if eval_results:
             all_passed = all(er.score == 1 for er in eval_results)
             if all_passed:
                 passed += 1

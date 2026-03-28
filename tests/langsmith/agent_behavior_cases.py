@@ -417,6 +417,63 @@ EXAMPLES = [
         },
         "metadata": {"group": "update_negotiation", "split": "agent_behavior"}
     },
+
+    # --- Group L: Reference disambiguation (group="ref_disambiguation") ---
+    # Both cases have TWO published events in history. The agent must pick the right event_ref.
+    {
+        "description": "L1: Two events — update the correct one by topic keyword ('митинг')",
+        "inputs": {
+            "text": "митинг перенесли на 11, опаздываю",
+            "history": [
+                {"type": "human", "content": "[2026-03-25T08:00:00Z] [Author: Lead]: завтра митинг в 9 утра"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "09:00", "city": None, "event_type": "митинг"}]}, "id": "tc_meet_1"}], "message_id": "m1"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 1010. Summary: митинг → 09:00", "tool_call_id": "tc_meet_1"},
+                {"type": "human", "content": "[2026-03-25T08:05:00Z] [Author: PM]: и созвон в 14:00 не забудьте"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "14:00", "city": None, "event_type": "созвон"}]}, "id": "tc_sync_1"}], "message_id": "m2"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 2020. Summary: созвон → 14:00", "tool_call_id": "tc_sync_1"},
+            ],
+            "sender_id": "u_l1",
+            "sender_name": "Петя",
+            "timestamp": "2026-03-25T08:10:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "update_previous_event",
+            "event_ref": 1010,
+            "points": [{"time": "11:00", "city": None, "event_type": "митинг"}],
+            "sender_id": "u_l1",
+            "sender_name": "Петя",
+            "comment": "UPDATE due to coordination"
+        },
+        "metadata": {"group": "ref_disambiguation", "split": "agent_behavior"}
+    },
+    {
+        "description": "L2: Two events — update the correct one by explicit time reference ('созвон в 14')",
+        "inputs": {
+            "text": "созвон в 14 отменяется, переносим на 16",
+            "history": [
+                {"type": "human", "content": "[2026-03-26T09:00:00Z] [Author: Oleg]: стендап в 10 утра"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "10:00", "city": None, "event_type": "стендап"}]}, "id": "tc_stand_1"}], "message_id": "m3"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 3030. Summary: стендап → 10:00", "tool_call_id": "tc_stand_1"},
+                {"type": "human", "content": "[2026-03-26T09:05:00Z] [Author: Dasha]: и созвон сегодня в 14"},
+                {"type": "ai", "tool_calls": [{"name": "publish_event", "args": {"points": [{"time": "14:00", "city": None, "event_type": "созвон"}]}, "id": "tc_call_1"}], "message_id": "m4"},
+                {"type": "tool", "content": "✅ Event published. event_ref: 4040. Summary: созвон → 14:00", "tool_call_id": "tc_call_1"},
+            ],
+            "sender_id": "u_l2",
+            "sender_name": "Dasha",
+            "timestamp": "2026-03-26T11:00:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "update_previous_event",
+            "event_ref": 4040,
+            "points": [{"time": "16:00", "city": None, "event_type": "созвон"}],
+            "sender_id": "u_l2",
+            "sender_name": "Dasha",
+            "comment": "UPDATE due to coordination"
+        },
+        "metadata": {"group": "ref_disambiguation", "split": "agent_behavior"}
+    },
 ]
 
 def main():

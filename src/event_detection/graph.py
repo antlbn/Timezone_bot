@@ -411,8 +411,22 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
         allow_partial=False,
         start_on="human"
     )
-    
-    response = await llm_with_tools.ainvoke(trimmed_messages)
+
+    try:
+        response = await llm_with_tools.ainvoke(trimmed_messages)
+    except Exception as exc:
+        # Some models (e.g. Gemini via OpenAI-compat) occasionally return a response
+        # with neither content nor tool_calls, which raises a validation error.
+        # Return an empty AIMessage so should_continue routes to END cleanly.
+        logger.warning(f"LLM invocation returned empty/invalid response: {exc}")
+        return {"messages": [AIMessage(content="")]}
+
+    # Guard: if the model returned empty content AND no tool calls,
+    # treat it as a skip rather than letting downstream nodes fail.
+    if not response.content and not getattr(response, "tool_calls", None):
+        logger.warning("LLM returned empty response (no content, no tool_calls) — skipping.")
+        return {"messages": [AIMessage(content="")]}
+
     return {"messages": [response]}
 
 

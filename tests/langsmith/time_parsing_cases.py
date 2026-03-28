@@ -411,6 +411,80 @@ EXAMPLES = [
         },
         "metadata": {"group": "self_correction", "split": "time_parsing"}
     },
+
+    # --- Group F: False-positive traps (group="no_event_trap") ---
+    {
+        "description": "F1: Vague time — 'вечером созвонимся'",
+        "inputs": {
+            "text": "вечером созвонимся",
+            "history": [],
+            "sender_id": "u_fp1",
+            "sender_name": "UserFP1",
+            "timestamp": "2026-03-13T10:00:00Z",
+        },
+        "outputs": {
+            "event": False,
+            "tool": None,
+            "points": [],
+            "sender_id": "u_fp1",
+            "sender_name": "UserFP1",
+        },
+        "metadata": {"group": "no_event_trap", "trap": True, "split": "time_parsing"}
+    },
+    {
+        "description": "F2: Personal plan — 'лягу спать в 11'",
+        "inputs": {
+            "text": "лягу спать в 11",
+            "history": [],
+            "sender_id": "u_fp2",
+            "sender_name": "UserFP2",
+            "timestamp": "2026-03-13T22:00:00Z",
+        },
+        "outputs": {
+            "event": False,
+            "tool": None,
+            "points": [],
+            "sender_id": "u_fp2",
+            "sender_name": "UserFP2",
+        },
+        "metadata": {"group": "no_event_trap", "trap": True, "split": "time_parsing"}
+    },
+    {
+        "description": "F3: No exact time — 'отчёт сдать до конца квартала'",
+        "inputs": {
+            "text": "отчёт сдать до конца квартала",
+            "history": [],
+            "sender_id": "u_fp3",
+            "sender_name": "UserFP3",
+            "timestamp": "2026-03-13T14:00:00Z",
+        },
+        "outputs": {
+            "event": False,
+            "tool": None,
+            "points": [],
+            "sender_id": "u_fp3",
+            "sender_name": "UserFP3",
+        },
+        "metadata": {"group": "no_event_trap", "trap": True, "split": "time_parsing"}
+    },
+    {
+        "description": "F4: Vague range — 'встретимся где-то в районе обеда'",
+        "inputs": {
+            "text": "встретимся где-то в районе обеда",
+            "history": [],
+            "sender_id": "u_fp4",
+            "sender_name": "UserFP4",
+            "timestamp": "2026-03-13T09:00:00Z",
+        },
+        "outputs": {
+            "event": False,
+            "tool": None,
+            "points": [],
+            "sender_id": "u_fp4",
+            "sender_name": "UserFP4",
+        },
+        "metadata": {"group": "no_event_trap", "trap": True, "split": "time_parsing"}
+    },
 ]
 
 def main():
