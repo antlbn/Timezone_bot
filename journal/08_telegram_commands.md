@@ -1,133 +1,112 @@
-# Technical Spec: Telegram Commands & UI
+# 08. Telegram Commands and UX
 
-## 1. Overview
+## 1. Scope
 
-Bot commands for managing settings and chat members.
-Each bot response displays `/tb_help` text at the bottom.
+This document defines Telegram-specific behavior for group chats and Telegram-private onboarding.
 
----
+## 2. Telegram Product Rules
 
-## 2. Commands
+- Main usage happens in Telegram groups.
+- Private chat with the bot exists only for onboarding and timezone setup.
+- Group chat should not be polluted by multi-step setup dialogs.
+- The bot converts time only for known group members with stored timezones.
 
-| Command | Description |
-|---------|-------------|
-| `/tb_help` | Show command menu |
-| `/tb_me` | Show your current location |
-| `/tb_settz` | Change your timezone |
-| `/tb_members` | List chat members from DB |
-| `/tb_remove` | Remove stale member (left chat while bot offline) |
+## 3. Commands
 
----
+| Command | Scope | Purpose |
+|---|---|---|
+| `/tb_help` | Group or private | Show short usage help |
+| `/tb_me` | Group or private | Show the user's saved timezone |
+| `/tb_settz` | Group or private | Start or restart timezone setup in private chat |
+| `/tb_members` | Group | Show known members of the current group |
+| `/tb_remove` | Group | Remove a stale member from bot storage for this group |
 
-## 3. Response Footer
+## 4. Group-Time Event Behavior
 
-Each bot response ends with the line:
+When a Telegram group message contains a detected time coordination event:
 
-```
-14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸 | 22:00 Tokyo 🇯🇵
-/tb_help
-```
+- if the sender is registered, conversion is posted normally,
+- if the sender is unknown, the bot posts a short-lived onboarding invite with a deep link to private chat,
+- the original message is frozen until onboarding succeeds, is declined, or times out.
 
----
+## 5. Onboarding UX
 
-## 4. Command Flows
+### 5.1 Group Invite
 
-Commands are divided into three logical modules:
+The group sees only a minimal onboarding invite, for example:
 
-- **settings.py** — personal settings management (`/tb_settz`, `/tb_me`) and FSM `SetTimezone`.
-- **members.py** — chat member list management (`/tb_members`, `/tb_remove`) and FSM `RemoveMember`.
-- **common.py** — common functions (`/tb_help`), time mention handling and system events (`on_bot_kicked`).
-
-
-
-### /tb_help
-
-```
-User: /tb_help
-
-Bot:
-🕐 Timezone Bot Commands
-
-/tb_me     - your location
-/tb_settz  - change TZ  
-/tb_members - members
-/tb_remove - remove
+```text
+Hi, tap below to set your timezone.
+[Set up timezone]
 ```
 
-### /tb_me
+Rules:
 
-```
-User: /tb_me
+- invite is short-lived and auto-deleted,
+- repeated invites are limited by `dm_onboarding_cooldown_seconds`,
+- no multi-step city dialog happens in the shared chat.
 
-Bot: Berlin 🇩🇪 (Europe/Berlin)
-```
+### 5.2 Private Chat Flow
 
-### /tb_settz
+Private chat is used only for:
 
-```
-User: /tb_settz
+- welcome / purpose explanation,
+- timezone setup,
+- privacy notice,
+- retry after invalid city input.
 
-Bot: "What city are you in?"
+### 5.3 Outcome Rules
 
-User: /Wait for user to click button/type city name.
-    - **Step 2:** Resolved timezone saved.
-    - **Step 3:** Bot sends confirmation: "Set: Berlin 🇩🇪 (Europe/Berlin)".
-```
+| Outcome | Result |
+|---|---|
+| Setup completed | User timezone is saved and pending message is released |
+| Setup declined | Decline flag is saved; pending message is released only if `event_location` is sufficient |
+| Setup ignored | Pending message expires and is discarded |
 
-### /tb_members
+## 6. Command Behavior
 
-```
-User: /tb_members
+### `/tb_help`
 
-Bot:
-Chat members:
+Shows concise product usage and points users to timezone setup.
 
-1. @john - Berlin 🇩🇪
-2. @alice - New York 🇺🇸
-3. @bob - New York 🇺🇸
-4. @yuki - Tokyo 🇯🇵
+### `/tb_me`
 
-/tb_remove
-```
+Returns the current saved timezone, city, and display metadata if available.
 
----
+### `/tb_settz`
 
-### 4. /tb_remove (Remove Member)
-If someone left the group but the bot hasn't noticed yet, they can be removed manually from the list.
+Starts private onboarding or restarts timezone setup.
 
-1.  **Command:** `/tb_remove`
-2.  **State:** `RemoveMember`
-3.  **Prompt:** "Select a member to remove from this group:" (Shows inline buttons/list).
-4.  **Confirm:** "Removed member #123456."
+Telegram rule:
 
----
+- if invoked in a group, the bot should redirect the user to private chat,
+- if invoked in private chat, the bot continues the setup flow directly.
 
-## 5. Metadata & Response Format
-All commands that provide information (members, me, help) trigger the conversion-style formatting (Vertical groups) where applicable, but **no longer include the `/tb_help` footer** to keep the chat clean.
+### `/tb_members`
 
-For code clarity and separation of concerns, helper modules are introduced:
-- **src/middleware.py**: Contains logic affecting all incoming messages (member collection).
-- **src/states.py**: Contains state classes (FSM) for setup and removal scenarios.
+Shows only known members of the current group who have data in bot storage.
 
-- Commands are split into three files in the src/commands directory
+### `/tb_remove`
 
-## 6. Permissions
+Removes a stale user from the bot's group membership records when automatic cleanup was insufficient.
+This affects bot storage only, not real Telegram membership.
 
-| Action | Who can do |
-|--------|------------|
-| Change own TZ | Any user (self only) |
-| View list | Any user |
-| Remove member | Any user (anyone) |
+## 7. Cleanup Rules
 
-**Note:** Removal by anyone — for cases when bot missed user exit. Affects bot DB only, not actual chat membership.
+- short-lived group invites are auto-deleted,
+- command noise in groups should be minimized where practical,
+- important reference messages in private onboarding may remain,
+- transient prompts may be cleaned up according to configuration.
 
----
+## 8. Security Rules
 
-## 7. Edge Cases
+- deep-link payload must be validated,
+- one user's onboarding link must not be usable by another user,
+- group actions must not let one user set timezone for another user.
 
-| Case | Bot Response |
-|------|--------------|
-| Empty member list | "No registered members in this chat yet" |
-| Invalid number | "No member with that number" |
-| Remove self | Allowed, with confirmation |
+## 9. Telegram-Specific Non-Goals
 
+- full onboarding inside a group chat,
+- persistent private support mode,
+- conversion for unknown members with no stored timezone,
+- automatic update of stored timezone from time mention location text.

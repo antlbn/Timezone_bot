@@ -1,3 +1,10 @@
+## 2026-03-29 (session) - Spec Consolidation and C4
+- **Docs**: Rewrote `01_scope_and_MVP.md` as the canonical MVP product spec with explicit goal, scope, and Definition of Done.
+- **Docs**: Added `00_c4.md` with Mermaid diagrams for system context, containers, and dynamic runtime flows.
+- **Docs**: Added `02_domain_model.md` to define canonical domain terms, entity states, and invariants.
+- **Docs**: Resolved cross-spec contradictions around private chats, lazy onboarding, decline behavior, and `event_location` override.
+- **Docs**: Replaced outdated versions of `04_bot_logic.md`, `06_city_to_timezone.md`, `08_telegram_commands.md`, and `14_llm_module.md` with consistent MVP-aligned specs.
+
 ## 2026-03-18 (session 4) - Linter Run
 - Thats it - that's linter RUN! 
 - **Fix**: unclosed DB connection while pytest run
@@ -396,4 +403,3 @@ Discord's user capture logic is different — the entire member list can be retr
 
 ## 2026-01-27
 - Project initialized with directory structure
-

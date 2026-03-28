@@ -1,106 +1,90 @@
-# Technical Spec: City → Timezone Mapping
+# 06. City to Timezone Resolution
 
-## 1. Overview
+## 1. Purpose
 
-Module for determining IANA timezone by city name.
-Uses geocoding (Nominatim/OSM) + TimezoneFinder.
+Resolve a human-entered city or an LLM-extracted `event_location` into an IANA timezone and display metadata.
 
----
+## 2. Inputs
 
-## 2. Technology Stack
+This module is used in two cases:
 
-| Library | Purpose |
-|---------|---------|
-| `geopy` | Geocoding (OpenStreetMap Nominatim) |
-| `timezonefinder` | Coordinates → IANA timezone |
+1. **Onboarding input**: the user enters their city in private onboarding.
+2. **Event override**: the LLM extracts `event_location` from a message such as `"12:00 in London"`.
 
-### Country Flags
+## 3. Output Contract
 
-Nominatim returns `country_code` (DE, US, JP). Mapping to emoji:
+Successful resolution returns:
 
-```python
-def get_country_flag(country_code: str) -> str:
-    return "".join(chr(ord(c) + 127397) for c in country_code.upper())
-# "DE" → 🇩🇪, "US" → 🇺🇸, "JP" → 🇯🇵
+- normalized place label,
+- IANA timezone name,
+- optional country code,
+- optional flag emoji.
+
+Failure returns no timezone.
+
+## 4. Core Rules
+
+- Persistent user timezone must be stored only as an IANA timezone name.
+- `event_location` is a one-message override and must not update stored user timezone.
+- MVP uses best-match resolution; explicit disambiguation UI is out of scope.
+- If location cannot be resolved, no source timezone is produced from this module.
+
+## 5. Resolution Flow
+
+```mermaid
+flowchart TD
+    A[City or event_location text] --> B[Geocode]
+    B --> C{Result found?}
+    C -- yes --> D[Resolve coordinates to IANA timezone]
+    D --> E[Return timezone plus display metadata]
+    C -- no --> F[Return failure]
 ```
 
----
+## 6. Onboarding Behavior
 
-## 3. Workflow
+During onboarding:
 
+- the bot asks the user for a city or place name,
+- if the input resolves, the timezone is saved,
+- if the input does not resolve, the bot asks the user to try another city.
 
-```
-User enters city
-       │
-       ▼
-   Geocoding
-       │
-   ┌───┴───┐
-   ▼   ▼   ▼
-   0   1   >1  results
-   │   │    │
-   ▼   ▼    ▼
-Fallback Save Inline buttons
-```
+MVP rule:
 
-### Logic:
+- no durable UTC-offset fallback is used for account setup,
+- no numeric offset is stored as a user timezone.
 
-1. **0 results** → Fallback (ask for system time)
-2. **1+ results** → MVP: Take the first (Best Match), save timezone, confirm to user. (Disambiguation — Future Scope).
+## 7. Event Location Behavior
 
----
+For runtime conversion:
 
-## 4. Disambiguation (Multiple Cities)
-If a search returns multiple locations (e.g. «Paris»), the system currently selects the **first result** provided by Nominatim. Support for disambiguation via inline buttons is planned for future releases.
+- if `event_location` resolves, it becomes the source timezone for this message,
+- if it does not resolve, normal fallback rules apply,
+- if the sender has no stored timezone and `event_location` also fails, conversion must not proceed.
 
----
+Examples:
 
-## 5. Implementation Notes
+- `"12:00 in London"` -> source timezone can be `Europe/London`
+- `"12:00"` from unknown sender -> cannot convert
 
-### Rate Limiting (L87)
-Nominatim requires an identification header (User-Agent) and recommends limited RPS. The current implementation uses a single-request pattern with a **5s timeout**. High-load deployments should consider `geopy.RateLimiter`.
+## 8. Technology
 
----
+| Component | Purpose |
+|---|---|
+| `geopy` | Geocoding |
+| `timezonefinder` | Coordinates to IANA timezone |
 
-## 6. Fallback: System Time
-
-If city is not found:
-
-1. Bot asks: `"City not found. Reply with your current time (e.g. 14:30) or try another city name:"`
-2. User can reply with:
-   - **Time** (e.g. "14:30") → Calculate UTC offset, save as "UTC+X 🌐"
-   - **City** (retry) → Attempt geocoding again
-3. If neither recognized → repeat prompt
-
----
-
-## 6. Rate Limiting
-
-Nominatim requires:
-- Max 1 request/second
-- Mandatory User-Agent
-
-Use `RateLimiter` from geopy.
-
----
-
-## 7. Edge Cases
+## 9. Edge Cases
 
 | Case | Handling |
-|------|----------|
-| Typo in name | Nominatim often finds fuzzy match |
-| City in different languages | Nominatim is multilingual |
-| Empty input | Repeat the question |
-| Fallback time '14:00' matched as toponym | fallback -> check REGEX first, then geocoding |
----
+|---|---|
+| Multiple matches | Use best match in MVP |
+| Empty input | Ask again |
+| Invalid place | Ask again during onboarding, or fail this override during runtime |
+| Place in local language | Delegate to geocoding service |
 
-## 8. Out of Scope (MVP)
+## 10. Out of Scope
 
-- **Inline buttons disambiguation** — when >1 result, take the first
-- **RateLimiter** — Nominatim timeout=5s is sufficient for MVP
-- **`get_multiple_locations()`** — function exists but not used
-
----
-
-## 9. Future Improvements
-
+- interactive disambiguation for multiple cities,
+- durable manual UTC offset registration,
+- storing alternate aliases for the same place,
+- changing stored timezone from runtime `event_location`.

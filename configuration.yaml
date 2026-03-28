@@ -17,6 +17,12 @@ bot:
   time_format: "24h"
   # Show usernames next to timezone (default: false)
   show_usernames: false
+  # Show sender's name in reply (e.g. "User:")
+  show_sender_name: false
+  # Show event type (e.g. "созвон")
+  show_event_type: false
+  # Send response as a reply to the original user message
+  reply_to_message: false
   # Cooldown between bot replies in same chat (0 = disabled)
   cooldown_seconds: 0
   # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.

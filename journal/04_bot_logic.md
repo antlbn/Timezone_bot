@@ -1,179 +1,123 @@
-# 🤖 Technical Spec: Bot Logic Module
+# 04. Bot Logic Module
 
-## 1. Architecture Overview
+## 1. Purpose
 
-```
-┌─────────────────┐
-│  Telegram API   │
-└────────┬────────┘
-         │ message
-         ▼
-┌────────────────────────────────────────────────────────┐
-│                     BOT CORE                           │
-│                                                        │
-│  ┌────────────────────┐      ┌────────────────────┐    │
-│  │  Event Detector    │      │ DB Lookup (User)   │    │
-│  │  (LLM)             │─────▶│ YES → Transform    │    │
-│  └─────────┬──────────┘      │ NO  → Onboard      │    │
-│            │                 └─────────┬──────────┘    │
-│            ▼                           ▼               │
-│        trigger=false             ┌──────────────┐      │
-│            │                     │ Response     │      │
-│         (history)                │ (Vertical)   │      │
-│                                  └──────────────┘      │
-│                                                        │
-│  ┌──────────────────────────────────────────────┐    │
-│  │              Storage (SQLite)                 │    │
-│  │  users, chats, members, pending_queue         │    │
-│  └──────────────────────────────────────────────┘    │
-└────────────────────────────────────────────────────────┘
-         │
-         ▼ reply
-┌─────────────────┐
-│  Telegram Chat  │
-└─────────────────┘
-```
+This document defines the runtime decision logic of the bot after a message arrives from Telegram or Discord.
 
-### Integration Note
-We leverage the standard **Telegram Bot API** via the **aiogram** library.
-This ensures reliability and follows standard practices for handling:
-- Message objects & updates (Long Polling)
-- User & Chat entities
-- Asynchronous event loop
-- **ForceReply**: Auto-opens reply mode when bot asks for user input (improves UX)
+## 2. Processing Principles
 
----
+- Every shared-chat message may be analyzed by the LLM pipeline.
+- The bot replies only when the LLM detects a time coordination event.
+- Conversion is produced only for known members with stored timezones.
+- Private chat is used only for onboarding.
+- Unknown authors are onboarded lazily: only after an event is detected.
 
-## 2. Core Workflow
-
-### Trigger
-Bot listens to all messages in group chats. For each message:
-1. **LLM Gate**: Send the message window to the **Event Detector LLM** (`14_llm_module.md`).
-2. **Continues only if** LLM returns `trigger=true`. Otherwise the message is silently saved to history.
-3. **DB lookup**: Check if the sender exists in SQLite.
-   - If **found** → proceed to Conversion.
-   - If **not found** → Trigger **Lazy Onboarding** (Freeze message, send DM invite).
-4. LLM output provides `times[]` (extracted times) and optional `event_location`.
-
-> **Note**: `capture.py` (regex) is no longer used for prefiltering or time extraction. Times are extracted by the LLM.
-
-### Flow: Happy Path (user exists in DB)
-
-```
-1. [DB LOOKUP]   → sender found in SQLite
-2. [LLM GATE]    → Event Detection LLM called with full message window:
-                   - if trigger=false → stop (no reply)
-                   - if trigger=true  → continue
-### Key Principles
-- **Passive Discovery**: Registration of chat members is passive (captured from regular messages).
-- **DM for Personal Setup**: Setup and settings dialogues are moved to private messages (Telegram) or Modals (Discord) to prevent group spam.
-- **LLM-First Architecture**: Every message is analyzed by the LLM orchestrator; no regular expression pre-filtering is used.
-
----
-
-## 2. Platform Nuances
-
-### 2.1 Telegram
-Uses `aiogram`'s middleware for passive collection. Onboarding is triggered via a DM invite message in the group with an auto-cleanup TTL.
-
-### 2.2 Discord
-Uses `discord.py`'s `on_message` for passive collection. Onboarding is triggered via ephemeral buttons and Modals.
-
----
-
-## 3. Core Message Processing Lifecycle
+## 3. Main Runtime Flow
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Bot as Platform Adapter
-    participant LLM as Event Detector
-    participant DB as SQLite Storage
-
-    User->>Bot: "Sync at 18:00 tomorrow"
-    Bot->>DB: Update last_active_at (Passive Collection)
-    Bot->>LLM: process_message(history + current)
-    LLM-->>Bot: JSON {event: true, points: [...]}
-    
-    Bot->>DB: get_user(sender_id)
-    alt User NOT set up
-        Bot->>User: Invite to DM / Open Modal
-        Note over Bot: Message added to Onboarding Buffer (Frozen)
-    else User IS set up
-        Bot->>Bot: execute_convert_time(points)
-        Bot->>User: Formatted conversion reply
-    end
+flowchart TD
+    A[Incoming shared-chat message] --> B[Normalize message]
+    B --> C[Load sender snapshot from DB]
+    C --> D[Send current message plus history to LLM]
+    D --> E{trigger?}
+    E -- no --> F[Append to history and stop]
+    E -- yes --> G{sender has stored timezone?}
+    G -- yes --> H[Resolve source timezone]
+    G -- no --> I[Freeze message and start onboarding]
+    I --> J{onboarding outcome}
+    J -- success --> K[Save sender timezone and release message]
+    J -- decline --> L{event_location present?}
+    J -- ignore or timeout --> M[Discard frozen message]
+    L -- yes --> N[Release message using event_location as source]
+    L -- no --> O[Discard frozen message]
+    K --> H
+    N --> H
+    H --> P[Load known chat members]
+    P --> Q[Transform via UTC pivot]
+    Q --> R[Format reply]
+    R --> S[Send reply]
 ```
 
-### 3.1 Onboarding Buffer (The "Frozen" Message)
-If a user is not registered, their current coordination message is "frozen" in memory (`pending.py`). Once they complete their setup in DM/Modal, the bot automatically releases this message and performs the conversion in the original group chat.
+## 4. Detailed Decision Rules
 
----
+### 4.1 No Event
 
-## 4. Configuration Timers
-- `settings_cleanup_timeout_seconds`: 30s (Default)
-- `onboarding_timeout_seconds`: 120s (Default)
-- `dm_onboarding_cooldown_seconds`: 600s (Default)
+If the LLM returns `trigger=false`:
 
-#### Sequence Diagram: event_location Override
+- no conversion is attempted,
+- no onboarding is triggered,
+- the message is kept only as in-memory conversation history.
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant B as Bot
-    participant LLM as Event Detector LLM
-    participant G as Geocoding
-    participant DB as SQLite
+### 4.2 Registered Sender
 
-    U->>B: "Давайте в 12:00 по ньюйорку"
-    B->>DB: get_user(user_id)
-    DB-->>B: {tz: "Europe/Paris"}
-    B->>LLM: detect(window, sender_tz="Europe/Paris")
-    LLM-->>B: {trigger:true, times:["12:00"], event_location:"New York"}
-    Note over B: event_location overrides source TZ
-    B->>G: geocode("New York")
-    G-->>B: {tz: "America/New_York"}
-    B->>DB: get_chat_members(chat_id)
-    DB-->>B: [members with timezones]
-    Note over B: Convert 12:00 America/New_York → all zones
-    B->>U: "Anton Lubny:
-           12:00 New York 🇺🇸
-           18:00 Paris 🇫🇷
-           20:00 Moscow 🇷🇺"
-```
+If `trigger=true` and the sender has a stored timezone:
 
-#### Sequence Diagram: Fallback Flow (City Not Found)
+- use sender timezone as the default source timezone,
+- override it with `event_location` if present and resolvable,
+- convert the extracted time points for known members of the current chat.
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant B as Bot
-    participant G as Geocoding
+### 4.3 Unknown Sender
 
-    U->>B: "xyzabc" (invalid city)
-    B->>G: geocode("xyzabc")
-    G-->>B: null (not found)
-    B->>U: "City not found. Reply with time (14:30) or try another city:"
+If `trigger=true` and the sender has no stored timezone:
 
-    alt User enters time
-        U->>B: "14:30"
-        Note over B: Calculate UTC offset
-        Note over B: offset = user_time - UTC_now
-        B->>U: "Set Anton: UTC+3 🌐"
-    else User enters city
-        U->>B: "Paris"
-        B->>G: geocode("Paris")
-        G-->>B: {tz: "Europe/Paris", flag: "🇫🇷"}
-        B->>U: "Set Anton: Paris 🇫🇷 (Europe/Paris)"
-    end
-```
+1. freeze the message in the pending queue,
+2. start onboarding asynchronously,
+3. prevent immediate reply from this processing path,
+4. resolve the message only after onboarding outcome is known.
 
----
+### 4.4 Onboarding Outcomes
 
-## 3. Resolved Questions
+| Outcome | Behavior |
+|---|---|
+| Success | Save timezone, release pending message, continue normal conversion |
+| Decline | Save decline flag; convert only if `event_location` makes the source timezone explicit |
+| Ignore / timeout | Expire lock and discard pending message |
 
-- [x] ~~Rate limiting for bot responses?~~ → `cooldown_seconds` in config (default: 0 = off)
-- [x] ~~Private chats vs group chats?~~ → Group only. Private not needed.
-- [x] ~~Regex prefilter?~~ → Removed. Every message goes to LLM.
-- [x] ~~Who extracts times?~~ → LLM returns `times[]` in output JSON.
-- [x] ~~event_location updates DB?~~ → No. One-time pivot override only.
+### 4.5 Declined Sender Rule
+
+A sender who declined onboarding can still trigger conversion later if the message itself contains explicit source-location context, for example:
+
+- `"12:00 in London"` -> convertible
+- `"12:00"` -> not convertible
+
+The decline flag prevents repeated immediate prompting, but does not permanently block later voluntary onboarding.
+
+## 5. Source Time Resolution
+
+Source timezone is determined in this order:
+
+1. resolved `event_location`, if present,
+2. sender stored timezone, if present,
+3. otherwise no conversion.
+
+`event_location` is a one-message override only. It must never overwrite the sender's stored timezone.
+
+## 6. Chat Membership Rule
+
+The output contains only known members of the current chat who already have stored timezones.
+
+Implications:
+
+- users who never wrote in the chat do not appear,
+- users without stored timezone do not appear,
+- the bot does not attempt participant extraction from message text.
+
+## 7. Concurrency and Locks
+
+- Processing is serialized per chat for the LLM stage.
+- A pending message from an unknown sender is locked until onboarding resolves or expires.
+- Onboarding completion releases only the frozen messages that belong to that sender and chat context according to pending queue rules.
+
+## 8. Configurable Timers
+
+- `settings_cleanup_timeout_seconds`: TTL for short-lived shared-chat bot messages.
+- `onboarding_timeout_seconds`: max pending duration before discard.
+- `dm_onboarding_cooldown_seconds`: delay before re-inviting a previously ignored user.
+- `max_message_age_seconds`: stale-message guard.
+
+## 9. Non-Goals of This Module
+
+- recurring schedule interpretation,
+- regex fallback for event detection,
+- durable private-chat mode,
+- updating stored sender timezone from `event_location`.

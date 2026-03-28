@@ -1,30 +1,68 @@
-# 15. Перехват сообщений при онбординге (Zero-Friction Onboarding)
+# 15. Onboarding Message Capture
 
-## Проблема
-Когда новый пользователь (без установленного города/таймзоны) отправляет любое сообщение в чат, бот прерывает стандартный пайплайн для проведения онбординга. Это сообщение (первый контакт) должно быть сохранено и автоматически обработано сразу после настройки профиля, чтобы обеспечить Zero-Friction опыт.
+## 1. Purpose
 
-## Решение: Архитектура «Рабочей памяти» (Working Memory)
-Для обеспечения высокой отзывчивости в активных чатах и минимизации внешних зависимостей внедрена многослойная система управления памятью в рамках одного процесса.
+This document defines how the bot preserves a time-event message while the author is completing lazy onboarding.
 
-### Четыре слоя памяти (In-Memory)
-1.  **`users_snapshot`** (Кэш пользователей):
-    - Read-through кэш данных из SQLite.
-    - Бот не обращается к диску при каждом сообщении. Первый запрос к пользователю кэширует его данные; любые обновления (`set_user`) инвалидируют запись.
-2.  **`chat_context`** (Контекст чата):
-    - Кольцевой буфер последних 5 сообщений (`deque`).
-    - Позволяет LLM понимать суть вопроса (например, "во сколько?"), даже если ответ пришел спустя время.
-3.  **`llm_queue`** (Очередь обработки):
-    - Управления конкурентностью через `asyncio.Lock` для каждого чата.
-    - **Механизм старения (Aging):** Если сообщение пробыло в очереди дольше настраиваемого `max_message_age_seconds` (30 сек), оно пропускается.
-4.  **`onboarding_frozen`** (Заморозка онбординга):
-    - Временное хранилище `_frozen_messages` (`dict`) в `pending.py`.
-    - Хранит метаданные сообщения в течение `onboarding_timeout_seconds` (60 сек).
-    - Хранит метаданные сообщения в течение `onboarding_timeout_seconds` (120 сек).
-    - Сразу после завершения онбординга сообщения группируются по `chat_id` и отправляются на стандартную обработку в `process_message`.
+## 2. Why It Exists
 
-## Компоненты
-- **Timeout**: Each `frozen` message has a TTL defined by `onboarding_timeout_seconds` (Default: 120s). After this, the message is discarded to prevent stale conversions.
-- **Visual Connection**: When released, the bot uses a precise **Reply** to the original message to maintain visual context.
-- **Storage:** `src/storage/pending.py` (In-memory dict).
-- **Cache:** `src/storage/user_cache.py`.
-- **Core logic:** `src/event_detection/__init__.py` (Логика очередей и проверки возраста сообщения).
+Without capture, the bot would either:
+
+- lose the original coordination message,
+- force the user to repeat it after setup,
+- or reply too late without context.
+
+The pending-message mechanism avoids all three.
+
+## 3. Memory Layers
+
+### `users_snapshot`
+
+- in-memory user cache,
+- reduces repeated SQLite reads,
+- invalidated when user profile state changes.
+
+### `chat_context`
+
+- short in-memory message history per chat,
+- used as LLM context,
+- not persisted across restarts.
+
+### `llm_queue`
+
+- per-chat concurrency control,
+- protects the LLM stage from overlapping processing,
+- stale queued messages may be skipped by age guard.
+
+### `onboarding_frozen`
+
+- in-memory store for frozen messages waiting on onboarding outcome,
+- keyed so the message can later be released back into its original chat flow,
+- expires by `onboarding_timeout_seconds`.
+
+## 4. Frozen Message Lifecycle
+
+1. LLM detects a time coordination event.
+2. Sender is found to have no stored timezone.
+3. The message is frozen instead of processed immediately.
+4. Onboarding starts asynchronously.
+5. The frozen message is later either released or discarded.
+
+## 5. Release Rules
+
+| Outcome | Result |
+|---|---|
+| Onboarding success | Release and process normally |
+| Onboarding decline with valid `event_location` | Release and process using the explicit source location |
+| Onboarding decline without `event_location` | Discard |
+| Onboarding timeout / ignore | Discard |
+
+## 6. UX Rule
+
+When a frozen message is released, the bot should reply to the original message where platform capabilities allow it, preserving visual context.
+
+## 7. Non-Goals
+
+- durable persistence of frozen messages across process restarts,
+- indefinite retention of pending messages,
+- bypassing onboarding rules for users without a stored timezone.

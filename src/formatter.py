@@ -3,7 +3,7 @@ Formatter module.
 Builds reply messages according to 07_response_format.md spec.
 """
 
-from src.config import get_bot_settings
+from src.config import get_bot_settings, get_show_sender_name, get_show_event_type
 from src.transform import convert_time, get_utc_offset, parse_time_string
 
 
@@ -116,7 +116,7 @@ def format_single_point_line(
             part = _format_tz_group(original_time, sender_tz, tz, group, show_usernames)
             all_parts.append(part)
 
-    if event_type:
+    if event_type and get_show_event_type():
         all_parts.insert(0, event_type)
 
     if len(other_members) > display_limit:
@@ -147,7 +147,7 @@ def format_multi_conversion(
         point_lines.append(point_text)
 
     body = "\n\n".join(point_lines)
-    if sender_name:
+    if sender_name and get_show_sender_name():
         return f"{sender_name}:\n{body}"
     return body
 

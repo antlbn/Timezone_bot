@@ -3,7 +3,6 @@ import logging
 from typing import List, Dict, Any, Callable
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
-from src.event_detection.history import append_to_history, get_chat_lock
 from src.event_detection.detector import detect_event
 
 logger = get_logger()
@@ -17,14 +16,14 @@ async def process_message(
     author_name: str,
     timestamp_utc: str,
     sender_db: Dict | None = None,
-    send_fn: Callable | None = None,  # async callable(text: str) → str | None (message_id)
-    edit_fn: Callable | None = None,  # async callable(message_id: str, text: str) → None
+    send_fn: Callable | None = None, 
+    edit_fn: Callable | None = None, 
     skip_history_append: bool = False,
     skip_aging: bool = False,
     precomputed_snapshot: List[Dict] | None = None,
 ) -> Dict[str, Any]:
     """
-    Main entry point for the LLM pipeline with queuing and aging.
+    Main entry point for the LLM pipeline with aging.
     """
     # Create a contextual logger for this message
     ctx_logger = logging.LoggerAdapter(
@@ -57,13 +56,13 @@ async def process_message(
         "timestamp_utc": timestamp_utc,
     }
 
-    # 1. Aging check before even trying to append to history
+    # 1. Aging check 
     if not skip_aging:
         max_age = get_max_message_age()
         try:
-            msg_time = datetime.datetime.fromisoformat(
-                timestamp_utc.replace("Z", "+00:00")
-            )
+            msg_time = datetime.datetime.fromisoformat(timestamp_utc)
+            if msg_time.tzinfo is None:
+                msg_time = msg_time.replace(tzinfo=datetime.timezone.utc)
             now = datetime.datetime.now(datetime.timezone.utc)
             diff = (now - msg_time).total_seconds()
             logger.debug(
@@ -84,77 +83,21 @@ async def process_message(
         except Exception as e:
             logger.error(f"[{platform}:{chat_id}] Error checking message age: {e}")
 
-    # Pre-parse time for second aging check below
-    try:
-        msg_time = datetime.datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
-    except Exception:
-        msg_time = datetime.datetime.now(datetime.timezone.utc)
+    # No history tracking logic needed anymore
+    snapshot = []
 
-    if skip_history_append:
-        snapshot = precomputed_snapshot or []
-        logger.debug(
-            f"[{platform}:{chat_id}] Using precomputed snapshot (size={len(snapshot)})"
-        )
-    else:
-        snapshot = append_to_history(platform, chat_id, msg_data)
-
-    # 2. Waiting lock - one LLM call at a time per chat
-    lock = get_chat_lock(platform, chat_id)
-
-    async with lock:
-        # Re-check aging after getting the lock (it might have been waiting for a while)
-        if not skip_aging:
-            max_age = get_max_message_age()
-            now = datetime.datetime.now(datetime.timezone.utc)
-            age = (now - msg_time).total_seconds()
-            if age > max_age:
-                logger.warning(
-                    f"[{platform}:{chat_id}] Message became stale while waiting in queue. "
-                    f"Age: {int(age)}s (Limit: {max_age}s). Dropping msg from '{author_name}'."
-                )
-                return {
-                    "event": False,
-                    "sender_id": user_id,
-                    "sender_name": author_name,
-                    "time": [],
-                    "city": [],
-                    "reason": f"Message stale after queueing ({int(age)}s)",
-                }
-
-        result = await detect_event(
-            current_msg=msg_data,
-            snapshot=snapshot,
-            sender_db=sender_db or {},
-            send_fn=send_fn,
-            edit_fn=edit_fn,
-            platform=platform,
-            chat_id=chat_id,
-            ctx_logger=ctx_logger,
-        )
-
-        # If an event was detected, record a compact bot summary in history.
-        # Includes message_id so the edit tool can find it later.
-        if result.get("event") and result.get("points"):
-            points = result["points"]
-            summary_parts = [
-                f"{p.get('event_type', 'event')} \u2192 {p['time']}"
-                + (f" ({p['city']})" if p.get("city") else "")
-                for p in points
-            ]
-            bot_msg = {
-                "platform": platform,
-                "chat_id": chat_id,
-                "author_id": "BOT",
-                "author_name": "BOT",
-                "text": "detected: " + ", ".join(summary_parts),
-                "timestamp_utc": timestamp_utc,
-                "message_id": result.get("message_id"),  # ← stored for edit tool
-            }
-            append_to_history(platform, chat_id, bot_msg)
-            ctx_logger.debug(f"Bot detection appended to history: {bot_msg['text']}")
+    # Process via Langchain Model Call directly
+    result = await detect_event(
+        current_msg=msg_data,
+        snapshot=snapshot,
+        sender_db=sender_db or {},
+        send_fn=send_fn,
+        edit_fn=edit_fn,
+        platform=platform,
+        chat_id=chat_id,
+        ctx_logger=ctx_logger,
+    )
 
     return result
-
-
 
 __all__ = ["process_message"]

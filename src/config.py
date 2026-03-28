@@ -50,6 +50,21 @@ def get_bot_settings() -> dict:
     return get_config().get("bot", {})
 
 
+def get_show_sender_name() -> bool:
+    """Check if sender name should be shown in replies."""
+    return get_config().get("bot", {}).get("show_sender_name", True)
+
+
+def get_show_event_type() -> bool:
+    """Check if event type (e.g. 'call') should be shown in replies."""
+    return get_config().get("bot", {}).get("show_event_type", True)
+
+
+def get_reply_to_message() -> bool:
+    """Check if bot responses should be sent as direct replies."""
+    return get_config().get("bot", {}).get("reply_to_message", True)
+
+
 def get_settings_cleanup_timeout() -> int:
     """Get timeout in seconds for auto-cleaning settings dialogs (0 to disable)."""
     return get_config().get("bot", {}).get("settings_cleanup_timeout_seconds", 10)

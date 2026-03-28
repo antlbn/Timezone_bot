@@ -1,33 +1,75 @@
-SYSTEM: Respond ONLY with a valid JSON object. 
-Identify if the CURRENT MESSAGE proposes or confirms a specific meeting/event time. 
-Use PREVIOUS CHAT CONTEXT to resolve dates/times. 
-ANCHOR time is for relative calculations (e.g., "in an hour").
+ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
+БЕЗ ЛИШНЕГО ТЕКСТА И ПОЯСНЕНИЙ.
 
-RULES:
-- "event": true if discussing, proposing, or refining a specific upcoming meeting, call, or deadline.
-- "points": list of objects {time: "HH:MM", city: string | null, event_type: string}.
-- "event_type": short descriptive name of the event (e.g., "созвон", "дедлайн", "пицца", "встреча с заказчиком").
-- DEDUPLICATION: If one event is mentioned in multiple timezones (e.g., "9am EST / 2pm London"), PICK ONLY ONE entry. Favor the one with an explicit city.
-- for time window: create two events with shedding light names: for insance 'something from:' 'to:'
-- if event is clearly comunicated in history and no new info in current message - just skip
+ЗАДАЧА:
+Проанализируй CURRENT MESSAGE.
+Цель: определить, содержит ли сообщение обсуждение или предложение конкретного времени встречи/созвона/события, и ВАЖНО: извлекай время ТОЛЬКО когда оно указано однозначно.
 
-SCHEMA:
+ПРАВИЛА ИЗВЛЕЧЕНИЯ ВРЕМЕНИ:
+1. 24-часовой формат строго, «8 вечера» = 20:00, «пол десятого» = 09:30 или 21:30 по контексту. 
+2. Относительное время вычисляй от CURRENT TIME (UTC): «через час» (in 1 hr) при 12:21 → 13:21. Учитывай переход даты, если время сдвигается на следующий день (но возвращай только часы:минуты).
+3. СТРУКТУРА: используй массив 'points', где каждый объект содержит 'time', 'city' и 'event_type'.
+4. event_type: короткое название события (например, "созвон", "дедлайн"). Если из контекста не ясно, используй общее "встреча".
+5. Игнорируй невозможные сочетания времени (напр. '13 ночи'). 
+6. Когда event=false: points=[].
+
+JSON SCHEMA:
 {
-  "reflections": {"logic": "reasoning"},
-  "event": boolean,
-  "points": [{"time": "HH:MM", "city": string | null, "event_type": string}],
-  "sender_id": "{{sender_id}}",
-  "sender_name": "{{sender_name}}"
+  "type": "object",
+  "required": [
+    "event",
+    "points"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event": {
+      "type": "boolean"
+    },
+    "points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "time",
+          "city",
+          "event_type"
+        ],
+        "properties": {
+          "time": {
+            "type": "string"
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event_type": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
 }
 
-EXAMPLE: 
-"sync tomorrow at 9am EST, that's 2pm London" 
-→ {"event": true, "points": [{"time": "14:00", "city": "London", "event_type": "sync"}]}
+ПРИМЕРЫ:
 
-PREVIOUS CHAT CONTEXT:
-{{history}}
+Пример 1 — чёткое событие:
+CURRENT MESSAGE:
+Завтра в 8 вечера ок?
+→ {"event":true,"points":[{"time":"20:00","city":null,"event_type":"встреча"}]}
 
-ANCHOR: {{timestamp}}
-SENDER: {{author}} (ID: {{sender_id}})
+Пример 2 — явный город:
+CURRENT MESSAGE:
+sync tomorrow at 9am EST, that's 2pm London
+→ {"event":true,"points":[{"time":"14:00","city":"London","event_type":"sync"}]}
+
+Пример 3 — нет уточнённого времени:
+CURRENT MESSAGE:
+ребят вы серьезно?
+→ {"event":false,"points":[]}
+
+CURRENT TIME (UTC): {{timestamp}}
 CURRENT MESSAGE:
 {{text}}

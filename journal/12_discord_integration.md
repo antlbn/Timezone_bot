@@ -1,147 +1,68 @@
 # 12. Discord Integration
 
-> [!NOTE]
-> **Status: Implemented**
+## 1. Scope
 
-## 1. Overview
+This document defines Discord-specific behavior for the shared Timezone Bot core.
 
-Bot extension to support Discord servers. Uses **discord.py** — async library with slash commands support.
+## 2. Platform Role
 
-### Architecture: Parallel Adapters
+- Main usage happens in Discord servers.
+- Private Discord chat is not a separate product mode.
+- Discord onboarding uses native interaction UI instead of Telegram-style DM deep links.
 
-```
-┌─────────────────┐     ┌─────────────────┐
-│  Telegram API   │     │  Discord API    │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐
-│ src/commands/   │     │ src/discord/    │
-│ (Telegram)      │     │ (Discord)       │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         └───────────┬───────────┘
-                     ▼
-         ┌───────────────────────────────────┐
-         │            SHARED CORE            │
-         │  event_detection, transform,      │
-         │  storage, geo, formatter          │
-         └───────────────────────────────────┘
-```
+## 3. Architecture
 
-**Principle:** Platform adapters (Telegram/Discord) — thin layers. All logic in shared core.
+Discord is a thin adapter around the shared core:
 
----
+- event detection,
+- storage,
+- geo resolution,
+- transform,
+- formatter,
+- pending queue logic.
 
-## 2. Technology Stack
+## 4. Discord-Specific UX
 
-| Component | Library | Notes |
-|-----------|---------|-------|
-| **Discord API** | `discord.py` (2.x) | Async, slash commands, intents |
-| **Commands** | Slash Commands | Modern Discord UX |
-| **Storage** | Existing SQLite | `platform='discord'` |
+### Time Event from Registered User
 
----
+- event is detected,
+- source timezone is resolved,
+- conversion reply is posted in the server.
 
-## 3. Discord vs Telegram: Key Differences
+### Time Event from Unknown User
 
-| Aspect | Telegram | Discord |
-|--------|----------|---------|
-| **Set Timezone UX** | DM-based URL button | Button → Modal (form) |
-| **Fallback (city not found)** | Text reply with time | Buttons: "Try Again" / "Enter Time" |
-| **Button security** | N/A | Only target user can click |
-| **Stale user removal** | Manual `/tb_remove` | Auto-cleanup on time mention |
-| **User exit detection** | Bot doesn't know (unless admin) | `on_member_remove` event |
+- message is frozen,
+- bot offers onboarding through Discord-native button and modal flow,
+- if setup succeeds, the frozen message is released,
+- if setup is declined, the frozen message is processed only when `event_location` is sufficient,
+- if setup is ignored, the frozen message expires.
 
-### Button-Based Timezone Flow
+## 5. Commands
 
-In Discord, interactive elements are used instead of text responses:
+| Command | Purpose |
+|---|---|
+| `/tb_settz` | Start or restart timezone setup |
+| `/tb_me` | Show current saved timezone |
+| `/tb_members` | Show known server members |
+| `/tb_help` | Show short usage help |
 
-1. **Unregistered user** mentions time → bot responds with a message containing **"Set Timezone"** button.
-2. **Button is protected** — only the target user can click it (others get "This button is not for you!").
-3. **Click** opens a modal window (form) for entering city.
-4. **If city not found** — two buttons appear: "Try Again" and "Enter Time" (manual time input).
+Discord does not require `/tb_remove` in MVP because stale membership cleanup is automated.
 
-> [!IMPORTANT]
-> Under the hood, the same function `geo.resolve_timezone_from_input()` is used as in Telegram.
+## 6. Membership Handling
 
----
+- passive collection happens on incoming messages,
+- periodic cleanup should remove members who left while the bot was offline,
+- `on_guild_remove` clears membership for that guild only.
 
-## 4. Commands
+## 7. Security Rules
 
-| Command | Description |
-|---------|-------------|
-| `/tb_settz` | Set timezone (opens modal) |
-| `/tb_me` | Show my timezone |
-| `/tb_members` | List server members |
-| `/tb_help` | Help message |
+- interactive buttons and modals must apply only to the target user,
+- one user must not be able to complete onboarding for another user,
+- server membership cleanup must affect only bot storage.
 
-> [!NOTE]
-> `/tb_remove` is- **Passive Collection**: `on_message` captures metadata (ID, Nickname, Platform) and updates records before LLM analysis.
-- **Auto-Cleanup**: Instead of per-mention loops, Discord relies on a **24h Background Task** (sync_and_cleanup) that verifies if users are still in the guild and prunes historical data for those who left.
-- **DM Integration**: Not used for onboarding in Discord due to better native support for Ephemeral Modals.
-- This solves the problem of "stuck" users without manual intervention.
+## 8. Non-Goals
 
-```python
-# events.py - auto-cleanup logic
-for m in db_members:
-    if not message.guild.get_member(m["user_id"]):
-        await storage.remove_chat_member(...)  # Auto-remove stale user
-
-# tasks.py - Scheduled Sync (Implemented 2026-03-15)
-# Daily task to catch members who left while bot was offline.
-async def sync_discord_members():
-    ...
-```
-
-### 4.2 Server Removal
-When the bot is removed from a guild (`on_guild_remove`), it triggers `clear_chat_members(guild_id)` to purge all associated participant data for that server.
-
----
-
-## 5. File Structure
-
-```
-src/discord/
-├── __init__.py      # Bot instance, intents setup
-├── commands.py      # Slash commands + handlers
-├── ui.py            # UI components (Views, Modals)
-└── events.py        # on_message (with auto-cleanup), on_member_remove
-```
-
----
-
-## 6. Configuration
-
-**.env:**
-```
-TELEGRAM_TOKEN=...   # If set, Telegram bot starts
-DISCORD_TOKEN=...    # If set, Discord bot starts
-```
-
-**Startup Logic (both platforms):**
-- Token present → Bot starts
-- Token missing → Skip with warning (no crash)
-
-This approach allows running only needed bots — just set or remove the token.
-
----
-
-## 7. Shared Core (No Changes Required)
-
-| Module | Discord Compatibility |
-|--------|----------------------|
-| `event_detection/` | ✅ Works as-is (platform-agnostic LLM call) |
-| `transform.py` | ✅ Works as-is |
-| `storage/` | ✅ `platform='discord'` supported |
-| `geo.py` | ✅ Works as-is |
-| `formatter.py` | ✅ Works as-is |
-
----
-
-## 8. Resolved Questions
-
-- [x] **Separate codebase?** → No. Shared core, platform adapters.
-- [x] **Bot per server?** → No. One bot instance, multi-server.
-- [x] **Storage changes?** → No. `platform` column already exists.
-- [x] **/tb_remove needed?** → No. Auto-cleanup handles stale users.
+- separate Discord-only business logic,
+- durable DM support mode,
+- persistent manual UTC-offset registration,
+- updating stored timezone from runtime `event_location`.

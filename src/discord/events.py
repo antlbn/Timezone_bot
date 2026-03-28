@@ -4,6 +4,7 @@ Discord Event Handlers — message monitoring and member tracking.
 
 import discord
 
+from src.config import get_reply_to_message
 from src.discord import bot
 from src.storage import storage
 from src.storage.user_cache import get_user_cached
@@ -25,7 +26,11 @@ async def on_message(message: discord.Message):
         return
 
     sender = await get_user_cached(message.author.id, platform=PLATFORM)
-    timestamp_utc = message.created_at.isoformat() + "Z" if message.created_at else ""
+    timestamp_utc = (
+        message.created_at.replace(tzinfo=None).isoformat() + "Z"
+        if message.created_at
+        else ""
+    )
     user_name = message.author.display_name or "User"
     chat_id = str(message.guild.id)
 
@@ -38,7 +43,10 @@ async def on_message(message: discord.Message):
             description=text,
             color=discord.Color.blue(),
         )
-        sent = await message.reply(embed=embed)
+        if get_reply_to_message():
+            sent = await message.reply(embed=embed)
+        else:
+            sent = await message.channel.send(embed=embed)
         return str(sent.id)
 
     async def edit_fn(message_id: str, new_text: str) -> None:

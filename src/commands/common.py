@@ -18,7 +18,11 @@ from src.storage.pending import (
     should_send_dm_invite,
     mark_dm_invite_sent,
 )
-from src.config import get_dm_onboarding_cooldown, get_settings_cleanup_timeout
+from src.config import (
+    get_dm_onboarding_cooldown,
+    get_settings_cleanup_timeout,
+    get_reply_to_message,
+)
 from src.logger import get_logger
 from src.event_detection import process_message
 from src.commands.utils import auto_cleanup, delete_message_after
@@ -135,7 +139,7 @@ async def handle_time_mention(
     user_id = message.from_user.id
     chat_id = message.chat.id
     user_name = message.from_user.full_name or "User"
-    timestamp_utc = message.date.isoformat() + "Z" if message.date else ""
+    timestamp_utc = message.date.isoformat() if message.date else ""
 
     # 1. Check registration status
     sender = await get_user_cached(user_id, platform="telegram")
@@ -148,7 +152,10 @@ async def handle_time_mention(
 
     # 3. Define send_fn for the LLM pipeline
     async def send_fn(text: str) -> None:
-        await message.answer(text)
+        if get_reply_to_message():
+            await message.reply(text)
+        else:
+            await message.answer(text)
 
     # 4. LLM pipeline — detection + tool dispatch
     # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion
