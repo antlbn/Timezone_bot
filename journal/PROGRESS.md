@@ -1,3 +1,11 @@
+## 2026-03-28 (session) - LangSmith Eval Hardening & Prompt V2
+- **LangSmith**: Fixed `KeyError` in Playground by aligning prompt variables (`text`, `history`, `timestamp`) with dataset fields.
+- **Prompt**: Escaped literal `{}` in `SYSTEM_PROMPT` and implemented `ChatPromptTemplate` in `detector.py` for proper unescaping.
+- **Hub**: Updated `push_prompts.py` with `MessagesPlaceholder` to enable full history rendering in LangSmith UI.
+- **A/B Testing**: Introduced `SYSTEM_PROMPT_V2` and added `system_prompt` override to `detect_event` for easier evaluation of model improvements.
+- **Dataset**: Refined ground truth for several test cases (H3, H4, B3, D3) to better match production expectations.
+- **Quality**: Performed `ruff` linter run; fixed unused variables and imports in `settings.py` and test suites.
+
 ## 2026-03-22 (session) - Timestamp Consistency & Zulu Format
 - **Feature**: Aligned all internal timestamps (`timestamp_utc`) to the standard **ISO 8601 Zulu format** (`Z`).
 - **Consistency**: Production adapters (Discord/Telegram) now match the LangSmith evaluation test cases exactly.
