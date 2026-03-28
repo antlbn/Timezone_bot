@@ -49,6 +49,8 @@ def update_previous_event(event_ref: int, points: list[EventPoint], comment: str
 
 tools_list = [publish_event, update_previous_event]
 
+THREAD_HUMAN_TURN_LIMIT = 15
+
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -123,24 +125,64 @@ def _normalize_points(points: list) -> list[dict]:
     ]
 
 
+def _recent_human_window_start(messages: list[BaseMessage], max_human_turns: int) -> int:
+    """Return the start index that preserves the last N human turns and their follow-up messages."""
+    if max_human_turns <= 0:
+        return 0
+
+    human_seen = 0
+    for idx in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[idx], HumanMessage):
+            human_seen += 1
+            if human_seen == max_human_turns:
+                return idx
+    return 0
+
+
+def _build_status_tool_message(
+    *,
+    tool_call_id: str,
+    content: str,
+    retryable: bool = False,
+    **kwargs,
+) -> ToolMessage:
+    additional_kwargs = {"retryable": retryable, **kwargs}
+    return ToolMessage(
+        content=content,
+        tool_call_id=tool_call_id,
+        additional_kwargs=additional_kwargs,
+    )
+
+
 def _build_validation_error(tool_call_id: str) -> dict:
     err_msg = (
         "Error: no extractable time found. Do NOT call tools for vague times like "
         "'evening'. If meeting today, give HH:MM format."
     )
-    return {"messages": [ToolMessage(content=err_msg, tool_call_id=tool_call_id)]}
+    return {
+        "messages": [
+            _build_status_tool_message(
+                tool_call_id=tool_call_id,
+                content=err_msg,
+                retryable=True,
+                error_code="validation_no_exact_time",
+            )
+        ]
+    }
 
 
 def _build_registration_gate(tool_call_id: str, tool_name: str, summary: str) -> dict:
     return {
         "messages": [
-            ToolMessage(
+            _build_status_tool_message(
+                tool_call_id=tool_call_id,
+                retryable=False,
+                app_logic_blocked=True,
                 content=(
                     "No event action executed due to app logic. "
                     "Reason: sender not registered; onboarding required. "
                     f"Detected intent: {tool_name}. Summary: {summary}"
                 ),
-                tool_call_id=tool_call_id,
             )
         ]
     }
@@ -300,26 +342,20 @@ async def _execute_update(
 
 async def pre_process_node(state: GraphState, config: RunnableConfig) -> dict:
     """
-    Optionally returns RemoveMessage commands to keep the state small (e.g. max 15 messages)
+    Optionally returns RemoveMessage commands to keep the state small (e.g. max 15 human turns)
     to prevent the SQLite DB from ballooning in size.
     """
     messages = state["messages"]
-    
-    # Retain system prompts and the most recent 15 messages in DB.
-    # We find all messages that are not SystemMessage, and if there's more than 15, we delete the oldest ones.
+
+    # Retain system prompts and only the most recent human turns in DB.
+    # Keeping full publish/update cycles attached to those turns preserves event_ref
+    # semantics while preventing skip-marker chatter from consuming the window.
     history_msgs = [m for m in messages if not isinstance(m, SystemMessage)]
-    
-    if len(history_msgs) > 15:
-        idx = len(history_msgs) - 15
-        
-        # Walk backwards to ensure the slice starts with a HumanMessage
-        # This prevents breaking an AIMessage/ToolMessage sequence.
-        while idx > 0 and not isinstance(history_msgs[idx], HumanMessage):
-            idx -= 1
-            
-        if idx > 0:
-            to_remove = history_msgs[:idx]
-            return {"messages": [RemoveMessage(id=m.id) for m in to_remove if m.id is not None]}
+
+    start_idx = _recent_human_window_start(history_msgs, THREAD_HUMAN_TURN_LIMIT)
+    if start_idx > 0:
+        to_remove = history_msgs[:start_idx]
+        return {"messages": [RemoveMessage(id=m.id) for m in to_remove if m.id is not None]}
 
     return {}
 
@@ -344,13 +380,9 @@ async def llm_node(state: GraphState, config: RunnableConfig) -> dict:
             system_msgs = [SystemMessage(content=sys_prompt)]
 
     history_msgs = [m for m in state["messages"] if not isinstance(m, SystemMessage)]
-    
-    if context_limit > 0 and len(history_msgs) > context_limit:
-        start_idx = len(history_msgs) - context_limit
-        # Walk backwards to ensure the slice starts with a HumanMessage, 
-        # avoiding orphaned ToolMessages or raw AIMessages which crash OpenAI.
-        while start_idx > 0 and not isinstance(history_msgs[start_idx], HumanMessage):
-            start_idx -= 1
+
+    if context_limit > 0:
+        start_idx = _recent_human_window_start(history_msgs, context_limit)
         recent_msgs = history_msgs[start_idx:]
     else:
         recent_msgs = history_msgs
@@ -398,7 +430,16 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
 
     if action_ctx is None:
         logger.error(f"[chat:{chat_id}] Missing action context for thread_id={thread_id}")
-        return {"messages": [ToolMessage(content="Error: missing action context.", tool_call_id=last_msg.tool_calls[0]["id"])]}
+        return {
+            "messages": [
+                _build_status_tool_message(
+                    tool_call_id=last_msg.tool_calls[0]["id"],
+                    content="Error: missing action context.",
+                    retryable=True,
+                    error_code="missing_action_context",
+                )
+            ]
+        }
 
     tc = last_msg.tool_calls[0]
     tool_name = tc["name"]
@@ -420,7 +461,16 @@ async def action_node(state: GraphState, config: RunnableConfig) -> dict:
     if tool_name == "update_previous_event":
         return await _execute_update(messages, tc, action_ctx, valid_points, comment, summary)
 
-    return {"messages": [ToolMessage(content=f"Error: unsupported tool '{tool_name}'.", tool_call_id=tc["id"])]}
+    return {
+        "messages": [
+            _build_status_tool_message(
+                tool_call_id=tc["id"],
+                content=f"Error: unsupported tool '{tool_name}'.",
+                retryable=False,
+                error_code="unsupported_tool",
+            )
+        ]
+    }
 
 
 # ── 4. Build Graph ─────────────────────────────────────────────────────────
@@ -434,11 +484,16 @@ def should_continue(state: GraphState) -> str:
     return END
 
 def action_router(state: GraphState) -> str:
-    """Routes back to LLM if the tool produced a validation error, else ends."""
+    """Routes back to LLM if the tool produced a retryable error, else ends."""
     messages = state["messages"]
     last_message = messages[-1]
-    if isinstance(last_message, ToolMessage) and last_message.content.startswith("Error:"):
-        return "llm"
+    if isinstance(last_message, ToolMessage):
+        if last_message.additional_kwargs.get("retryable") is True:
+            return "llm"
+        if last_message.additional_kwargs.get("retryable") is False:
+            return END
+        if last_message.content.startswith("Error:"):
+            return "llm"
     return END
 
 def build_agent_graph() -> StateGraph:

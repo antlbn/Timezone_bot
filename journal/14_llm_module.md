@@ -132,6 +132,9 @@ For registered users, the agent uses a persisted LangGraph thread:
 - runtime: one shared compiled graph app per process;
 - purpose: remember previously published/updated events.
 
+The active prompt window is assembled by **recent human turns**, not raw message-object count.
+That keeps `event_ref` traces attached to the turns that created them.
+
 ### 5.2 Unregistered sender behavior
 
 For unregistered users:
@@ -206,6 +209,8 @@ If validation fails or the model output is malformed:
 
 - do not publish broken chat output,
 - prefer returning `event=False` or forcing a retry path inside the graph.
+
+Retry routing should rely on structured tool metadata, not only on string prefixes inside tool text.
 
 ---
 

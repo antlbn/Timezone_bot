@@ -175,7 +175,17 @@ sequenceDiagram
 - burst в одном чате обрабатывается по одному сообщению;
 - старые сообщения могут быть отброшены по age guard, если очередь выросла.
 
-### 8.2 Thread freshness
+### 8.2 Context window semantics
+
+`context_messages` теперь считается **по human turns**, а не по произвольным message objects.
+
+Это значит:
+
+- окно памяти определяется последними `N` `HumanMessage`,
+- связанные `AIMessage` / `ToolMessage` для этих turns остаются рядом,
+- `event_ref` не вытесняется просто потому, что один turn занял три object slots.
+
+### 8.3 Thread freshness
 
 Хотя LangGraph thread state persisted в SQLite, сейчас у него всё ещё нет automatic freshness cutoff after long inactivity.
 

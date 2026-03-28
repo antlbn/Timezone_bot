@@ -32,9 +32,6 @@ After setup completes, the bot starts handling the user's **next** messages norm
 Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM-based onboarding via deep links** to keep the group chat pristine while conducting the full setup dialogue in the bot's private messages.
 
 #### Onboarding Flow
-1. **Trigger:** A new user (timezone missing) sends a message in a group. The bot performs a **detection-only LangGraph pass**:
-   - If **no time event** is detected → the message remains only as ordinary chat context; onboarding is not shown.
-   - If **time event** is detected → onboarding is triggered (Lazy Onboarding), but no chat reply is published yet.
 1. **Trigger:** A new user (timezone missing) sends a message in a group. The bot performs the **normal LangGraph reasoning pass**, but action execution is gated by application logic:
    - If **no time event** is detected → onboarding is not shown.
    - If **time event** is detected → onboarding is triggered (Lazy Onboarding), but no chat reply is published yet.

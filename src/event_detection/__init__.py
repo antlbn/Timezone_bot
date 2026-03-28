@@ -2,7 +2,11 @@ import datetime
 import logging
 import dateutil.parser
 from typing import List, Dict, Any, Callable
-from src.config import get_max_message_age, get_max_message_hard_skip
+from src.config import (
+    get_max_message_age,
+    get_max_message_hard_skip,
+    get_max_message_length_limit,
+)
 from src.logger import get_logger
 from src.event_detection.runtime import get_chat_lock
 from src.event_detection.detector import detect_event
@@ -36,11 +40,13 @@ async def process_message(
 
     ctx_logger.info(f"Processing message from {author_name} ({user_id})")
 
+    normalized_text = message_text.strip()
+
     # 0. Hard skip for excessively long messages (security / cost protection)
     hard_limit = get_max_message_hard_skip()
-    if len(message_text) > hard_limit:
+    if len(normalized_text) > hard_limit:
         ctx_logger.warning(
-            f"Message too long ({len(message_text)} chars), hard skipping."
+            f"Message too long ({len(normalized_text)} chars), hard skipping."
         )
         return {
             "event": False,
@@ -51,12 +57,19 @@ async def process_message(
             "reason": f"Message exceeded hard limit of {hard_limit} chars",
         }
 
+    soft_limit = get_max_message_length_limit()
+    if soft_limit > 0 and len(normalized_text) > soft_limit:
+        ctx_logger.info(
+            f"Message too long for prompt window ({len(normalized_text)} chars), truncating to {soft_limit} chars."
+        )
+        normalized_text = normalized_text[:soft_limit].rstrip()
+
     msg_data = {
         "platform": platform,
         "chat_id": chat_id,
         "author_id": user_id,
         "author_name": author_name,
-        "text": message_text.strip(),
+        "text": normalized_text,
         "timestamp_utc": timestamp_utc,
     }
 

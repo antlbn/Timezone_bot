@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
 
-from src.config import get_bot_settings
+from src.config import get_event_detection_temperature
 from src.logger import get_logger
 
 logger = get_logger()
@@ -16,8 +16,7 @@ def get_llm_model() -> str:
 @lru_cache(maxsize=1)
 def get_chat_llm() -> ChatOpenAI:
     """Returns a cached ChatOpenAI client configured from env/settings."""
-    settings = get_bot_settings()
-    temperature = settings.get("llm", {}).get("temperature", 0.0)
+    temperature = get_event_detection_temperature()
     model_name = get_llm_model()
     base_url = os.getenv("LLM_BASE_URL") or None
     api_key = (

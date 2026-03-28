@@ -95,9 +95,19 @@ def get_republish_edited_message_after_distance() -> int:
     return get_config().get("event_detection", {}).get("republish_edited_message_after_distance", 8)
 
 def get_context_messages_limit() -> int:
-    """Get the number of recent messages to pass to the LLM context window."""
+    """Get the number of recent human messages to pass to the LLM context window."""
     return get_config().get("event_detection", {}).get("context_messages", 5)
 
 def get_max_tokens_limit() -> int:
     """Get the token limit for the total LLM prompt context."""
     return get_config().get("event_detection", {}).get("max_tokens", 2500)
+
+
+def get_max_message_length_limit() -> int:
+    """Get the soft per-message truncation limit before prompt assembly."""
+    return get_config().get("event_detection", {}).get("max_message_length_chars", 500)
+
+
+def get_event_detection_temperature() -> float:
+    """Get the configured temperature for the event-detection LLM."""
+    return float(get_config().get("event_detection", {}).get("temperature", 0.0))
