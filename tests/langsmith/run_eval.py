@@ -27,6 +27,7 @@ from langsmith.schemas import Run, Example  # noqa: E402
 
 from src.event_detection.detector import detect_event  # noqa: E402
 from src.event_detection.runtime import _chat_locks  # noqa: E402
+from src.event_detection.prompts import get_system_prompt  # noqa: E402
 
 # Default datasets
 DATASET_CURATED  = "timezone-bot-tool-calls"        # hand-crafted with tool ground truth
@@ -71,6 +72,7 @@ async def _run_agent(inputs: dict) -> dict:
         edit_fn=edit_fn,
         platform="eval",
         chat_id=f"eval_{inputs.get('sender_id', 'x')}",
+        system_prompt=getattr(_EVAL_ARGS, "_resolved_prompt", None),
     )
 
     # Expose tool_used from detect_event result
@@ -346,7 +348,12 @@ async def main():
                         help="Experiment name prefix")
     parser.add_argument("--delay", type=float, default=4.0,
                         help="Seconds to sleep between inferences to avoid 429 Too Many Requests (e.g. 4.0 for Gemini 15 RPM free tier).")
+    parser.add_argument("--prompt", type=int, default=1, choices=[1, 2],
+                        help="Prompt version to use: 1=current (default), 2=alternative v2")
     args = parser.parse_args()
+
+    # Resolve and cache the prompt text so target() can access it without extra args
+    args._resolved_prompt = get_system_prompt(version=args.prompt)
 
     global _EVAL_ARGS
     _EVAL_ARGS = args
@@ -368,6 +375,7 @@ async def main():
 
     print(f"Dataset : {dataset_name}")
     print(f"Prefix  : {args.prefix}")
+    print(f"Prompt  : v{args.prompt}")
     print(f"Delay   : {args.delay}s between calls")
     print("Project : timezone-bot-tests\n")
 

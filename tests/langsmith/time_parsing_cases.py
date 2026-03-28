@@ -153,11 +153,9 @@ EXAMPLES = [
             "timestamp": "2026-03-13T23:50:00Z",
         },
         "outputs": {
-            "event": True,
-            "tool": "publish_event",
-            "points": [
-                {"time": "13:00", "city": None, "event_type": "встреча"}
-            ],
+            "event": False,
+            "points": [],
+            "tool": None,
             "sender_id": "u_idiom3",
             "sender_name": "UserIdiom3"
         },
@@ -319,11 +317,9 @@ EXAMPLES = [
             "timestamp": "2026-03-24T14:30:00Z",
         },
         "outputs": {
-            "event": True,
-            "tool": "publish_event",
-            "points": [
-                {"time": "14:30", "city": None, "event_type": "встреча"}
-            ],
+            "event": False,
+            "points": [],
+            "tool": None,
             "sender_id": "u_typo3",
             "sender_name": "UserTypo3"
         },

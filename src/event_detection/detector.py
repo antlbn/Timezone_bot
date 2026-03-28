@@ -164,6 +164,7 @@ async def detect_event(
     platform: str = "",
     chat_id: str = "",
     ctx_logger: Any = None,
+    system_prompt: str | None = None,   # override for A/B eval; None = use production default
 ) -> dict:
     """
     LangChain tool-calling agent for event detection.
@@ -176,15 +177,24 @@ async def detect_event(
 
     sender_id = current_msg.get("author_id", "")
     sender_name = current_msg.get("author_name", "Unknown")
-    anchor = current_msg.get("timestamp_utc", "")
+    timestamp_utc = current_msg.get("timestamp_utc", "")
     current_text = current_msg.get("text", "")
     sender_registered = bool(sender_db and sender_db.get("timezone"))
 
     # Build Context
-    system_text = get_system_prompt()
-    system_text += f"\n\n--- CURRENT CONTEXT ---\nSENDER: id={sender_id} name={sender_name}\nANCHOR (CURRENT) TIME: {anchor}\n"
+    from langchain_core.prompts import ChatPromptTemplate
+    
+    system_base = system_prompt if system_prompt is not None else get_system_prompt()
+    system_template = ChatPromptTemplate.from_messages([
+        ("system", system_base + "\n\n--- CURRENT CONTEXT ---\nSENDER: id={sender_id} name={sender_name}\nTIMESTAMP (UTC): {timestamp}\n"),
+    ])
+    system_text = system_template.format(
+        sender_id=sender_id,
+        sender_name=sender_name,
+        timestamp=timestamp_utc
+    )
 
-    ts_str = f"[{anchor}] " if anchor else ""
+    ts_str = f"[{timestamp_utc}] " if timestamp_utc else ""
     human_msg = HumanMessage(content=f"{ts_str}[Author: {sender_name}]: {current_text}")
 
     # Build reply closure for tools

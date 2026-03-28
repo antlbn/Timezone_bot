@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from dotenv import load_dotenv
 from langsmith import Client
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 load_dotenv()
 
@@ -35,11 +35,12 @@ def main():
 
     system_text = get_system_prompt()
 
-    # Wrap in a ChatPromptTemplate — LangSmith stores prompts in this format
-    # Using a simple {user_content} variable as the user turn placeholder
+    # Wrap in a ChatPromptTemplate with placeholders matching your evaluation dataset.
+    # This makes the "Playground" button in LangSmith work perfectly with your traces.
     template = ChatPromptTemplate.from_messages([
-        ("system", system_text),
-        ("human", "{user_content}"),   # filled at runtime by detector.py
+        ("system", system_text + "\n\n--- CURRENT CONTEXT ---\nSENDER: id={sender_id} name={sender_name}\nTIMESTAMP (UTC): {timestamp}\n"),
+        MessagesPlaceholder(variable_name="history", optional=True),
+        ("human", "[{timestamp}] [Author: {sender_name}]: {text}"),
     ])
 
     try:

@@ -353,7 +353,7 @@ async def test_delete_and_republish_flow():
     assert len(sent_messages) == 2, \
         f"send_fn must be called twice (publish + republish), got {len(sent_messages)}"
     assert "11:00" in sent_messages[1], \
-        f"Republished message must contain updated time '11:00'"
+        "Republished message must contain updated time '11:00'"
 
     print(f"\n[Republish] Original:   {sent_messages[0]}")
     print(f"[Republish] Deleted id: {deleted_ids[0]}")

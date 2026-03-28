@@ -81,6 +81,32 @@ EXAMPLES = [
         },
         "metadata": {"group": "publish_simple", "split": "agent_behavior"}
     },
+    {
+        "description": (
+            "F4: 'роберт давай встретимся в 10:30' — сообщение отправлено в 12:30. "
+            "Тест проверяет, что модель НЕ отказывается публиковать событие только из-за того, "
+            "что время сообщения (12:30) позже назначенной встречи (10:30). "
+            "Модель не должна делать вывод 'встреча в прошлом — публиковать не имеет смысла'. "
+            "Её задача — зафиксировать намерение, не рассуждать о том, реалистично ли оно."
+        ),
+        "inputs": {
+            "text": "роберт давай встретимся в 10:30",
+            "history": [],
+            "sender_id": "u_ivan",
+            "sender_name": "Иван",
+            "timestamp": "2026-03-24T12:30:00Z",
+        },
+        "outputs": {
+            "event": True,
+            "tool": "publish_event",
+            "points": [
+                {"time": "10:30", "city": None, "event_type": "встреча"}
+            ],
+            "sender_id": "u_ivan",
+            "sender_name": "Иван"
+        },
+        "metadata": {"group": "publish_simple", "split": "agent_behavior"}
+    },
 
     # --- Group G: Publish: context (group="publish_context") ---
     {
@@ -203,9 +229,15 @@ EXAMPLES = [
             "timestamp": "2026-03-24T18:00:00Z",
         },
         "outputs": {
-            "event": False,
-            "tool": None,
-            "points": [],
+            "event": True,
+            "points": [
+                {
+                    "city": None,
+                    "event_type": "meeting",
+                    "time": "17:30"
+                }
+            ],
+            "tool": "publish_event",
             "sender_id": "u_leo",
             "sender_name": "Лёня"
         },
@@ -225,9 +257,22 @@ EXAMPLES = [
             "timestamp": "2026-03-13T16:00:00Z",
         },
         "outputs": {
-            "event": False,
-            "tool": None,
-            "points": [],
+            "comment": "Updated duration: 14:00-15:30",
+            "event": True,
+            "event_ref": 1,
+            "points": [
+                {
+                    "city": None,
+                    "event_type": "разбор start",
+                    "time": "14:00"
+                },
+                {
+                    "city": None,
+                    "event_type": "разбор end",
+                    "time": "15:30"
+                }
+            ],
+            "tool": "update_previous_event",
             "sender_id": "u_nar",
             "sender_name": "UserNar"
         },

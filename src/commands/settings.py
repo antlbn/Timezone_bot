@@ -193,8 +193,6 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
         await callback.answer("This button is not for you! 😊", show_alert=True)
         return
 
-    user_name = callback.from_user.first_name or "User"
-
     # Save as declined
     await storage.set_user(
         user_id=user_id,

@@ -148,7 +148,6 @@ class TestOnMessageLazyOnboarding:
     ):
         """If user is not registered and LLM detects an event, show onboarding invite."""
         from src.discord.events import on_message
-        import src.discord.events as events_module
         import src.discord.ui as ui_module
         import src.config as config_module
 
