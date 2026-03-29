@@ -113,7 +113,7 @@ Implications:
 - `settings_cleanup_timeout_seconds`: TTL for short-lived shared-chat bot messages.
 - `onboarding_timeout_seconds`: max pending duration before discard.
 - `dm_onboarding_cooldown_seconds`: delay before re-inviting a previously ignored user.
-- `max_message_age_seconds`: stale-message guard.
+- `max_message_age_seconds`: stale-message guard. If the bot is offline, platforms like Telegram may queue messages. Upon restart, any fetched message older than this threshold is intentionally discarded to prevent a flood of late or irrelevant replies.
 
 ## 9. Reply Lifetime and Visibility
 

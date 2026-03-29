@@ -131,7 +131,14 @@ Sender lookup must return enough information to distinguish:
 - lurkers do not appear in conversion output,
 - history for LLM context is not stored in SQLite.
 
-## 10. File Location
+## 10. In-Memory Caching Strategies
+
+To reduce active I/O, the bot caches frequently requested SQLite data in memory:
+
+1. **User Snapshot Cache (L1):** An LRU cache (e.g., 10,000 slots) tracks user configurations. It is populated on first read and explicitly invalidated whenever a user's configuration changes.
+2. **Chat Members Cache (L2):** A TTL cache (e.g., 60 seconds) handles chat member lists. It intercepts bursty events from active chats. The cache is invalidated automatically upon any member join/leave operations.
+
+## 11. File Location
 
 Database file:
 
@@ -139,7 +146,7 @@ Database file:
 ./data/bot.db
 ```
 
-## 11. Non-Goals
+## 12. Non-Goals
 
 - storing timezone history,
 - storing numeric UTC offsets as durable profile settings,
