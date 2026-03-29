@@ -33,9 +33,8 @@ class TestGetTimezoneByCity:
         from src.geo import get_timezone_by_city
         from geopy.exc import GeocoderTimedOut
 
-        with patch(
-            "src.geo._geolocator.geocode", side_effect=GeocoderTimedOut("Timeout")
-        ):
+        with patch("src.geo._create_geolocator") as mock_factory:
+            mock_factory.return_value.geocode.side_effect = GeocoderTimedOut("Timeout")
             result = get_timezone_by_city("Berlin")
 
             assert result is not None
@@ -159,6 +158,31 @@ class TestGetCountryFlag:
 
 
 class TestAsyncGeoWrappers:
+    def test_get_timezone_by_city_creates_geolocator_per_call(self):
+        from src.geo import get_timezone_by_city
+
+        fake_location = type(
+            "Location",
+            (),
+            {
+                "latitude": 52.52,
+                "longitude": 13.405,
+                "raw": {"address": {"country_code": "de"}},
+                "address": "Berlin, Germany",
+            },
+        )()
+
+        with (
+            patch("src.geo._create_geolocator") as mock_factory,
+            patch("src.geo._tf") as mock_tf,
+        ):
+            mock_factory.return_value.geocode.return_value = fake_location
+            mock_tf.timezone_at.return_value = "Europe/Berlin"
+            result = get_timezone_by_city("Berlin")
+
+        mock_factory.assert_called_once_with()
+        assert result["timezone"] == "Europe/Berlin"
+
     @pytest.mark.asyncio
     async def test_async_get_timezone_by_city_uses_sync_impl(self):
         from src.geo import async_get_timezone_by_city

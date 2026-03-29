@@ -31,6 +31,24 @@ class SQLiteStorage(Storage):
             None,
         )
 
+    async def _invalidate_chat_members_cache_for_user(
+        self, user_id: int, platform: str
+    ) -> None:
+        """Invalidate only chats whose joined member rows depend on this user."""
+        db = await self._get_conn()
+        async with db.execute(
+            """
+            SELECT chat_id
+            FROM chat_members
+            WHERE user_id = ? AND platform = ?
+            """,
+            (user_id, platform),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        for row in rows:
+            self._invalidate_chat_members_cache(row["chat_id"], platform)
+
     async def _get_conn(self) -> aiosqlite.Connection:
         """Get or create shared connection."""
         if self._db is None:
@@ -187,7 +205,7 @@ class SQLiteStorage(Storage):
             ),
         )
         await db.commit()
-        self._invalidate_chat_members_cache()
+        await self._invalidate_chat_members_cache_for_user(user_id, platform)
 
     async def add_chat_member(self, chat_id: int, user_id: int, platform: str):
         """Register user as member of a chat."""

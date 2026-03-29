@@ -16,8 +16,12 @@ from src.logger import get_logger
 logger = get_logger()
 
 # Initialize clients
-_geolocator = Nominatim(user_agent="timezone_bot", timeout=5)
 _tf = TimezoneFinder()
+
+
+def _create_geolocator() -> Nominatim:
+    """Create a fresh geocoder instance for the current thread."""
+    return Nominatim(user_agent="timezone_bot", timeout=5)
 
 
 def get_country_flag(country_code: str) -> str:
@@ -38,7 +42,8 @@ def get_timezone_by_city(city_name: str) -> dict | None:
         Dict with city, timezone, country, flag or None if not found
     """
     try:
-        location = _geolocator.geocode(city_name, language="en", addressdetails=True)
+        geolocator = _create_geolocator()
+        location = geolocator.geocode(city_name, language="en", addressdetails=True)
 
         if not location:
             return None

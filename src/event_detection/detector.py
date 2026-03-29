@@ -9,6 +9,7 @@ Architecture:
 
 import json
 import os
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -35,12 +36,8 @@ def _strip_json_fences(raw: str) -> str:
     """Allow tolerant parsing when a model wraps JSON in a fenced code block."""
     text = (raw or "").strip()
     if text.startswith("```"):
-        lines = text.splitlines()
-        if lines:
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        text = "\n".join(lines).strip()
+        text = re.sub(r"^```[^\n]*\n", "", text, count=1)
+        text = re.sub(r"\n```$", "", text).strip()
     return text
 
 

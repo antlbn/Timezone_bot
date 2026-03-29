@@ -1,7 +1,13 @@
 import pytest
 import datetime
+import logging
 from unittest.mock import AsyncMock, patch
-from src.storage.pending import save_pending_message, get_and_delete_pending_messages
+from src.storage.pending import (
+    _dm_invite_timestamps,
+    _frozen_messages,
+    get_and_delete_pending_messages,
+    save_pending_message,
+)
 from src.event_detection import process_message
 
 
@@ -51,3 +57,20 @@ async def test_message_aging_skips_before_detector_call():
 
             assert "stale" in result.get("reason", "").lower()
             mock_detect.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_pending_storage_clears_inherited_state_on_pid_change(caplog):
+    _frozen_messages[(101, "test")] = {"messages": [{"text": "stale"}], "expires": 9999999999}
+    _dm_invite_timestamps[(101, "test")] = 123.0
+
+    with (
+        patch("src.storage.pending.os.getpid", return_value=999999),
+        caplog.at_level(logging.WARNING),
+    ):
+        result = await get_and_delete_pending_messages(101, "test")
+
+    assert result == []
+    assert "single-process runtime" in caplog.text
+    assert _frozen_messages == {}
+    assert _dm_invite_timestamps == {}

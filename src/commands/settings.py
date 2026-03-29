@@ -575,30 +575,34 @@ async def _cleanup_group_prompts(message: Message, prompt_message_id: int | None
         logger.warning(f"Failed to delete bot's prompt: {e}")
 
 
-async def _process_pending_queue(message: Message, user_id: int, user_name: str):
-    """Helper to drain the pending queue for a user (group-chat context)."""
+async def _process_pending_queue_for_user(
+    bot, user_id: int, log_chat_id: int | None = None
+):
+    """Drain the pending queue for a user and replay messages through the shared pipeline."""
     pending_list = await get_and_delete_pending_messages(user_id, "telegram")
     if not pending_list:
         return
 
-    logger.info(
-        f"[chat:{message.chat.id}] Draining {len(pending_list)} pending messages for user {user_id}"
-    )
-    await _drain_pending_messages(message.bot, user_id, pending_list)
+    if log_chat_id is not None:
+        logger.info(
+            f"[chat:{log_chat_id}] Draining {len(pending_list)} pending messages for user {user_id}"
+        )
+    else:
+        logger.info(f"Draining {len(pending_list)} pending messages for user {user_id}")
+
+    await _drain_pending_messages(bot, user_id, pending_list)
+
+
+async def _process_pending_queue(message: Message, user_id: int, user_name: str):
+    """Backward-compatible wrapper for group-chat pending draining."""
+    await _process_pending_queue_for_user(message.bot, user_id, log_chat_id=message.chat.id)
 
 
 async def _process_pending_queue_dm(
     bot, user_id: int, source_chat_id: int, user_name: str
 ):
-    """Helper to drain the pending queue for a user (DM context)."""
-    pending_list = await get_and_delete_pending_messages(user_id, "telegram")
-    if not pending_list:
-        return
-
-    logger.info(
-        f"Draining {len(pending_list)} pending messages for user {user_id}"
-    )
-    await _drain_pending_messages(bot, user_id, pending_list)
+    """Backward-compatible wrapper for DM pending draining."""
+    await _process_pending_queue_for_user(bot, user_id)
 
 
 async def _handle_expired_messages(

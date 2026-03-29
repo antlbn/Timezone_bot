@@ -115,6 +115,14 @@ async def test_llm_json_dispatch_strips_markdown_fences():
     assert result["time"] == ["20:00"]
 
 
+def test_strip_json_fences_handles_language_and_trailing_fence():
+    from src.event_detection.detector import _strip_json_fences
+
+    raw = "```json\n{\"event\": true, \"points\": []}\n```"
+
+    assert _strip_json_fences(raw) == "{\"event\": true, \"points\": []}"
+
+
 @pytest.mark.asyncio
 async def test_llm_fallback_attempt_used(monkeypatch):
     """Primary LLM failure should fall back to a secondary configured LLM."""

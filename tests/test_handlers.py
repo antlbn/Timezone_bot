@@ -182,3 +182,19 @@ async def test_handle_time_mention_success(
     kwargs = mock_process.call_args.kwargs
     assert "send_fn" not in kwargs
     mock_message.reply.assert_called_once_with("15:00 Berlin 🇩🇪")
+
+
+@pytest.mark.asyncio
+async def test_handle_time_mention_skips_private_dm(
+    mock_storage_and_cache, mock_message, mock_state, monkeypatch
+):
+    """Private DMs should not run the regular group-message LLM path."""
+    mock_message.chat.type = "private"
+    mock_message.text = "Let's meet at 15:00"
+
+    mock_process = AsyncMock()
+    monkeypatch.setattr("src.commands.common.process_message", mock_process)
+
+    await handle_time_mention(mock_message, mock_state, skip_aging=True)
+
+    mock_process.assert_not_called()

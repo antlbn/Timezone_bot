@@ -2,6 +2,7 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 from src.storage import storage
+from src.storage.user_cache import get_user_cached
 from src.logger import get_logger
 
 logger = get_logger()
@@ -24,9 +25,7 @@ class PassiveCollectionMiddleware(BaseMiddleware):
             # Skip private chats
             if event.chat.id != event.from_user.id:
                 try:
-                    user = await storage.get_user(
-                        event.from_user.id, platform="telegram"
-                    )
+                    user = await get_user_cached(event.from_user.id, platform="telegram")
                     if user:
                         await storage.add_chat_member(
                             event.chat.id, event.from_user.id, platform="telegram"

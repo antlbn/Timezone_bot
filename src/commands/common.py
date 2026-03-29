@@ -128,12 +128,12 @@ async def cmd_settz(message: Message, state: FSMContext):
     )
 
 
-@router.message(F.text)
+@router.message(F.text, F.chat.type != "private")
 async def handle_time_mention(
     message: Message, state: FSMContext, skip_aging: bool = False
 ):
     """Handle regular messages — onboarding for new users, LLM event detection for registered ones."""
-    if not message.text:
+    if not message.text or message.chat.type == "private":
         return
 
     user_id = message.from_user.id

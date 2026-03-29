@@ -1,5 +1,8 @@
 """Tests for time transformation module."""
 
+from datetime import datetime, timezone
+from unittest.mock import patch
+
 from src.transform import parse_time_string, convert_time, get_utc_offset
 
 
@@ -95,6 +98,18 @@ class TestConvertTime:
         result, offset = convert_time("01:00", "Asia/Tokyo", "America/Los_Angeles")
         # 01:00 Tokyo - 17h = some time previous day LA
         assert offset == -1
+
+    def test_default_reference_date_uses_utc_now(self):
+        """Implicit reference date should be anchored in UTC, not server-local naive time."""
+        fake_now = datetime(2026, 3, 29, 12, 0, tzinfo=timezone.utc)
+
+        with patch("src.transform.datetime") as mock_datetime:
+            mock_datetime.now.return_value = fake_now
+            mock_datetime.combine.side_effect = datetime.combine
+
+            convert_time("14:00", "UTC", "UTC")
+
+        mock_datetime.now.assert_called_once_with(timezone.utc)
 
 
 class TestGetUtcOffset:

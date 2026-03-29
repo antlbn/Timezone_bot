@@ -214,3 +214,22 @@ async def test_chat_members_cache_invalidates_on_user_update(storage):
     await storage.set_user(1, "telegram", "Munich", "Europe/Berlin", "🇩🇪", "user1")
     members = await storage.get_chat_members(888, platform="telegram")
     assert members[0]["city"] == "Munich"
+
+
+@pytest.mark.asyncio
+async def test_user_update_invalidates_only_affected_chat_member_caches(storage):
+    """Updating one user should not flush unrelated cached chat member lists."""
+    await storage.set_user(1, "telegram", "Berlin", "Europe/Berlin", "🇩🇪", "user1")
+    await storage.set_user(2, "telegram", "Paris", "Europe/Paris", "🇫🇷", "user2")
+
+    await storage.add_chat_member(100, 1, platform="telegram")
+    await storage.add_chat_member(200, 2, platform="telegram")
+
+    await storage.get_chat_members(100, platform="telegram")
+    await storage.get_chat_members(200, platform="telegram")
+    assert len(storage._chat_members_cache) == 2
+
+    await storage.set_user(1, "telegram", "Munich", "Europe/Berlin", "🇩🇪", "user1")
+
+    assert storage._chat_members_cache_key(100, "telegram") not in storage._chat_members_cache
+    assert storage._chat_members_cache_key(200, "telegram") in storage._chat_members_cache
