@@ -5,6 +5,7 @@ prompts:
   # - file://prompt_v3.txt
   # - file://prompt_smart.txt
   - file://prompt_minimal.txt
+  - file://prompt_balanced.txt
 
 providers:
   # Direct providers (raw API output)

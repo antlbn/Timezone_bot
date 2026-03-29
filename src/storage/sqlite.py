@@ -112,8 +112,6 @@ class SQLiteStorage(Storage):
             (chat_id, user_id, platform),
         )
         await db.commit()
-        self._invalidate_chat_members_cache()
-        self._invalidate_chat_members_cache()
         self._invalidate_chat_members_cache(chat_id, platform)
 
     async def clear_chat_members(self, chat_id: int, platform: str):
@@ -134,7 +132,6 @@ class SQLiteStorage(Storage):
             (user_id, platform),
         )
         await db.commit()
-        self._invalidate_chat_members_cache()
 
     async def delete_inactive_users(self, days: int) -> int:
         """Delete users who haven't been active for N days. Returns count."""

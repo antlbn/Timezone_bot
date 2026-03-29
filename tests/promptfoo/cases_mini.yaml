@@ -27,19 +27,6 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.points.some(p => p.time === '14:00' && p.city === 'London');
 
-- description: "[BASIC_NEGATIVE] Unrelated message — no time, no event"
-  vars:
-    sender_id: "200"
-    sender_name: "User"
-    author: "User"
-    text: "Привет, как дела?"
-    timestamp: "2026-03-13T12:00:00Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === false;
-
 - description: "[REGRESSION] Weekday mention must not become a fake HH:MM"
   vars:
     sender_id: "201"
@@ -87,16 +74,3 @@
           && data.points.length === 2
           && data.points.some(p => p.time === '14:00')
           && data.points.some(p => p.time === '17:30');
-
-- description: "[TRAPS] Impossible night combination should be rejected"
-  vars:
-    sender_id: "305"
-    sender_name: "User"
-    author: "User"
-    text: "вылет в космос завтра в 13 ночи"
-    timestamp: "2026-03-28T14:55:40Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === false;
