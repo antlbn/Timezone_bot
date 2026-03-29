@@ -124,11 +124,11 @@ async def test_lazy_event_triggers_invite():
 
 
 # ---------------------------------------------------------------------------
-# 3. Discard on Decline
+# 3. Decline releases through normal pipeline
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_lazy_decline_discards_queue():
-    """Verify that declining onboarding discards pending messages (Lazy Onboarding Experiment)."""
+async def test_lazy_decline_releases_queue_through_pipeline():
+    """Declining onboarding should release frozen messages through the normal pipeline."""
     user_id = 555
     chat_id = 999
 
@@ -151,13 +151,23 @@ async def test_lazy_decline_discards_queue():
     with (
         patch("src.commands.settings.storage.set_user", AsyncMock()),
         patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
+        patch(
+            "src.commands.settings.get_user_cached",
+            AsyncMock(
+                return_value={
+                    "timezone": None,
+                    "city": None,
+                    "onboarding_declined": True,
+                }
+            ),
+        ),
     ):
         await dm_decline_callback(callback, state)
 
         # Queue should be empty now
         assert (user_id, "telegram") not in _frozen_messages
-        # process_message should NOT be called (discarded!)
-        mock_process.assert_not_called()
+        # The pending message is re-processed using the declined-user rules
+        mock_process.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -235,3 +245,41 @@ async def test_lazy_success_converts_queue():
         assert mock_process.call_args[1]["message_text"] == "Frozen event"
         # Queue should be empty
         assert (user_id, "telegram") not in _frozen_messages
+
+
+@pytest.mark.asyncio
+async def test_declined_user_no_reinvite_and_can_still_be_processed():
+    """Declined users should not receive another invite, but pipeline still runs."""
+    user_id = 12345
+    chat_id = 67890
+    msg = _make_group_message(user_id=user_id, chat_id=chat_id, text="12:00 in London")
+    state = MagicMock()
+
+    llm_result = {
+        "event": True,
+        "points": [{"time": "12:00", "city": "London"}],
+        "sender_id": str(user_id),
+        "sender_name": "TestUser",
+    }
+
+    with (
+        patch(
+            "src.commands.common.get_user_cached",
+            AsyncMock(
+                return_value={
+                    "timezone": None,
+                    "city": None,
+                    "onboarding_declined": True,
+                }
+            ),
+        ),
+        patch(
+            "src.commands.common.process_message", AsyncMock(return_value=llm_result)
+        ) as mock_process,
+        patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
+    ):
+        await handle_time_mention(msg, state)
+
+        assert mock_process.call_args[1]["send_fn"] is not None
+        mock_reply.assert_not_called()
+        assert len(_frozen_messages) == 0

@@ -3,7 +3,7 @@ Tests for remaining uncovered Discord adapter scenarios:
 
 - _process_discord_pending: loop-closure fix, multi-message, pipeline error isolation
 - cmd_members: non-empty list, guild-only guard
-- OnboardingMenuView.decline: clears pending, sets declined status
+- OnboardingMenuView.decline: routes pending messages through the normal pipeline
 - on_guild_remove: storage cleared on bot kick
 - cleanup_inactive_users: disabled when days <= 0, runs when enabled
 """
@@ -267,16 +267,16 @@ class TestOnboardingDecline:
     def _get_mocks(self, monkeypatch):
         """Shared mock setup for decline button tests."""
         storage_mock = AsyncMock()
-        pending_mock = AsyncMock(return_value=[])
+        pending_process_mock = AsyncMock()
 
         import src.storage as storage_module
         import src.storage.user_cache as cache_module
-        import src.storage.pending as pending_module
+        import src.discord.commands as commands_module
 
         monkeypatch.setattr(storage_module, "storage", storage_mock)
         monkeypatch.setattr(cache_module, "invalidate_user_cache", MagicMock())
-        monkeypatch.setattr(pending_module, "get_and_delete_pending_messages", pending_mock)
-        return storage_mock, pending_mock
+        monkeypatch.setattr(commands_module, "_process_discord_pending", pending_process_mock)
+        return storage_mock, pending_process_mock
 
     @pytest.mark.asyncio
     async def test_decline_sets_declined_status(self, mock_interaction, monkeypatch):
@@ -295,16 +295,16 @@ class TestOnboardingDecline:
         assert call_kwargs.get("user_id") == 12345
 
     @pytest.mark.asyncio
-    async def test_decline_clears_pending_messages(self, mock_interaction, monkeypatch):
-        """Decline removes any pending messages for the user."""
-        _, pending_mock = self._get_mocks(monkeypatch)
+    async def test_decline_processes_pending_messages(self, mock_interaction, monkeypatch):
+        """Decline replays pending messages through the shared pending processor."""
+        _, pending_process_mock = self._get_mocks(monkeypatch)
 
         from src.discord.ui import OnboardingMenuView
 
         view = OnboardingMenuView(target_user_id=12345, guild_id=9999)
         await view.decline.callback(mock_interaction)
 
-        pending_mock.assert_called_once_with(12345, "discord")
+        pending_process_mock.assert_called_once_with(mock_interaction)
 
     @pytest.mark.asyncio
     async def test_decline_edits_message_with_farewell_embed(self, mock_interaction, monkeypatch):

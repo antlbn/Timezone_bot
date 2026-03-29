@@ -143,9 +143,10 @@ async def handle_time_mention(
 
     # 1. Check registration status
     sender = await get_user_cached(user_id, platform="telegram")
-    is_registered = bool(
+    is_configured = bool(
         sender and sender.get("timezone") and not sender.get("onboarding_declined")
     )
+    is_declined = bool(sender and sender.get("onboarding_declined"))
 
     # 2. Update activity timestamp (for all active users)
     await storage.update_activity(user_id, "telegram")
@@ -158,7 +159,8 @@ async def handle_time_mention(
             await message.answer(text)
 
     # 4. LLM pipeline — detection + tool dispatch
-    # If the user is NOT registered, we pass send_fn=None to prevent immediate conversion
+    # Declined users may still produce a reply when the message itself carries
+    # an explicit source location such as "12:00 in London".
     result = await process_message(
         message_text=message.text,
         chat_id=str(chat_id),
@@ -167,7 +169,7 @@ async def handle_time_mention(
         author_name=user_name,
         timestamp_utc=timestamp_utc,
         sender_db=sender,
-        send_fn=send_fn if is_registered else None,
+        send_fn=send_fn if (is_configured or is_declined) else None,
         skip_aging=skip_aging,
     )
 
@@ -178,14 +180,7 @@ async def handle_time_mention(
 
     # 5. Lazy Onboarding Trigger
     # We only prompt for registration if an event was detected AND the user is unknown
-    if not is_registered and result.get("event"):
-        # Check if they already declined — if so, we don't nag them
-        if sender and sender.get("onboarding_declined"):
-            logger.debug(
-                f"[chat:{chat_id}] User {user_id} declined onboarding, skipping invite"
-            )
-            return
-
+    if not is_configured and not is_declined and result.get("event"):
         msg_data = {
             "platform": "telegram",
             "chat_id": str(chat_id),

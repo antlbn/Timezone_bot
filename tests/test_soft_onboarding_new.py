@@ -71,20 +71,18 @@ async def test_dm_onboarding_deep_link_generated():
     msg = _make_group_message()
     state = MagicMock()
 
-    # Mock LLM to return event=True (publish_event tool call) so the onboarding flow triggers
-    mock_llm_response = MagicMock()
-    mock_llm_response.tool_calls = [
-        {"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "созвон"}]}, "id": "c1"}
-    ]
-    mock_llm_response.content = ""
-    mock_llm_with_tools = MagicMock()
-    mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_llm_response)
-    mock_llm_instance = MagicMock()
-    mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_with_tools)
-    mock_llm_cls = MagicMock(return_value=mock_llm_instance)
+    llm_result = {
+        "event": True,
+        "points": [{"time": "15:00", "city": None, "event_title": "созвон"}],
+        "sender_id": "12345",
+        "sender_name": "TestUser",
+    }
 
     with (
         patch("src.commands.common.get_user_cached", return_value=None),
+        patch(
+            "src.commands.common.process_message", AsyncMock(return_value=llm_result)
+        ),
         patch(
             "src.commands.common.create_start_link",
             AsyncMock(return_value="https://t.me/bot?start=onboard_12345_67890"),
@@ -92,7 +90,6 @@ async def test_dm_onboarding_deep_link_generated():
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
         patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600),
         patch("src.commands.common.get_settings_cleanup_timeout", return_value=10),
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
     ):
         await handle_time_mention(msg, state)
 
@@ -193,7 +190,7 @@ async def test_dm_setcity_callback():
 
 
 # ---------------------------------------------------------------------------
-# 3. DM decline sets onboarding_declined and drains queue
+# 3. DM decline sets onboarding_declined and routes pending through pipeline
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_dm_decline_processes_queue():
@@ -231,7 +228,14 @@ async def test_dm_decline_processes_queue():
         ),
         patch(
             "src.commands.settings.get_user_cached",
-            AsyncMock(return_value={"user_id": user_id, "timezone": "UTC"}),
+            AsyncMock(
+                return_value={
+                    "user_id": user_id,
+                    "timezone": None,
+                    "city": None,
+                    "onboarding_declined": True,
+                }
+            ),
         ),
         patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
         patch("src.commands.settings.clear_dm_invite", AsyncMock()) as mock_clear,
@@ -245,8 +249,8 @@ async def test_dm_decline_processes_queue():
         # FSM cleared
         state.clear.assert_called_once()
 
-        # Pending discarded (not processed)
-        mock_process.assert_not_called()
+        # Pending is re-processed under declined-user rules
+        mock_process.assert_called_once()
 
         # Invite cooldown cleared
         mock_clear.assert_called_once_with(user_id, "telegram")
@@ -330,20 +334,18 @@ async def test_dm_invite_cooldown():
     msg2 = _make_group_message(msg_id=2)
     state = MagicMock()
 
-    # Mock LLM to return event=True (publish_event tool call) so the onboarding flow triggers
-    mock_llm_response = MagicMock()
-    mock_llm_response.tool_calls = [
-        {"name": "publish_event", "args": {"points": [{"time": "15:00", "city": None, "event_type": "созвон"}]}, "id": "c1"}
-    ]
-    mock_llm_response.content = ""
-    mock_llm_with_tools = MagicMock()
-    mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_llm_response)
-    mock_llm_instance = MagicMock()
-    mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_with_tools)
-    mock_llm_cls = MagicMock(return_value=mock_llm_instance)
+    llm_result = {
+        "event": True,
+        "points": [{"time": "15:00", "city": None, "event_title": "созвон"}],
+        "sender_id": "12345",
+        "sender_name": "TestUser",
+    }
 
     with (
         patch("src.commands.common.get_user_cached", return_value=None),
+        patch(
+            "src.commands.common.process_message", AsyncMock(return_value=llm_result)
+        ),
         patch(
             "src.commands.common.create_start_link",
             AsyncMock(return_value="https://t.me/bot?start=x"),
@@ -351,7 +353,6 @@ async def test_dm_invite_cooldown():
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
         patch("src.commands.common.get_dm_onboarding_cooldown", return_value=600),
         patch("src.commands.common.get_settings_cleanup_timeout", return_value=10),
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
     ):
         # First message — invite sent
         await handle_time_mention(msg1, state)

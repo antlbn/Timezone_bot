@@ -226,6 +226,27 @@ class TestOnMessageLazyOnboarding:
         call_kwargs = process_mock.call_args[1]
         assert call_kwargs["send_fn"] is None  # No send_fn for unregistered
 
+    @pytest.mark.asyncio
+    async def test_declined_user_no_reinvite_and_send_fn_is_available(
+        self, mock_message, mock_storage, monkeypatch
+    ):
+        """Declined users should not be re-invited, but explicit-source messages may still reply."""
+        from src.discord.events import on_message
+
+        monkeypatch.setattr(
+            "src.discord.events.get_user_cached",
+            AsyncMock(return_value={"timezone": None, "onboarding_declined": True}),
+        )
+
+        process_mock = AsyncMock(return_value={"event": True, "points": [{"time": "15:00", "city": "London"}]})
+        monkeypatch.setattr("src.discord.events.process_message", process_mock)
+
+        await on_message(mock_message)
+
+        call_kwargs = process_mock.call_args[1]
+        assert call_kwargs["send_fn"] is not None
+        mock_message.reply.assert_not_called()
+
 
 class TestOnMessageExceptionHandling:
     """LLM pipeline failures are caught and logged; message handler does not crash."""

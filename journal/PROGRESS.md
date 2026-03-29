@@ -1,3 +1,10 @@
+## 2026-03-29 (session) - Onboarding Decline Flow Parity
+- **Runtime**: Unified Telegram and Discord onboarding logic so declined users are not re-invited, but messages with explicit `event_location` can still be converted.
+- **Logic**: Replaced legacy "decline always discards queue" behavior with "release through normal pipeline, reply only if explicit source location is sufficient".
+- **Cleanup**: Removed misleading legacy wording around pending-message timeout and decline handling in runtime logs; synchronized older onboarding test suites with the new runtime contract.
+- **Verification**: `uv run pytest tests/test_lazy_onboarding.py tests/test_discord_on_message.py tests/test_discord_handlers.py` → **26 passed**.
+- **Verification**: `uv run pytest tests/test_lazy_onboarding.py tests/test_soft_onboarding_new.py tests/test_discord_on_message.py tests/test_discord_handlers.py tests/test_discord_extended.py tests/test_concurrency_multi_user.py tests/test_cleanup.py` → **65 passed**.
+
 ## 2026-03-29 (session) - Code Alignment With Specs
 - **Config**: Aligned runtime config toward canonical spec keys (`reply_to_original_message`, `show_event_title`, `llm.*`) while keeping compatibility fallback for legacy names.
 - **LLM Pipeline**: Replaced primary point metadata field `event_type` with `event_title` in prompts, detector output, and conversion pipeline; added normalization fallback for older payloads.

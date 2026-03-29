@@ -178,8 +178,6 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
         await callback.answer("This button is not for you! 😊", show_alert=True)
         return
 
-    user_name = callback.from_user.first_name or "User"
-
     # Save as declined
     await storage.set_user(
         user_id=user_id,
@@ -204,12 +202,9 @@ async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
 
-    # Discard pending messages (Experiment: Lazy Onboarding)
-    discarded = await get_and_delete_pending_messages(user_id, "telegram")
-    if discarded:
-        logger.info(
-            f"User {user_id} ({user_name}) declined onboarding. Discarded {len(discarded)} messages."
-        )
+    # Release pending messages through the normal pipeline. Only messages with
+    # explicit source location will produce a reply for declined users.
+    await _process_pending_queue_dm(callback.message.bot, user_id, chat_id, "declined")
 
 
 # ---------------------------------------------------------------------------
@@ -578,7 +573,7 @@ async def _process_pending_queue_dm(
         return
 
     logger.info(
-        f"Draining {len(pending_list)} pending messages for user {user_id} (Success/Decline)"
+        f"Draining {len(pending_list)} pending messages for user {user_id}"
     )
     await _drain_pending_messages(bot, user_id, pending_list)
 
@@ -586,16 +581,12 @@ async def _process_pending_queue_dm(
 async def _handle_expired_messages(
     bot, user_id: int, platform: str, messages: list[dict]
 ):
-    """
-    Callback triggered by pending.py cleanup_loop when onboarding expires.
-    We process these messages 'as is' without waiting for registration.
-    """
+    """Discard expired frozen messages after onboarding timeout."""
     if not messages:
         return
 
-    # Experiment: In Lazy Onboarding, we discard messages if user ignores/declines
     logger.info(
-        f"Failsafe: User {user_id} ({platform}) ignored onboarding. Discarding {len(messages)} messages."
+        f"Onboarding timed out for user {user_id} ({platform}). Discarding {len(messages)} frozen messages."
     )
     # No action needed - messages are already removed from the pending storage by the cleanup loop
 

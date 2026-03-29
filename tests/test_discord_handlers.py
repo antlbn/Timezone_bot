@@ -243,3 +243,28 @@ class TestUIComponents:
         result = await view.interaction_check(interaction)
 
         assert result is True
+
+    @pytest.mark.asyncio
+    async def test_decline_releases_pending_through_pipeline(self, monkeypatch):
+        """Discord decline should route frozen messages through the normal pending processor."""
+        from src.discord.ui import OnboardingMenuView
+
+        view = OnboardingMenuView(target_user_id=12345, guild_id=9999)
+        interaction = MagicMock(spec=discord.Interaction)
+        interaction.user = MagicMock()
+        interaction.user.id = 12345
+        interaction.response = MagicMock()
+        interaction.response.edit_message = AsyncMock()
+
+        storage_mock = AsyncMock()
+        monkeypatch.setattr("src.storage.storage", storage_mock)
+        invalidate_mock = MagicMock()
+        monkeypatch.setattr("src.storage.user_cache.invalidate_user_cache", invalidate_mock)
+        process_pending_mock = AsyncMock()
+        monkeypatch.setattr("src.discord.commands._process_discord_pending", process_pending_mock)
+
+        decline_button = next(child for child in view.children if getattr(child, "label", "") == "❌ Decline")
+        await decline_button.callback(interaction)
+
+        storage_mock.set_user.assert_called_once()
+        process_pending_mock.assert_called_once_with(interaction)

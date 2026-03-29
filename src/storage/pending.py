@@ -121,7 +121,7 @@ async def cleanup_loop(bot=None):
         for k, messages in to_process:
             _frozen_messages.pop(k, None)
             logger.info(
-                f"Pending messages for user {k[0]} ({k[1]}) timed out. Unlocking..."
+                f"Pending messages for user {k[0]} ({k[1]}) timed out. Dispatching timeout handler."
             )
 
             if _on_expire_callback:

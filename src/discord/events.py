@@ -63,7 +63,10 @@ async def on_message(message: discord.Message):
             raise
 
     # 3. Check registration status
-    is_registered = bool(sender and sender.get("timezone"))
+    is_configured = bool(
+        sender and sender.get("timezone") and not sender.get("onboarding_declined")
+    )
+    is_declined = bool(sender and sender.get("onboarding_declined"))
 
     try:
         # 4. LLM pipeline — detection + tool dispatch
@@ -75,8 +78,8 @@ async def on_message(message: discord.Message):
             author_name=user_name,
             timestamp_utc=timestamp_utc,
             sender_db=sender,
-            send_fn=send_fn if is_registered else None,
-            edit_fn=edit_fn if is_registered else None,
+            send_fn=send_fn if (is_configured or is_declined) else None,
+            edit_fn=edit_fn if (is_configured or is_declined) else None,
         )
     except Exception as e:
         logger.error(
@@ -91,7 +94,7 @@ async def on_message(message: discord.Message):
     )
 
     # 5. Lazy Onboarding Trigger
-    if not is_registered and result.get("event"):
+    if not is_configured and not is_declined and result.get("event"):
         from src.discord.ui import SetTimezoneView
         from src.config import get_settings_cleanup_timeout
 
