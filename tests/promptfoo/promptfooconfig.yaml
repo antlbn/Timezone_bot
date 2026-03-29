@@ -1,31 +1,74 @@
+# promptfooconfig.yaml
 prompts:
-  - file://prompt_minimal.txt
-  # - file://prompt_smart.txt
-  # - file://prompt_v3.txt
-  # - file://prompts_claude.txt
   # - file://prompt.txt
+  # - file://prompts_claude.txt
+  # - file://prompt_v3.txt
+  # - file://prompt_smart.txt
+  - file://prompt_minimal.txt
 
 providers:
+  # Direct providers (raw API output)
   - id: groq:llama-3.1-8b-instant
     config:
       temperature: 0.1
+  - id: openrouter:arcee-ai/trinity-large-preview:free
+    config:
+      temperature: 0.1
+  # # - id: openrouter:nvidia/nemotron-3-super-120b-a12b:free
+  #   config:
+  #     temperature: 0.1
+  # - id: openrouter:stepfun/step-3.5-flash:free
+  #   config:
+  #     temperature: 0.1
   - id: google:gemini-3.1-flash-lite-preview
     config:
       temperature: 0.1
+  
 
-  # Optional structured providers for models that benefit from schema enforcement.
+  # Instructor-based providers (structured JSON extraction)
   # - id: file://instructor_provider.py
   #   config:
-  #     python: "../../.venv/bin/python"
-  #     model: "google/gemini-3.1-flash-lite-preview"
+  #     python: "/Users/johnwunderbellen/Timezone_bot/.venv/bin/python"
+  #     model: google/gemini-3.1-flash-lite-preview
   #     temperature: 0.1
-
+  # - id: file://instructor_provider.py
+  #   config:
+  #     python: "/Users/johnwunderbellen/Timezone_bot/.venv/bin/python"
+  #     model: groq/llama-3.1-8b-instant
+  #     temperature: 0.1
+  # - id: file://instructor_provider.py
+  #   config:
+  #     python: "/Users/johnwunderbellen/Timezone_bot/.venv/bin/python"
+  #     model: openrouter/arcee-ai/trinity-large-preview:free
+  #     temperature: 0.1
+  # - id: groq:openai/gpt-oss-20b
+  #   config:
+  #     temperature: 0.1
+  #     reasoning_effort: "low"
+  #     reasoning_format: "hidden"
+  #     response_format:
+  #       type: json_object
+  #     stream: false
+  # - id: file://groq_instructor.py
+  #   config:
+  #     python: "../../.venv/bin/python"
+  #     model: "openai/gpt-oss-20b"
+  #     temperature: 0.1
 evaluateOptions:
   maxConcurrency: 1
   # delay: 10000
 
 tests:
   - file://cases.yaml
+
+
+# providers:
+#   - id: openai:chat:gemma3:4b
+#     config:
+#       apiBaseUrl: https://api.groq.com/openai/v1
+#       apiKey: GROQ_API_KEY
+#       temperature: 0
+
 
 
 

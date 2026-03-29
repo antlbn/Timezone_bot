@@ -12,6 +12,7 @@ from src.commands.settings import (
     dm_remove_city_callback,
     dm_extra_settings_callback,
     dm_back_menu_callback,
+    DMSettingsCallback,
 )
 from src.storage.pending import (
     _frozen_messages,
@@ -173,7 +174,11 @@ async def test_dm_setcity_callback():
     state.set_state = AsyncMock()
     state.update_data = AsyncMock()
 
-    await dm_setcity_callback(callback, state)
+    await dm_setcity_callback(
+        callback,
+        DMSettingsCallback(action="setcity", user_id=user_id, chat_id=chat_id),
+        state,
+    )
 
     # Verify buttons removed from welcome
     callback.message.edit_reply_markup.assert_called_once_with(reply_markup=None)
@@ -240,7 +245,11 @@ async def test_dm_decline_processes_queue():
         patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
         patch("src.commands.settings.clear_dm_invite", AsyncMock()) as mock_clear,
     ):
-        await dm_decline_callback(callback, state)
+        await dm_decline_callback(
+            callback,
+            DMSettingsCallback(action="decline", user_id=user_id, chat_id=chat_id),
+            state,
+        )
 
         # User saved with declined=True
         mock_set_user.assert_called_once()
@@ -479,7 +488,11 @@ async def test_dm_change_city_callback_sets_state():
     state.set_state = AsyncMock()
     state.update_data = AsyncMock()
 
-    await dm_change_city_callback(callback, state)
+    await dm_change_city_callback(
+        callback,
+        DMSettingsCallback(action="change_city", user_id=user_id, chat_id=chat_id),
+        state,
+    )
 
     # State set
     from src.commands.states import SetTimezone
@@ -507,7 +520,11 @@ async def test_dm_remove_city_callback_clears_db():
         patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set,
         patch("src.commands.settings.invalidate_user_cache") as mock_invalidate,
     ):
-        await dm_remove_city_callback(callback, MagicMock())
+        await dm_remove_city_callback(
+            callback,
+            DMSettingsCallback(action="remove_city", user_id=user_id, chat_id=chat_id),
+            MagicMock(),
+        )
 
         # User saved with city=None, timezone=None
         mock_set.assert_called_once()
@@ -536,7 +553,10 @@ async def test_dm_extra_settings_callback():
     callback.message.edit_text = AsyncMock()
     callback.answer = AsyncMock()
 
-    await dm_extra_settings_callback(callback)
+    await dm_extra_settings_callback(
+        callback,
+        DMSettingsCallback(action="extra_settings", user_id=user_id, chat_id=chat_id),
+    )
 
     # Text updated to show extra info
     callback.message.edit_text.assert_called_once()
@@ -563,7 +583,10 @@ async def test_dm_back_menu_callback():
     with patch(
         "src.commands.settings.get_user_cached", AsyncMock(return_value=existing)
     ):
-        await dm_back_menu_callback(callback)
+        await dm_back_menu_callback(
+            callback,
+            DMSettingsCallback(action="back_menu", user_id=user_id, chat_id=chat_id),
+        )
 
         # Should return to "Your timezone is set to..."
         callback.message.edit_text.assert_called_once()
@@ -754,7 +777,10 @@ async def test_dm_extra_settings_documentation():
 
     from src.commands.settings import dm_extra_settings_callback
 
-    await dm_extra_settings_callback(callback)
+    await dm_extra_settings_callback(
+        callback,
+        DMSettingsCallback(action="extra_settings", user_id=user_id, chat_id=chat_id),
+    )
 
     text = callback.message.edit_text.call_args[0][0]
     assert "/tb_members" in text

@@ -6,6 +6,7 @@ from src.commands.settings import (
     dm_decline_callback,
     process_city,
     _handle_expired_messages,
+    DMSettingsCallback,
 )
 from src.storage.pending import _frozen_messages, _dm_invite_timestamps
 import datetime
@@ -162,7 +163,11 @@ async def test_lazy_decline_releases_queue_through_pipeline():
             ),
         ),
     ):
-        await dm_decline_callback(callback, state)
+        await dm_decline_callback(
+            callback,
+            DMSettingsCallback(action="decline", user_id=user_id, chat_id=chat_id),
+            state,
+        )
 
         # Queue should be empty now
         assert (user_id, "telegram") not in _frozen_messages

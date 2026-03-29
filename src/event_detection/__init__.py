@@ -80,7 +80,7 @@ async def process_message(
         except Exception as e:
             logger.error(f"[{platform}:{chat_id}] Error checking message age: {e}")
 
-    # Process via Langchain Model Call directly
+    # Run current-message event detection via the OpenAI-compatible LLM client
     result = await detect_event(
         current_msg=msg_data,
         sender_db=sender_db or {},

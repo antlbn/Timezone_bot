@@ -7,6 +7,7 @@ from aiogram.types import (
     InlineKeyboardButton,
 )
 from aiogram.filters import CommandStart, CommandObject
+from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 
 from src.storage import storage
@@ -24,6 +25,12 @@ from src.commands.utils import auto_cleanup
 
 router = Router()
 logger = get_logger()
+
+
+class DMSettingsCallback(CallbackData, prefix="dm"):
+    action: str
+    user_id: int
+    chat_id: int = 0
 
 # ---------------------------------------------------------------------------
 # DM Onboarding — Deep Link flow
@@ -89,17 +96,25 @@ async def dm_onboarding_start(
             [
                 InlineKeyboardButton(
                     text="📍 Set my city",
-                    callback_data=f"dm_setcity:{user_id}:{chat_id}",
+                    callback_data=DMSettingsCallback(
+                        action="setcity", user_id=user_id, chat_id=chat_id
+                    ).pack(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="✖️ No thanks", callback_data=f"dm_decline:{user_id}:{chat_id}"
+                    text="✖️ No thanks",
+                    callback_data=DMSettingsCallback(
+                        action="decline", user_id=user_id, chat_id=chat_id
+                    ).pack(),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🔒 Data Privacy", callback_data=f"dm_privacy:{user_id}"
+                    text="🔒 Data Privacy",
+                    callback_data=DMSettingsCallback(
+                        action="privacy", user_id=user_id
+                    ).pack(),
                 )
             ],
         ]
@@ -110,16 +125,13 @@ async def dm_onboarding_start(
     return await message.answer(welcome_text, reply_markup=kb, parse_mode="Markdown")
 
 
-@router.callback_query(F.data.startswith("dm_setcity:"))
-async def dm_setcity_callback(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(DMSettingsCallback.filter(F.action == "setcity"))
+async def dm_setcity_callback(
+    callback: CallbackQuery, callback_data: DMSettingsCallback, state: FSMContext
+):
     """Handle 'Set my city' button click in DM — transition to city input."""
-    parts = callback.data.split(":")
-    try:
-        user_id = int(parts[1])
-        chat_id = int(parts[2])
-    except (IndexError, ValueError):
-        await callback.answer("Error processing request.")
-        return
+    user_id = callback_data.user_id
+    chat_id = callback_data.chat_id
 
     if callback.from_user.id != user_id:
         await callback.answer("This button is not for you! 😊", show_alert=True)
@@ -145,7 +157,7 @@ async def dm_setcity_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("dm_privacy:"))
+@router.callback_query(DMSettingsCallback.filter(F.action == "privacy"))
 async def dm_privacy_callback(callback: CallbackQuery):
     """Show data privacy information."""
     from src.config import get_data_retention_days
@@ -161,16 +173,13 @@ async def dm_privacy_callback(callback: CallbackQuery):
     # A pop-up alert is usually best for this.
 
 
-@router.callback_query(F.data.startswith("dm_decline:"))
-async def dm_decline_callback(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(DMSettingsCallback.filter(F.action == "decline"))
+async def dm_decline_callback(
+    callback: CallbackQuery, callback_data: DMSettingsCallback, state: FSMContext
+):
     """Handle 'No thanks' in DM."""
-    parts = callback.data.split(":")
-    try:
-        user_id = int(parts[1])
-        chat_id = int(parts[2])
-    except (IndexError, ValueError):
-        await callback.answer("Error processing request.")
-        return
+    user_id = callback_data.user_id
+    chat_id = callback_data.chat_id
 
     clicking_user_id = callback.from_user.id
     if clicking_user_id != user_id:
@@ -222,7 +231,9 @@ async def get_dm_settings_markup(
             [
                 InlineKeyboardButton(
                     text="📍 Set timezone",
-                    callback_data=f"dm_change_city:{user_id}:{chat_id}",
+                    callback_data=DMSettingsCallback(
+                        action="change_city", user_id=user_id, chat_id=chat_id
+                    ).pack(),
                 )
             ]
         )
@@ -231,7 +242,9 @@ async def get_dm_settings_markup(
             [
                 InlineKeyboardButton(
                     text="🔄 Change timezone",
-                    callback_data=f"dm_change_city:{user_id}:{chat_id}",
+                    callback_data=DMSettingsCallback(
+                        action="change_city", user_id=user_id, chat_id=chat_id
+                    ).pack(),
                 )
             ]
         )
@@ -239,7 +252,9 @@ async def get_dm_settings_markup(
             [
                 InlineKeyboardButton(
                     text="🗑️ Remove timezone",
-                    callback_data=f"dm_remove_city:{user_id}:{chat_id}",
+                    callback_data=DMSettingsCallback(
+                        action="remove_city", user_id=user_id, chat_id=chat_id
+                    ).pack(),
                 )
             ]
         )
@@ -248,7 +263,9 @@ async def get_dm_settings_markup(
         [
             InlineKeyboardButton(
                 text="ℹ️ More settings",
-                callback_data=f"dm_extra_settings:{user_id}:{chat_id}",
+                callback_data=DMSettingsCallback(
+                    action="extra_settings", user_id=user_id, chat_id=chat_id
+                ).pack(),
             )
         ]
     )
@@ -276,11 +293,13 @@ async def show_dm_settings_menu(
     )
 
 
-@router.callback_query(F.data.startswith("dm_change_city:"))
-async def dm_change_city_callback(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(DMSettingsCallback.filter(F.action == "change_city"))
+async def dm_change_city_callback(
+    callback: CallbackQuery, callback_data: DMSettingsCallback, state: FSMContext
+):
     """Callback to trigger city input from the Settings Menu."""
-    parts = callback.data.split(":")
-    user_id, chat_id = int(parts[1]), int(parts[2])
+    user_id = callback_data.user_id
+    chat_id = callback_data.chat_id
 
     if callback.from_user.id != user_id:
         await callback.answer("This button is not for you! 😊", show_alert=True)
@@ -296,11 +315,13 @@ async def dm_change_city_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("dm_remove_city:"))
-async def dm_remove_city_callback(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(DMSettingsCallback.filter(F.action == "remove_city"))
+async def dm_remove_city_callback(
+    callback: CallbackQuery, callback_data: DMSettingsCallback, state: FSMContext
+):
     """Callback to remove timezone from the Settings Menu."""
-    parts = callback.data.split(":")
-    user_id, chat_id = int(parts[1]), int(parts[2])
+    user_id = callback_data.user_id
+    chat_id = callback_data.chat_id
 
     if callback.from_user.id != user_id:
         await callback.answer("This button is not for you! 😊", show_alert=True)
@@ -325,11 +346,13 @@ async def dm_remove_city_callback(callback: CallbackQuery, state: FSMContext):
     await callback.answer("Timezone removed.")
 
 
-@router.callback_query(F.data.startswith("dm_extra_settings:"))
-async def dm_extra_settings_callback(callback: CallbackQuery):
+@router.callback_query(DMSettingsCallback.filter(F.action == "extra_settings"))
+async def dm_extra_settings_callback(
+    callback: CallbackQuery, callback_data: DMSettingsCallback
+):
     """Show additional settings / commands info."""
-    parts = callback.data.split(":")
-    user_id, chat_id = int(parts[1]), int(parts[2])
+    user_id = callback_data.user_id
+    chat_id = callback_data.chat_id
 
     text = (
         "⚙️ *Additional Settings & Commands*\n"
@@ -352,7 +375,9 @@ async def dm_extra_settings_callback(callback: CallbackQuery):
             [
                 InlineKeyboardButton(
                     text="🔙 Back to menu",
-                    callback_data=f"dm_back_menu:{user_id}:{chat_id}",
+                    callback_data=DMSettingsCallback(
+                        action="back_menu", user_id=user_id, chat_id=chat_id
+                    ).pack(),
                 )
             ]
         ]
@@ -362,11 +387,13 @@ async def dm_extra_settings_callback(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("dm_back_menu:"))
-async def dm_back_menu_callback(callback: CallbackQuery):
+@router.callback_query(DMSettingsCallback.filter(F.action == "back_menu"))
+async def dm_back_menu_callback(
+    callback: CallbackQuery, callback_data: DMSettingsCallback
+):
     """Callback to return to the main settings menu."""
-    parts = callback.data.split(":")
-    user_id, chat_id = int(parts[1]), int(parts[2])
+    user_id = callback_data.user_id
+    chat_id = callback_data.chat_id
 
     user_record = await get_user_cached(user_id, platform="telegram")
     if not user_record or not user_record.get("timezone"):
