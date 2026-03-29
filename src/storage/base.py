@@ -23,10 +23,11 @@ class Storage(ABC):
         self,
         user_id: int,
         platform: str,
-        city: str,
-        timezone: str,
+        city: Optional[str],
+        timezone: Optional[str],
         flag: str = "",
         username: str = "",
+        onboarding_declined: bool = False,
     ):
         """Create or update user timezone."""
         pass

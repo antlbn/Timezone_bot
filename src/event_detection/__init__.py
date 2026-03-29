@@ -72,7 +72,7 @@ async def _build_reply(
 async def process_message(
     message_text: str,
     chat_id: str,
-    user_id: str,
+    user_id: int | str,
     platform: str,
     author_name: str,
     timestamp_utc: str,
@@ -86,8 +86,9 @@ async def process_message(
     ctx_logger = logging.LoggerAdapter(
         logger, {"extra_prefix": f"[{platform}:{chat_id}]"}
     )
+    normalized_user_id = str(user_id)
 
-    ctx_logger.info(f"Processing message from {author_name} ({user_id})")
+    ctx_logger.info(f"Processing message from {author_name} ({normalized_user_id})")
 
     # 0. Hard skip for excessively long messages (security / cost protection)
     hard_limit = get_max_message_hard_skip()
@@ -97,7 +98,7 @@ async def process_message(
         )
         return {
             "event": False,
-            "sender_id": user_id,
+            "sender_id": normalized_user_id,
             "sender_name": author_name,
             "time": [],
             "city": [],
@@ -107,7 +108,7 @@ async def process_message(
     msg_data = {
         "platform": platform,
         "chat_id": chat_id,
-        "author_id": user_id,
+        "author_id": normalized_user_id,
         "author_name": author_name,
         "text": message_text.strip(),
         "timestamp_utc": timestamp_utc,
@@ -131,7 +132,7 @@ async def process_message(
                 )
                 return {
                     "event": False,
-                    "sender_id": user_id,
+                    "sender_id": normalized_user_id,
                     "sender_name": author_name,
                     "time": [],
                     "city": [],

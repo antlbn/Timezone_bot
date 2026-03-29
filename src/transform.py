@@ -86,12 +86,3 @@ def convert_time(
     result_time = target_dt.strftime("%H:%M")
 
     return result_time, day_offset
-
-
-def format_time_with_offset(time_str: str, day_offset: int) -> str:
-    """Format time with optional day marker."""
-    if day_offset == 1:
-        return f"{time_str} (+1)"
-    elif day_offset == -1:
-        return f"{time_str} (-1)"
-    return time_str

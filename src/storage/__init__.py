@@ -11,6 +11,8 @@ add_chat_member = storage.add_chat_member
 get_chat_members = storage.get_chat_members
 remove_chat_member = storage.remove_chat_member
 clear_chat_members = storage.clear_chat_members
+update_activity = storage.update_activity
+delete_inactive_users = storage.delete_inactive_users
 
 __all__ = [
     "storage",
@@ -20,4 +22,6 @@ __all__ = [
     "get_chat_members",
     "remove_chat_member",
     "clear_chat_members",
+    "update_activity",
+    "delete_inactive_users",
 ]
