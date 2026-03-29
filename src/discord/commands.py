@@ -33,8 +33,7 @@ async def cmd_help(interaction: discord.Interaction):
         "`/tb_help` - this help\n"
         "`/tb_me` - your location\n"
         "`/tb_settz` - set city\n"
-        "`/tb_members` - chat members\n"
-        "`/tb_remove` - remove member\n\n"
+        "`/tb_members` - chat members\n\n"
         "Mention time (14:00) and I'll convert it!"
     )
     await interaction.response.send_message(help_text, ephemeral=True)
@@ -45,7 +44,7 @@ async def cmd_me(interaction: discord.Interaction):
     """Show user's current timezone."""
     user = await get_user_cached(interaction.user.id, platform=PLATFORM)
 
-    if not user:
+    if not user or not user.get("timezone"):
         await interaction.response.send_message(
             "Not set. Use `/tb_settz`", ephemeral=True
         )

@@ -90,7 +90,7 @@ Meaning:
 
 Notes:
 
-- `context_messages` is an implementation detail for now and is not part of the canonical MVP config contract.
+- There is no runtime master switch for event detection in the canonical MVP config.
 
 ### 4.4 Logging
 

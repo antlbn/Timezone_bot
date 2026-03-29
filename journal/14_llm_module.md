@@ -17,9 +17,6 @@ It decides whether a message represents a time coordination event and returns st
 The LLM receives:
 
 - current message,
-- limited recent chat history,
-- sender metadata,
-- sender stored timezone if present,
 - anchor timestamp.
 
 The module is platform-agnostic. Telegram and Discord messages are normalized before prompt construction.
@@ -28,22 +25,27 @@ The module is platform-agnostic. Telegram and Discord messages are normalized be
 
 The LLM must return structured JSON with at least:
 
-- `trigger: boolean`
-- `times: []`
-- `event_location: string | null`
+- `event: boolean`
+- `points: []`
 
-Optional fields may exist, but the runtime depends on these three.
-Optional presentation-oriented fields may also exist, including `event_title`, but they are only used when explicitly returned by the LLM and enabled by formatter configuration.
+Each point contains:
+
+- `time: HH:MM`
+- `city: string | null`
+- `event_title: string | null`
+
+`city` is the per-point source-location override for the current message only.
+`event_title` is optional presentation metadata only.
 
 ## 5. Runtime Rules
 
-### 5.1 `trigger=false`
+### 5.1 `event=false`
 
 - no conversion,
 - no onboarding,
-- message remains useful only as history.
+- stop.
 
-### 5.2 `trigger=true`
+### 5.2 `event=true`
 
 The bot proceeds according to sender registration state:
 
@@ -55,16 +57,16 @@ The bot proceeds according to sender registration state:
 The LLM may extract:
 
 - one or more time points,
-- optional `event_location`,
+- optional per-point `city`,
 - optional `event_title` attached to the relevant point or block.
 
 The LLM does not persist any user profile data.
-If `event_location` exists, the downstream runtime may use it as the source-time override for the current message only.
+If `city` exists, the downstream runtime may use it as the source-time override for the current message only.
 If `event_title` exists, it is presentation metadata only and must not affect conversion eligibility.
 
 ## 7. Unknown Sender Rule
 
-When `trigger=true` for an unknown sender:
+When `event=true` for an unknown sender:
 
 1. freeze the message,
 2. start onboarding asynchronously,
@@ -75,17 +77,10 @@ Outcome handling:
 | Outcome | Runtime consequence |
 |---|---|
 | Onboarding completed | Save timezone and process frozen message |
-| Onboarding declined | Process frozen message only if `event_location` is sufficient |
+| Onboarding declined | Process frozen message only if point `city` is sufficient |
 | Onboarding ignored / timeout | Discard frozen message |
 
-## 8. History Rules
-
-- History is in-memory only.
-- History is scoped per chat.
-- History is not persisted across restarts.
-- A message may be appended to history even if it does not lead to a reply.
-
-## 9. Guardrails
+## 8. Guardrails
 
 - The system should bias toward silence when uncertain.
 - Max message length and max message age are enforced outside or around the LLM call.
@@ -95,10 +90,9 @@ Outcome handling:
 - Failed primary and fallback attempts must be logged with enough context to diagnose provider/model failure.
 - Fallback switching must not change business rules; it changes only the provider/model used for the same contract.
 
-## 10. Non-Goals
+## 9. Non-Goals
 
 - recurring event scheduling,
 - participant subset extraction,
-- persistent semantic memory,
 - regex fallback for production behavior,
-- updating sender DB timezone from `event_location`.
+- updating sender DB timezone from per-message `city`.

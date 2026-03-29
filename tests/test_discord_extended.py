@@ -40,6 +40,43 @@ def mock_interaction():
 
 
 # ---------------------------------------------------------------------------
+# cmd_help / cmd_me
+# ---------------------------------------------------------------------------
+
+
+class TestDiscordCommandBasics:
+    """Basic parity checks for Discord slash commands."""
+
+    @pytest.mark.asyncio
+    async def test_help_does_not_advertise_tb_remove(self, mock_interaction):
+        """Discord help should not mention /tb_remove because MVP Discord does not expose it."""
+        from src.discord.commands import cmd_help
+
+        await cmd_help.callback(mock_interaction)
+
+        mock_interaction.response.send_message.assert_called_once()
+        text = mock_interaction.response.send_message.call_args[0][0]
+        assert "/tb_remove" not in text
+
+    @pytest.mark.asyncio
+    async def test_cmd_me_without_timezone_shows_not_set(self, mock_interaction, monkeypatch):
+        """Users without a stored timezone should be treated as not configured."""
+        monkeypatch.setattr(
+            "src.discord.commands.get_user_cached",
+            AsyncMock(return_value={"city": None, "timezone": None, "onboarding_declined": True}),
+        )
+
+        from src.discord.commands import cmd_me
+
+        await cmd_me.callback(mock_interaction)
+
+        mock_interaction.response.send_message.assert_called_once()
+        text = mock_interaction.response.send_message.call_args[0][0]
+        assert "Not set" in text
+        assert mock_interaction.response.send_message.call_args[1]["ephemeral"] is True
+
+
+# ---------------------------------------------------------------------------
 # _process_discord_pending
 # ---------------------------------------------------------------------------
 
