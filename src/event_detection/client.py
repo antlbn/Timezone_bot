@@ -1,6 +1,7 @@
 import os
 from openai import AsyncOpenAI
 from src.logger import get_logger
+from src.config import get_llm_base_url, get_llm_model as get_configured_llm_model
 
 logger = get_logger()
 
@@ -16,7 +17,7 @@ def get_llm_client() -> AsyncOpenAI:
     """
     global _client
     if _client is None:
-        base_url = os.getenv("LLM_BASE_URL")
+        base_url = get_llm_base_url()
         api_key = os.getenv("GEMINI_API_KEY")
 
         _client = AsyncOpenAI(base_url=base_url, api_key=api_key, http_client=None)
@@ -27,4 +28,4 @@ def get_llm_client() -> AsyncOpenAI:
 
 def get_llm_model() -> str:
     """Returns the configured model name, e.g. 'llama3' or 'gpt-4o-mini'."""
-    return os.getenv("LLM_MODEL", "gemini-3.1-flash-lite-preview")
+    return get_configured_llm_model()

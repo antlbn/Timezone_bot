@@ -15,11 +15,10 @@ async def test_process_message_event():
         "sender_name": "John",
         "time": ["15:00"],
         "city": [None],
+        "event_title": [None],
     }
 
-    with patch(
-        "src.event_detection.detector.detect_event", new_callable=AsyncMock
-    ) as mock_detect:
+    with patch("src.event_detection.detect_event", new_callable=AsyncMock) as mock_detect:
         mock_detect.return_value = mock_result
 
         res = await process_message(
@@ -52,7 +51,7 @@ async def test_llm_json_dispatch(monkeypatch):
     mock_response.content = json.dumps(
         {
             "event": True,
-            "points": [{"time": "20:00", "city": "London", "event_type": "созвон"}],
+            "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
         }
     )
 
@@ -92,7 +91,7 @@ async def test_llm_json_dispatch(monkeypatch):
     assert len(sent_messages) == 1
     assert result["event"] is True
     assert result["time"] == ["20:00"]
-    assert result["event_type"] == ["созвон"]
+    assert result["event_title"] == ["созвон"]
 
 
 @pytest.mark.asyncio
@@ -114,4 +113,3 @@ async def test_message_age_limit():
         assert res["event"] is False
         assert "stale" in res.get("reason", "").lower()
         mock_detect.assert_not_called()
-

@@ -41,8 +41,8 @@ async def test_full_pipeline_integration():
 
     # 2. LangChain mock: agent returns a tool_call for publish_event
     points_payload = [
-        {"time": "10:30", "city": None, "event_type": "event 1"},
-        {"time": "15:00", "city": None, "event_type": "event 2"},
+        {"time": "10:30", "city": None, "event_title": "event 1"},
+        {"time": "15:00", "city": None, "event_title": "event 2"},
     ]
 
     mock_response = MagicMock()
@@ -55,11 +55,8 @@ async def test_full_pipeline_integration():
     ]
     mock_response.content = ""
 
-    # Patch ChatOpenAI class-level in detector to bypass API key check
-    mock_llm_with_tools = MagicMock()
-    mock_llm_with_tools.ainvoke = AsyncMock(return_value=mock_response)
     mock_llm_instance = MagicMock()
-    mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_with_tools)
+    mock_llm_instance.ainvoke = AsyncMock(return_value=mock_response)
     mock_llm_cls = MagicMock(return_value=mock_llm_instance)
 
     # 3. Capture sent messages
@@ -97,10 +94,7 @@ async def test_full_pipeline_integration():
     assert "15:00 Sarajevo 🇧🇦" in reply
     # Check formatting
     lines = [line for line in reply.split("\n") if line.strip()]
-    assert lines[0] == "Anton:"
-    assert lines[1] == "event 1"
-    assert "10:30 Sarajevo 🇧🇦" in lines[2]
-    assert "09:30 London 🇬🇧" in lines[3]
-    assert lines[4] == "event 2"
-    assert "15:00 Sarajevo 🇧🇦" in lines[5]
-    assert "14:00 London 🇬🇧" in lines[6]
+    assert lines[0] == "10:30 Sarajevo 🇧🇦"
+    assert "09:30 London 🇬🇧" in lines[1]
+    assert "15:00 Sarajevo 🇧🇦" in lines[2]
+    assert "14:00 London 🇬🇧" in lines[3]

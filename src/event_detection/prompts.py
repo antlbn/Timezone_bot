@@ -13,11 +13,11 @@ EVENT_DETECTION_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "required": ["time", "city", "event_type"],
+                "required": ["time", "city", "event_title"],
                 "properties": {
                     "time": {"type": "string"},
                     "city": {"type": ["string", "null"]},
-                    "event_type": {"type": "string"},
+                    "event_title": {"type": ["string", "null"]},
                 },
             },
         },
@@ -38,8 +38,8 @@ SYSTEM_PROMPT = (
 ПРАВИЛА ИЗВЛЕЧЕНИЯ ВРЕМЕНИ:
 1. 24-часовой формат строго, «8 вечера» = 20:00, «пол десятого» = 09:30 или 21:30 по контексту. 
 2. Относительное время вычисляй от CURRENT TIME (UTC): «через час» (in 1 hr) при 11:21 → 12:21. 
-3. СТРУКТУРА: используй массив 'points', где каждый объект содержит 'time', 'city' и 'event_type'.
-4. event_type: короткое название события (например, "созвон", "дедлайн"). Если из контекста не ясно, используй общее "событие".
+3. СТРУКТУРА: используй массив 'points', где каждый объект содержит 'time', 'city' и 'event_title'.
+4. event_title: короткое название события для этого time point (например, "созвон", "дедлайн"). Если из контекста не ясно, используй null.
 5. Игнорируй невозможные сочетания времени (напр. '13 ночи'). 
 6. Когда event=false: points=[].
 
@@ -53,12 +53,12 @@ JSON SCHEMA:
 Пример 1 — чёткое событие:
 CURRENT MESSAGE:
 Завтра в 8 вечера ок?
-→ {"event":true,"points":[{"time":"20:00","city":null,"event_type":"встреча"}]}
+→ {"event":true,"points":[{"time":"20:00","city":null,"event_title":"встреча"}]}
 
 Пример 2 — явный город:
 CURRENT MESSAGE:
 sync tomorrow at 9am EST, that's 2pm London
-→ {"event":true,"points":[{"time":"14:00","city":"London","event_type":"sync"}]}
+→ {"event":true,"points":[{"time":"14:00","city":"London","event_title":"sync"}]}
 
 Пример 3 — нет уточнённого времени:
 CURRENT MESSAGE:

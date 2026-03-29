@@ -82,7 +82,7 @@ async def execute_convert_time(
                 "source_city": source_city,
                 "source_tz": source_tz,
                 "source_flag": source_flag,
-                "event_type": point.get("event_type", "событие"),
+                "event_title": point.get("event_title"),
             }
         )
 

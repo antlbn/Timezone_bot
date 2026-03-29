@@ -21,7 +21,7 @@ from src.storage.pending import (
 from src.config import (
     get_dm_onboarding_cooldown,
     get_settings_cleanup_timeout,
-    get_reply_to_message,
+    get_reply_to_original_message,
 )
 from src.logger import get_logger
 from src.event_detection import process_message
@@ -152,7 +152,7 @@ async def handle_time_mention(
 
     # 3. Define send_fn for the LLM pipeline
     async def send_fn(text: str) -> None:
-        if get_reply_to_message():
+        if get_reply_to_original_message():
             await message.reply(text)
         else:
             await message.answer(text)

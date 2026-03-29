@@ -45,24 +45,31 @@ def get_log_level() -> str:
     return get_config().get("logging", {}).get("level", "INFO")
 
 
+def get_llm_settings() -> dict:
+    """Get LLM settings from config."""
+    return get_config().get("llm", {})
+
+
 def get_bot_settings() -> dict:
     """Get bot settings from config."""
     return get_config().get("bot", {})
 
 
-def get_show_sender_name() -> bool:
-    """Check if sender name should be shown in replies."""
-    return get_config().get("bot", {}).get("show_sender_name", True)
+def get_show_usernames() -> bool:
+    """Check if usernames or display names should be shown in replies."""
+    return get_config().get("bot", {}).get("show_usernames", False)
 
 
-def get_show_event_type() -> bool:
-    """Check if event type (e.g. 'call') should be shown in replies."""
-    return get_config().get("bot", {}).get("show_event_type", True)
+def get_show_event_title() -> bool:
+    """Check if event titles should be shown in replies."""
+    bot = get_config().get("bot", {})
+    return bot.get("show_event_title", bot.get("show_event_type", False))
 
 
-def get_reply_to_message() -> bool:
+def get_reply_to_original_message() -> bool:
     """Check if bot responses should be sent as direct replies."""
-    return get_config().get("bot", {}).get("reply_to_message", True)
+    bot = get_config().get("bot", {})
+    return bot.get("reply_to_original_message", bot.get("reply_to_message", False))
 
 
 def get_settings_cleanup_timeout() -> int:
@@ -104,3 +111,18 @@ def get_dm_onboarding_cooldown() -> int:
 def get_log_llm_prompts() -> bool:
     """Whether to log the full LLM prompts (including history) for debugging."""
     return get_config().get("event_detection", {}).get("log_prompts", False)
+
+
+def get_llm_model() -> str:
+    """Get LLM model id from config or environment."""
+    return get_llm_settings().get("model") or os.getenv("LLM_MODEL", "gpt-5")
+
+
+def get_llm_temperature() -> float:
+    """Get LLM temperature from config."""
+    return float(get_llm_settings().get("temperature", 0.1))
+
+
+def get_llm_base_url() -> str | None:
+    """Get optional LLM base URL from config or environment."""
+    return get_llm_settings().get("base_url") or os.getenv("LLM_BASE_URL")

@@ -17,9 +17,18 @@ from langchain_openai import ChatOpenAI
 from src.logger import get_logger
 from src.event_detection.client import get_llm_model
 from src.event_detection.prompts import get_system_prompt
-from src.config import get_bot_settings, get_log_llm_prompts
+from src.config import get_log_llm_prompts, get_llm_base_url, get_llm_temperature
 
 logger = get_logger()
+
+
+def _normalize_point(point: dict) -> dict:
+    """Normalize old and new point schemas into the current internal shape."""
+    return {
+        "time": point.get("time"),
+        "city": point.get("city"),
+        "event_title": point.get("event_title", point.get("event_type")),
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +96,7 @@ async def _build_reply(
             "source_city": source_city,
             "source_tz": source_tz,
             "source_flag": source_flag,
-            "event_type": point.get("event_type", "событие"),
+            "event_title": point.get("event_title"),
         })
 
     if not conversions:
@@ -124,15 +133,14 @@ async def detect_event(
     else:
         ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
 
-    settings = get_bot_settings()
-    temp = settings.get("llm", {}).get("temperature", 0.0)
+    temp = get_llm_temperature()
     model_name = get_llm_model()
 
     # Use basic ChatOpenAI, requesting JSON object
     llm = ChatOpenAI(
         model=model_name,
         openai_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"),
-        base_url=os.getenv("LLM_BASE_URL"),
+        base_url=get_llm_base_url(),
         temperature=temp,
         model_kwargs={"response_format": {"type": "json_object"}},
     )
@@ -152,7 +160,17 @@ async def detect_event(
         
         parsed = json.loads(raw)
         event_detected = bool(parsed.get("event"))
-        result_points = parsed.get("points", [])
+        result_points = [_normalize_point(point) for point in parsed.get("points", [])]
+
+        if not event_detected and getattr(response, "tool_calls", None):
+            for tool_call in response.tool_calls:
+                if tool_call.get("name") == "publish_event":
+                    event_detected = True
+                    args = tool_call.get("args", {})
+                    result_points = [
+                        _normalize_point(point) for point in args.get("points", [])
+                    ]
+                    break
         
         if event_detected and result_points and send_fn:
              reply = await _build_reply(
@@ -173,7 +191,7 @@ async def detect_event(
         "sender_name": sender_name,
         "time": [p.get("time", "") for p in result_points],
         "city": [p.get("city") for p in result_points],
-        "event_type": [p.get("event_type", "событие") for p in result_points],
+        "event_title": [p.get("event_title") for p in result_points],
         "points": result_points,
         "message_id": message_id,
     }

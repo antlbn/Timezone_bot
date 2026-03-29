@@ -4,7 +4,7 @@ Discord Event Handlers — message monitoring and member tracking.
 
 import discord
 
-from src.config import get_reply_to_message
+from src.config import get_reply_to_original_message
 from src.discord import bot
 from src.storage import storage
 from src.storage.user_cache import get_user_cached
@@ -43,7 +43,7 @@ async def on_message(message: discord.Message):
             description=text,
             color=discord.Color.blue(),
         )
-        if get_reply_to_message():
+        if get_reply_to_original_message():
             sent = await message.reply(embed=embed)
         else:
             sent = await message.channel.send(embed=embed)

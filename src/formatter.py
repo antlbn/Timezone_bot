@@ -1,87 +1,89 @@
 """
 Formatter module.
-Builds reply messages according to 07_response_format.md spec.
+Builds conversion replies according to 07_response_format.md.
 """
 
-from src.config import get_bot_settings, get_show_sender_name, get_show_event_type
+from src.config import get_show_event_title, get_show_usernames
 from src.transform import convert_time, get_utc_offset, parse_time_string
-
-
 from src.logger import get_logger
 
 logger = get_logger()
 
 
 def normalize_time(time_str: str) -> str:
-    """Normalize time string to 24h format (e.g. '5 pm' → '17:00')."""
+    """Normalize a time string to 24h format when possible."""
     try:
         t = parse_time_string(time_str)
         return t.strftime("%H:%M")
-    except Exception as e:
-        logger.debug(f"Time normalization failed for '{time_str}': {e}")
-        return time_str  # fallback to original if parsing fails
+    except Exception as exc:
+        logger.debug(f"Time normalization failed for '{time_str}': {exc}")
+        return time_str
 
 
-def _format_sender_part(original_time: str, city: str, flag: str, name: str) -> str:
-    """Format the sender's part of the message."""
-    normalized = normalize_time(original_time)
-    text = f"{normalized} {city} {flag}"
-    if name:
-        return f"{name}: {text}"
-    return text
+def _format_time_with_shift(time_str: str, day_shift: int) -> str:
+    normalized = normalize_time(time_str)
+    if day_shift == 1:
+        return f"{normalized}⁺¹"
+    if day_shift == -1:
+        return f"{normalized}⁻¹"
+    return normalized
 
 
-def _group_and_sort_members(
-    members: list[dict], limit: int
-) -> list[tuple[str, list[dict]]]:
-    """Group members by timezone and sort by UTC offset."""
-    tz_groups: dict[str, list] = {}
-
-    # Grouping
-    for member in members[:limit]:
-        tz = member["timezone"]
-        if tz not in tz_groups:
-            tz_groups[tz] = []
-        tz_groups[tz].append(member)
-
-    # Sorting by offset
-    sorted_tzs = sorted(tz_groups.keys(), key=get_utc_offset)
-    return [(tz, tz_groups[tz]) for tz in sorted_tzs]
+def _member_name(member: dict) -> str | None:
+    """Render a member name according to the shared output contract."""
+    username = member.get("username")
+    if username:
+        return f"@{username}"
+    return member.get("display_name") or member.get("full_name") or member.get("name")
 
 
-def _format_tz_group(
-    original_time: str,
-    sender_tz: str,
-    target_tz: str,
+def _format_names(group: list[dict]) -> str:
+    names = [name for name in (_member_name(member) for member in group) if name]
+    if not names:
+        return ""
+    if len(names) <= 2:
+        return ", ".join(names)
+    return f"{names[0]}, {names[1]}, +{len(names) - 2} more"
+
+
+def _group_members_by_timezone(members: list[dict]) -> list[tuple[str, list[dict]]]:
+    tz_groups: dict[str, list[dict]] = {}
+    for member in members:
+        timezone = member.get("timezone")
+        if not timezone:
+            continue
+        tz_groups.setdefault(timezone, []).append(member)
+    return sorted(tz_groups.items(), key=lambda item: get_utc_offset(item[0]))
+
+
+def _join_city_labels(group: list[dict], fallback_label: str) -> str:
+    labels: list[str] = []
+    for member in group:
+        label = member.get("city") or member.get("label") or member.get("timezone")
+        if label and label not in labels:
+            labels.append(label)
+    if not labels:
+        return fallback_label
+    return ", ".join(labels)
+
+
+def _render_row(
+    *,
+    displayed_time: str,
+    label: str,
+    flag: str,
     group: list[dict],
     show_usernames: bool,
 ) -> str:
-    """Format a single timezone group result."""
-    try:
-        converted, offset = convert_time(original_time, sender_tz, target_tz)
-    except Exception as e:
-        logger.error(f"Format group conversion failed for '{original_time}': {e}")
-        converted, offset = original_time, 0
-
-    # Handle day offset indicator
-    if offset == 1:
-        time_display = f"{converted}⁺¹"
-    elif offset == -1:
-        time_display = f"{converted}⁻¹"
-    else:
-        time_display = converted
-
-    cities = ", ".join(m["city"] for m in group)
-    flag = group[0].get("flag", "")
-
-    part = f"{time_display} {cities} {flag}"
-
+    parts = [displayed_time, label]
+    if flag:
+        parts.append(flag)
+    row = " ".join(part for part in parts if part)
     if show_usernames:
-        usernames = [f"@{m['username']}" for m in group if m.get("username")]
-        if usernames:
-            part += f" {', '.join(usernames)}"
-
-    return part
+        names = _format_names(group)
+        if names:
+            row = f"{row} {names}"
+    return row
 
 
 def format_single_point_line(
@@ -90,66 +92,73 @@ def format_single_point_line(
     sender_tz: str,
     sender_flag: str,
     members: list[dict],
-    event_type: str = "",
-    show_sender_info: bool = True,
+    event_title: str = "",
 ) -> str:
-    """Format a single line of conversions for one time point."""
-    settings = get_bot_settings()
-    display_limit = settings.get("display_limit_per_chat", 10)
-    if display_limit == 0:
-        display_limit = len(members) + 1
-    show_usernames = settings.get("show_usernames", False)
+    """Format one conversion block for a single time point."""
+    show_usernames = get_show_usernames()
+    normalized_source_time = normalize_time(original_time)
+    grouped_members = _group_members_by_timezone(members)
 
-    # Filter out sender from members
-    other_members = [m for m in members if m["city"] != sender_city]
+    source_group: list[dict] = []
+    other_groups: list[tuple[str, list[dict]]] = []
+    for timezone, group in grouped_members:
+        if timezone == sender_tz:
+            source_group = group
+        else:
+            other_groups.append((timezone, group))
 
-    # Format sender part
-    sender_part = _format_sender_part(original_time, sender_city, sender_flag, name="")
+    source_label = _join_city_labels(source_group, sender_city or sender_tz)
+    source_flag = source_group[0].get("flag", sender_flag) if source_group else sender_flag
 
-    # Combine sender and other parts
-    all_parts = [sender_part]
+    lines = []
+    if event_title and get_show_event_title():
+        lines.append(event_title)
 
-    if other_members:
-        # Group members by timezone and sort by UTC offset
-        sorted_groups = _group_and_sort_members(other_members, display_limit)
-        for tz, group in sorted_groups:
-            part = _format_tz_group(original_time, sender_tz, tz, group, show_usernames)
-            all_parts.append(part)
-
-    if event_type and get_show_event_type():
-        all_parts.insert(0, event_type)
-
-    if len(other_members) > display_limit:
-        all_parts.append(f"... +{len(other_members) - display_limit} more")
-
-    # Vertical list for maximum mobile readability
-    return "\n".join(all_parts)
-
-
-def format_multi_conversion(
-    conversions: list[dict], members: list[dict], sender_name: str = ""
-) -> str:
-    """
-    Format multiple time points into a single beautiful message.
-    Optimized for mobile: 2 locations per line, double newline between points.
-    """
-    point_lines = []
-
-    for conv in conversions:
-        point_text = format_single_point_line(
-            conv["original_time"],
-            conv["source_city"],
-            conv["source_tz"],
-            conv["source_flag"],
-            members,
-            event_type=conv.get("event_type", ""),
+    lines.append(
+        _render_row(
+            displayed_time=normalized_source_time,
+            label=source_label,
+            flag=source_flag,
+            group=source_group,
+            show_usernames=show_usernames,
         )
-        point_lines.append(point_text)
+    )
 
-    body = "\n\n".join(point_lines)
-    if sender_name and get_show_sender_name():
-        return f"{sender_name}:\n{body}"
-    return body
+    for timezone, group in other_groups:
+        try:
+            converted_time, day_shift = convert_time(original_time, sender_tz, timezone)
+        except Exception as exc:
+            logger.error(f"Format group conversion failed for '{original_time}': {exc}")
+            continue
+
+        lines.append(
+            _render_row(
+                displayed_time=_format_time_with_shift(converted_time, day_shift),
+                label=_join_city_labels(group, timezone),
+                flag=group[0].get("flag", ""),
+                group=group,
+                show_usernames=show_usernames,
+            )
+        )
+
+    return "\n".join(lines)
+
+
+def format_multi_conversion(conversions: list[dict], members: list[dict], sender_name: str = "") -> str:
+    """Format one atomic reply containing one or more time blocks."""
+    point_lines = []
+    for conversion in conversions:
+        point_lines.append(
+            format_single_point_line(
+                conversion["original_time"],
+                conversion["source_city"],
+                conversion["source_tz"],
+                conversion["source_flag"],
+                members,
+                event_title=conversion.get("event_title", ""),
+            )
+        )
+    return "\n\n".join(point_lines)
 
 
 def format_conversion_reply(
@@ -160,7 +169,7 @@ def format_conversion_reply(
     members: list[dict],
     sender_name: str = "",
 ) -> str:
-    """Format a single time point conversion (legacy/helper)."""
+    """Format a single-point conversion reply."""
     conversions = [
         {
             "original_time": original_time,
