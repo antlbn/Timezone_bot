@@ -22,7 +22,6 @@ bot:
 
 # LLM Runtime
 llm:
-  provider: openai
   model: gpt-5
   temperature: 0.1
   base_url:

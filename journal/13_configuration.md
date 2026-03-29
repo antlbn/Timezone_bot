@@ -47,7 +47,6 @@ Meaning:
 
 ```yaml
 llm:
-  provider: openai
   model: gpt-5
   temperature: 0.1
   base_url: null
@@ -61,7 +60,6 @@ llm:
 
 Meaning:
 
-- `provider`: selected LLM backend.
 - `model`: selected model identifier.
 - `temperature`: generation strictness / creativity balance.
 - `base_url`: optional custom endpoint for compatible providers.

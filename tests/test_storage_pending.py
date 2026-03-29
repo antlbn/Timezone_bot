@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 import datetime
 from unittest.mock import AsyncMock, patch
 from src.storage.pending import save_pending_message, get_and_delete_pending_messages

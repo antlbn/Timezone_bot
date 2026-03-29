@@ -8,7 +8,6 @@ Architecture:
 """
 
 import json
-import logging
 from typing import Any, Callable, Awaitable
 
 import os
@@ -158,7 +157,6 @@ async def detect_event(
     current_msg: dict,
     sender_db: dict,
     send_fn: Callable[[str], Awaitable[str | None]] | None = None,
-    edit_fn: Callable[[str, str], Awaitable[None]] | None = None,
     platform: str = "",
     chat_id: str = "",
     ctx_logger: Any = None,
@@ -181,7 +179,6 @@ async def detect_event(
     ]
 
     result_points: list[dict] = []
-    message_id: str | None = None
     event_detected = False
 
     last_error: Exception | None = None
@@ -208,9 +205,9 @@ async def detect_event(
                     result_points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
                 )
                 if reply:
-                    message_id = await send_fn(reply)
+                    sent_message_id = await send_fn(reply)
                     ctx_logger.info(
-                        f"[chat:{chat_id}] sent new message (id={message_id}, points={len(result_points)})"
+                        f"[chat:{chat_id}] sent new message (id={sent_message_id}, points={len(result_points)})"
                     )
             break
         except Exception as exc:
@@ -231,5 +228,4 @@ async def detect_event(
         "city": [p.get("city") for p in result_points],
         "event_title": [p.get("event_title") for p in result_points],
         "points": result_points,
-        "message_id": message_id,
     }

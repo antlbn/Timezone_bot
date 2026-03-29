@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 import datetime
 import json
 from unittest.mock import AsyncMock, MagicMock, patch

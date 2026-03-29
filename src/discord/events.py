@@ -37,7 +37,7 @@ async def on_message(message: discord.Message):
     # 1. Update activity timestamp (for all active users)
     await storage.update_activity(message.author.id, PLATFORM)
 
-    # 2. Build send_fn (returns message_id) and edit_fn for the agent tools
+    # 2. Build send_fn (returns message_id) for the runtime pipeline
     async def send_fn(text: str) -> str | None:
         embed = discord.Embed(
             description=text,
@@ -48,19 +48,6 @@ async def on_message(message: discord.Message):
         else:
             sent = await message.channel.send(embed=embed)
         return str(sent.id)
-
-    async def edit_fn(message_id: str, new_text: str) -> None:
-        try:
-            channel = message.channel
-            prev_msg = await channel.fetch_message(int(message_id))
-            new_embed = discord.Embed(
-                description=new_text,
-                color=discord.Color.blue(),
-            )
-            await prev_msg.edit(embed=new_embed)
-        except Exception as e:
-            logger.warning(f"[guild:{chat_id}] edit_fn failed for msg {message_id}: {e}")
-            raise
 
     # 3. Check registration status
     is_configured = bool(
@@ -79,7 +66,6 @@ async def on_message(message: discord.Message):
             timestamp_utc=timestamp_utc,
             sender_db=sender,
             send_fn=send_fn if (is_configured or is_declined) else None,
-            edit_fn=edit_fn if (is_configured or is_declined) else None,
         )
     except Exception as e:
         logger.error(

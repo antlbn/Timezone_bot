@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import List, Dict, Any, Callable
+from typing import Dict, Any, Callable
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
 from src.event_detection.detector import detect_event
@@ -17,7 +17,6 @@ async def process_message(
     timestamp_utc: str,
     sender_db: Dict | None = None,
     send_fn: Callable | None = None, 
-    edit_fn: Callable | None = None, 
     skip_aging: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -86,7 +85,6 @@ async def process_message(
         current_msg=msg_data,
         sender_db=sender_db or {},
         send_fn=send_fn,
-        edit_fn=edit_fn,
         platform=platform,
         chat_id=chat_id,
         ctx_logger=ctx_logger,
