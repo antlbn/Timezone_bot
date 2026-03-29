@@ -1,7 +1,16 @@
+## 2026-03-29 (session) - Final Spec Review Pass
+- **Review**: Performed a final consistency pass over the updated specs before commit preparation.
+- **Docs**: Expanded `13_configuration.md` with a canonical `llm:` block and clarified when platform-specific config sections are allowed.
+- **Docs**: Confirmed formatter grouping rule as timezone-first, with multiple city labels rendered inside the same timezone group when needed.
+- **Gap Noted**: Current `configuration.yaml` and `src/config.py` still contain legacy config names (`show_sender_name`, `show_event_type`, `reply_to_message`) that should later converge to the canonical spec model.
+
 ## 2026-03-29 (session) - Spec Consolidation and C4
 - **Docs**: Rewrote `01_scope_and_MVP.md` as the canonical MVP product spec with explicit goal, scope, and Definition of Done.
 - **Docs**: Added `00_c4.md` with Mermaid diagrams for system context, containers, and dynamic runtime flows.
 - **Docs**: Added `02_domain_model.md` to define canonical domain terms, entity states, and invariants.
+- **Docs**: Reworked `03_transformation_specs.md` into a runtime-contract specification covering LLM output, source-time resolution, transform input/output, formatter input/output, and stop conditions.
+- **Docs**: Rewrote `07_response_format.md` as a shared output contract with reply mode, optional usernames, optional `event_title`, source-first ordering, and superscript day-shift markers.
+- **Docs**: Added `13_configuration.md` as the canonical reference for config flags and defaults.
 - **Docs**: Resolved cross-spec contradictions around private chats, lazy onboarding, decline behavior, and `event_location` override.
 - **Docs**: Replaced outdated versions of `04_bot_logic.md`, `06_city_to_timezone.md`, `08_telegram_commands.md`, and `14_llm_module.md` with consistent MVP-aligned specs.
 

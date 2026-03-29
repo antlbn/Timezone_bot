@@ -32,6 +32,7 @@ The LLM must return structured JSON with at least:
 - `event_location: string | null`
 
 Optional fields may exist, but the runtime depends on these three.
+Optional presentation-oriented fields may also exist, including `event_title`, but they are only used when explicitly returned by the LLM and enabled by formatter configuration.
 
 ## 5. Runtime Rules
 
@@ -53,10 +54,12 @@ The bot proceeds according to sender registration state:
 The LLM may extract:
 
 - one or more time points,
-- optional `event_location`.
+- optional `event_location`,
+- optional `event_title` attached to the relevant point or block.
 
 The LLM does not persist any user profile data.
 If `event_location` exists, the downstream runtime may use it as the source-time override for the current message only.
+If `event_title` exists, it is presentation metadata only and must not affect conversion eligibility.
 
 ## 7. Unknown Sender Rule
 

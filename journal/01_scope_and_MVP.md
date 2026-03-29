@@ -179,10 +179,12 @@ The specification set should satisfy these qualities:
 
 - [00_c4.md](/Users/johnwunderbellen/Timezone_bot/journal/00_c4.md): architecture diagrams
 - [02_domain_model.md](/Users/johnwunderbellen/Timezone_bot/journal/02_domain_model.md): domain entities, states, and invariants
+- [03_transformation_specs.md](/Users/johnwunderbellen/Timezone_bot/journal/03_transformation_specs.md): runtime contracts between detection, geo, transform, and formatter
 - [04_bot_logic.md](/Users/johnwunderbellen/Timezone_bot/journal/04_bot_logic.md): runtime processing rules
 - [05_storage.md](/Users/johnwunderbellen/Timezone_bot/journal/05_storage.md): persistence rules
 - [06_city_to_timezone.md](/Users/johnwunderbellen/Timezone_bot/journal/06_city_to_timezone.md): location resolution
 - [08_telegram_commands.md](/Users/johnwunderbellen/Timezone_bot/journal/08_telegram_commands.md): Telegram-specific UX
 - [12_discord_integration.md](/Users/johnwunderbellen/Timezone_bot/journal/12_discord_integration.md): Discord-specific UX
+- [13_configuration.md](/Users/johnwunderbellen/Timezone_bot/journal/13_configuration.md): canonical config flags and defaults
 - [14_llm_module.md](/Users/johnwunderbellen/Timezone_bot/journal/14_llm_module.md): LLM contract and orchestration
 - [16_ux_onboarding_spec.md](/Users/johnwunderbellen/Timezone_bot/journal/16_ux_onboarding_spec.md): onboarding UX details
