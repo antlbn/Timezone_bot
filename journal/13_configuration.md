@@ -17,6 +17,7 @@ Expected keys:
 TELEGRAM_TOKEN=
 DISCORD_TOKEN=
 OPENAI_API_KEY=
+GEMINI_API_KEY=
 ```
 
 If a platform token is absent, that platform may be skipped at startup.
@@ -50,6 +51,7 @@ llm:
   model: gpt-5
   temperature: 0.1
   base_url: null
+  api_key_env: null
   fallback:
     enabled: false
     model: null
@@ -63,6 +65,7 @@ Meaning:
 - `model`: selected model identifier.
 - `temperature`: generation strictness / creativity balance.
 - `base_url`: optional custom endpoint for compatible providers.
+- `api_key_env`: optional environment variable name for the primary LLM API key.
 - `fallback.enabled`: allow automatic retry on a secondary LLM.
 - `fallback.model`: fallback model identifier.
 - `fallback.temperature`: fallback generation setting.

@@ -123,3 +123,8 @@ def get_llm_temperature() -> float:
 def get_llm_base_url() -> str | None:
     """Get optional LLM base URL from config or environment."""
     return get_llm_settings().get("base_url") or os.getenv("LLM_BASE_URL")
+
+
+def get_llm_api_key_env() -> str | None:
+    """Get optional env var name for the primary LLM API key."""
+    return get_llm_settings().get("api_key_env")

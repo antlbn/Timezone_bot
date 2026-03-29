@@ -1,3 +1,11 @@
+## 2026-03-29 (session) - LLM Config Contract Cleanup
+- **Config**: Added canonical primary `llm.api_key_env` so `configuration.yaml` now describes both primary and fallback LLM credentials symmetrically.
+- **Runtime**: Reworked LLM API key resolution in `detector.py` to use config-driven env var names first, while keeping backward-compatible fallback to `GEMINI_API_KEY` and `OPENAI_API_KEY`.
+- **Defaults**: Set the current runtime default chain to Gemini primary (`gemini-3.1-flash-lite-preview`) with Groq fallback (`llama-3.1-8b-instant`), including compatible base URLs and env key names.
+- **Docs**: Updated `13_configuration.md` and `env.example` to reflect the live primary/fallback contract and expected LLM secret keys.
+- **Verification**: `uv run pytest tests/test_event_detection.py tests/test_integration.py` → **7 passed**.
+- **Verification**: `uv run ruff check src/config.py src/event_detection/detector.py` → **All checks passed**.
+
 ## 2026-03-29 (session) - Onboarding Decline Flow Parity
 - **Runtime**: Unified Telegram and Discord onboarding logic so declined users are not re-invited, but messages with explicit `event_location` can still be converted.
 - **Logic**: Replaced legacy "decline always discards queue" behavior with "release through normal pipeline, reply only if explicit source location is sufficient".

@@ -18,6 +18,7 @@ from src.event_detection.prompts import get_system_prompt
 from src.config import (
     get_config,
     get_log_llm_prompts,
+    get_llm_api_key_env,
     get_llm_base_url,
     get_llm_model,
     get_llm_temperature,
@@ -48,6 +49,27 @@ def _normalize_point(point: dict) -> dict:
     }
 
 
+def _resolve_api_key(preferred_env: str | None) -> str | None:
+    """
+    Resolve an API key from config-driven env names, while keeping backward-
+    compatible fallbacks for existing local setups.
+    """
+    candidate_names: list[str] = []
+    if preferred_env:
+        candidate_names.append(preferred_env)
+    candidate_names.extend(["GEMINI_API_KEY", "OPENAI_API_KEY"])
+
+    seen = set()
+    for env_name in candidate_names:
+        if not env_name or env_name in seen:
+            continue
+        seen.add(env_name)
+        value = os.getenv(env_name)
+        if value:
+            return value
+    return None
+
+
 def _build_llm_attempts() -> list[dict]:
     """Build primary and optional fallback LLM configurations."""
     cfg = get_config()
@@ -58,7 +80,7 @@ def _build_llm_attempts() -> list[dict]:
             "model": llm_cfg.get("model") or get_llm_model(),
             "base_url": llm_cfg.get("base_url") or get_llm_base_url(),
             "temperature": float(llm_cfg.get("temperature", get_llm_temperature())),
-            "api_key": os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"),
+            "api_key": _resolve_api_key(llm_cfg.get("api_key_env") or get_llm_api_key_env()),
         }
     ]
 
@@ -70,7 +92,7 @@ def _build_llm_attempts() -> list[dict]:
                 "model": fallback["model"],
                 "base_url": fallback.get("base_url") or attempts[0]["base_url"],
                 "temperature": float(fallback.get("temperature", attempts[0]["temperature"])),
-                "api_key": os.getenv(fallback.get("api_key_env", "")) if fallback.get("api_key_env") else attempts[0]["api_key"],
+                "api_key": _resolve_api_key(fallback.get("api_key_env")) or attempts[0]["api_key"],
             }
         )
 
