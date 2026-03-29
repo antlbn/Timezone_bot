@@ -26,6 +26,19 @@ from src.config import (
 logger = get_logger()
 
 
+def _strip_json_fences(raw: str) -> str:
+    """Allow tolerant parsing when a model wraps JSON in a fenced code block."""
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    return text
+
+
 def _normalize_point(point: dict) -> dict:
     """Normalize old and new point schemas into the current internal shape."""
     return {
@@ -180,6 +193,7 @@ async def detect_event(
 
     result_points: list[dict] = []
     event_detected = False
+    reply_to_send: str | None = None
 
     last_error: Exception | None = None
     for attempt in _build_llm_attempts():
@@ -196,19 +210,14 @@ async def detect_event(
             )
             raw = response.choices[0].message.content or "{}"
 
-            parsed = json.loads(raw)
+            parsed = json.loads(_strip_json_fences(raw))
             event_detected = bool(parsed.get("event"))
             result_points = [_normalize_point(point) for point in parsed.get("points", [])]
 
             if event_detected and result_points and send_fn:
-                reply = await _build_reply(
+                reply_to_send = await _build_reply(
                     result_points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
                 )
-                if reply:
-                    sent_message_id = await send_fn(reply)
-                    ctx_logger.info(
-                        f"[chat:{chat_id}] sent new message (id={sent_message_id}, points={len(result_points)})"
-                    )
             break
         except Exception as exc:
             last_error = exc
@@ -219,6 +228,17 @@ async def detect_event(
     else:
         if last_error:
             ctx_logger.error(f"[chat:{chat_id}] All LLM attempts failed. last_error={last_error}")
+
+    if reply_to_send and send_fn:
+        try:
+            sent_message_id = await send_fn(reply_to_send)
+            ctx_logger.info(
+                f"[chat:{chat_id}] sent new message (id={sent_message_id}, points={len(result_points)})"
+            )
+        except Exception as exc:
+            ctx_logger.error(
+                f"[chat:{chat_id}] Reply send failed after successful detection: error={exc}"
+            )
 
     return {
         "event": event_detected,

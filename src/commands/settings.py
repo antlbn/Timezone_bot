@@ -406,18 +406,7 @@ async def process_city(message: Message, state: FSMContext):
 
     # In group chat (e.g. /tb_settz flow), clean up messages
     if not is_dm:
-        try:
-            await message.delete()
-        except Exception as e:
-            logger.warning(f"Failed to delete user's message: {e}")
-
-        try:
-            if data.get("prompt_message_id"):
-                await message.bot.delete_message(
-                    chat_id=message.chat.id, message_id=data["prompt_message_id"]
-                )
-        except Exception as e:
-            logger.warning(f"Failed to delete bot's prompt: {e}")
+        await _cleanup_group_prompts(message, data.get("prompt_message_id"))
 
     city_name = message.text.strip()
     location = await geo.async_get_timezone_by_city(city_name)
@@ -458,18 +447,7 @@ async def process_fallback_input(message: Message, state: FSMContext):
 
     # In group chat, clean up messages
     if not is_dm:
-        try:
-            await message.delete()
-        except Exception as e:
-            logger.warning(f"Failed to delete user's message: {e}")
-
-        try:
-            if data.get("prompt_message_id"):
-                await message.bot.delete_message(
-                    chat_id=message.chat.id, message_id=data["prompt_message_id"]
-                )
-        except Exception as e:
-            logger.warning(f"Failed to delete bot's prompt: {e}")
+        await _cleanup_group_prompts(message, data.get("prompt_message_id"))
 
     user_input = (message.text or "").strip()
 
@@ -549,6 +527,25 @@ async def _save_and_finish(
     logger.info(
         f"[chat:{log_chat}] User {user_id} -> {location['timezone']}{log_suffix}"
     )
+
+
+async def _cleanup_group_prompts(message: Message, prompt_message_id: int | None):
+    """Delete the user's group reply and the previous bot prompt when possible."""
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.warning(f"Failed to delete user's message: {e}")
+
+    if not prompt_message_id:
+        return
+
+    try:
+        await message.bot.delete_message(
+            chat_id=message.chat.id,
+            message_id=prompt_message_id,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to delete bot's prompt: {e}")
 
 
 async def _process_pending_queue(message: Message, user_id: int, user_name: str):
