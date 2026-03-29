@@ -279,7 +279,10 @@ async def test_dm_city_saves_and_drains():
     location = {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪"}
 
     with (
-        patch("src.commands.settings.geo.get_timezone_by_city", return_value=location),
+        patch(
+            "src.commands.settings.geo.async_get_timezone_by_city",
+            AsyncMock(return_value=location),
+        ),
         patch("src.commands.settings.storage.set_user", AsyncMock()) as mock_set,
         patch("src.commands.settings.storage.add_chat_member", AsyncMock()),
         patch("src.commands.settings.invalidate_user_cache") as mock_invalidate,
@@ -303,7 +306,6 @@ async def test_dm_city_saves_and_drains():
         ),
         patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
         patch("src.commands.settings.clear_dm_invite", AsyncMock()),
-        patch("src.commands.settings.append_to_history", return_value=[]),
         patch.object(Message, "answer", new_callable=AsyncMock),
     ):
         await process_city(msg, state)

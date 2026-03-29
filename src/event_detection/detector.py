@@ -12,15 +12,15 @@ import logging
 from typing import Any, Callable, Awaitable
 
 import os
-from langchain_openai import ChatOpenAI
+from openai import AsyncOpenAI
 
 from src.logger import get_logger
-from src.event_detection.client import get_llm_model
 from src.event_detection.prompts import get_system_prompt
 from src.config import (
     get_config,
     get_log_llm_prompts,
     get_llm_base_url,
+    get_llm_model,
     get_llm_temperature,
 )
 
@@ -32,7 +32,7 @@ def _normalize_point(point: dict) -> dict:
     return {
         "time": point.get("time"),
         "city": point.get("city"),
-        "event_title": point.get("event_title", point.get("event_type")),
+        "event_title": point.get("event_title"),
     }
 
 
@@ -63,6 +63,15 @@ def _build_llm_attempts() -> list[dict]:
         )
 
     return attempts
+
+
+def _create_openai_client(attempt: dict) -> AsyncOpenAI:
+    """Create an OpenAI-compatible async client for a single LLM attempt."""
+    return AsyncOpenAI(
+        api_key=attempt["api_key"],
+        base_url=attempt["base_url"],
+        http_client=None,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -142,15 +151,14 @@ async def _build_reply(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Main detect_event — LangChain agent entry point
+# Main detect_event entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def detect_event(
     current_msg: dict,
-    snapshot: list[dict],      # Kept for signature compatibility for now
     sender_db: dict,
     send_fn: Callable[[str], Awaitable[str | None]] | None = None,
-    edit_fn: Callable[[str, str], Awaitable[None]] | None = None, # Kept for signature compatibility
+    edit_fn: Callable[[str, str], Awaitable[None]] | None = None,
     platform: str = "",
     chat_id: str = "",
     ctx_logger: Any = None,
@@ -182,29 +190,18 @@ async def detect_event(
             ctx_logger.info(
                 f"[chat:{chat_id}] LLM attempt={attempt['name']} model={attempt['model']}"
             )
-            llm = ChatOpenAI(
+            client = _create_openai_client(attempt)
+            response = await client.chat.completions.create(
                 model=attempt["model"],
-                openai_api_key=attempt["api_key"],
-                base_url=attempt["base_url"],
                 temperature=attempt["temperature"],
-                model_kwargs={"response_format": {"type": "json_object"}},
+                response_format={"type": "json_object"},
+                messages=messages,
             )
-            response = await llm.ainvoke(messages)
-            raw = response.content or "{}"
+            raw = response.choices[0].message.content or "{}"
 
             parsed = json.loads(raw)
             event_detected = bool(parsed.get("event"))
             result_points = [_normalize_point(point) for point in parsed.get("points", [])]
-
-            if not event_detected and getattr(response, "tool_calls", None):
-                for tool_call in response.tool_calls:
-                    if tool_call.get("name") == "publish_event":
-                        event_detected = True
-                        args = tool_call.get("args", {})
-                        result_points = [
-                            _normalize_point(point) for point in args.get("points", [])
-                        ]
-                        break
 
             if event_detected and result_points and send_fn:
                 reply = await _build_reply(

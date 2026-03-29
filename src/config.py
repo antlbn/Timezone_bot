@@ -55,38 +55,39 @@ def get_bot_settings() -> dict:
     return get_config().get("bot", {})
 
 
+def get_event_detection_settings() -> dict:
+    """Get event detection settings from config."""
+    return get_config().get("event_detection", {})
+
+
 def get_show_usernames() -> bool:
     """Check if usernames or display names should be shown in replies."""
-    return get_config().get("bot", {}).get("show_usernames", False)
+    return get_bot_settings().get("show_usernames", False)
 
 
 def get_show_event_title() -> bool:
     """Check if event titles should be shown in replies."""
-    bot = get_config().get("bot", {})
-    return bot.get("show_event_title", bot.get("show_event_type", False))
+    return get_bot_settings().get("show_event_title", False)
 
 
 def get_reply_to_original_message() -> bool:
     """Check if bot responses should be sent as direct replies."""
-    bot = get_config().get("bot", {})
-    return bot.get("reply_to_original_message", bot.get("reply_to_message", False))
+    return get_bot_settings().get("reply_to_original_message", False)
 
 
 def get_settings_cleanup_timeout() -> int:
     """Get timeout in seconds for auto-cleaning settings dialogs (0 to disable)."""
-    return get_config().get("bot", {}).get("settings_cleanup_timeout_seconds", 10)
+    return get_bot_settings().get("settings_cleanup_timeout_seconds", 10)
 
 
 def get_max_message_age() -> int:
     """Get max message age in seconds from config."""
-    return get_config().get("event_detection", {}).get("max_message_age_seconds", 20)
+    return get_event_detection_settings().get("max_message_age_seconds", 20)
 
 
 def get_max_message_hard_skip() -> int:
     """Read hard skip limit for long messages."""
-    return (
-        get_config().get("event_detection", {}).get("max_message_hard_skip_chars", 2000)
-    )
+    return get_event_detection_settings().get("max_message_hard_skip_chars", 2000)
 
 
 def get_inactive_user_retention_days() -> int:
@@ -96,21 +97,17 @@ def get_inactive_user_retention_days() -> int:
 
 def get_onboarding_timeout() -> int:
     """Get onboarding timeout in seconds from config."""
-    return get_config().get("event_detection", {}).get("onboarding_timeout_seconds", 60)
+    return get_event_detection_settings().get("onboarding_timeout_seconds", 60)
 
 
 def get_dm_onboarding_cooldown() -> int:
     """Get cooldown before re-prompting a user who ignored/abandoned DM onboarding."""
-    return (
-        get_config()
-        .get("event_detection", {})
-        .get("dm_onboarding_cooldown_seconds", 600)
-    )
+    return get_event_detection_settings().get("dm_onboarding_cooldown_seconds", 600)
 
 
 def get_log_llm_prompts() -> bool:
     """Whether to log the full LLM prompts (including history) for debugging."""
-    return get_config().get("event_detection", {}).get("log_prompts", False)
+    return get_event_detection_settings().get("log_prompts", False)
 
 
 def get_llm_model() -> str:

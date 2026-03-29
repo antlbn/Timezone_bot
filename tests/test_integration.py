@@ -7,11 +7,11 @@ from src.event_detection import process_message
 @pytest.mark.asyncio
 async def test_full_pipeline_integration():
     """
-    Simulates: Message → process_message → detect_event (LangChain agent)
-               → publish_event tool call → _build_reply → send_fn
+    Simulates: Message → process_message → detect_event JSON output
+               → _build_reply → send_fn
 
     Ensures that multiple time points from the LLM result in a single
-    aggregated message via the publish_event tool.
+    aggregated message from a single JSON response.
     """
 
     # 1. Mock Data
@@ -39,25 +39,23 @@ async def test_full_pipeline_integration():
         },
     ]
 
-    # 2. LangChain mock: agent returns a tool_call for publish_event
+    # 2. OpenAI mock: model returns canonical JSON content
     points_payload = [
         {"time": "10:30", "city": None, "event_title": "event 1"},
         {"time": "15:00", "city": None, "event_title": "event 2"},
     ]
 
     mock_response = MagicMock()
-    mock_response.tool_calls = [
+    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
         {
-            "name": "publish_event",
-            "args": {"points": points_payload},
-            "id": "call_abc",
+            "event": True,
+            "points": points_payload,
         }
-    ]
-    mock_response.content = ""
+    )))]
 
-    mock_llm_instance = MagicMock()
-    mock_llm_instance.ainvoke = AsyncMock(return_value=mock_response)
-    mock_llm_cls = MagicMock(return_value=mock_llm_instance)
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    mock_client_cls = MagicMock(return_value=mock_client)
 
     # 3. Capture sent messages
     sent_messages = []
@@ -68,7 +66,7 @@ async def test_full_pipeline_integration():
 
     # 4. Execute Pipeline
     with (
-        patch("src.event_detection.detector.ChatOpenAI", mock_llm_cls),
+        patch("src.event_detection.detector.AsyncOpenAI", mock_client_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
     ):
         await process_message(

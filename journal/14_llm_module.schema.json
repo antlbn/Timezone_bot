@@ -18,11 +18,11 @@
     },
     "event": {
       "type": "boolean",
-      "description": "true = actionable time-coordination event; LLM should call convert_time tool"
+      "description": "true = actionable time-coordination event"
     },
     "sender_id": {
       "type": "string",
-      "description": "Platform user ID echoed from SENDER block; passed through to convert_time tool"
+      "description": "Platform user ID echoed from the input context"
     },
     "sender_name": {
       "type": "string",
@@ -32,11 +32,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["time", "city", "event_type"],
+        "required": ["time", "city", "event_title"],
         "properties": {
           "time": { "type": "string", "description": "24h format HH:MM" },
           "city": { "type": ["string", "null"], "description": "City name OR null" },
-          "event_type": { "type": "string", "description": "Type of event, e.g. 'meeting', 'call', 'deadline'" }
+          "event_title": { "type": ["string", "null"], "description": "Optional short title of the event, e.g. 'meeting', 'call', 'deadline'" }
         }
       },
       "description": "List of extracted time points with their respective locations."

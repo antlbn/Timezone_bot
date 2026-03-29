@@ -16,7 +16,6 @@ from src.storage.pending import (
     clear_dm_invite,
     set_on_expire_callback,
 )
-from src.event_detection.history import append_to_history
 from src.event_detection import process_message
 from src import geo
 from src.logger import get_logger
@@ -620,8 +619,6 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
                 reply_to_message_id=_pending.get("message_id"),
             )
 
-        snapshot = append_to_history("telegram", str(chat_id), pending)
-
         await process_message(
             message_text=pending["text"],
             chat_id=str(chat_id),
@@ -631,9 +628,7 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
             timestamp_utc=pending.get("timestamp_utc", ""),
             sender_db=user_record,
             send_fn=send_reply_fn,
-            skip_history_append=True,
             skip_aging=True,
-            precomputed_snapshot=snapshot,
         )
 
 

@@ -96,7 +96,6 @@ class TestProcessDiscordPending:
         process_mock.assert_called_once()
         call_kwargs = process_mock.call_args[1]
         assert call_kwargs["message_text"] == "Meeting at 15:00"
-        assert call_kwargs["skip_history_append"] is True
         assert call_kwargs["skip_aging"] is True
 
     @pytest.mark.asyncio

@@ -107,11 +107,11 @@ async def test_process_city_success(
     # Mock geo logic
     # We need to mock 'src.commands.settings.geo'
     mock_geo = MagicMock()
-    mock_geo.get_timezone_by_city.return_value = {
+    mock_geo.async_get_timezone_by_city = AsyncMock(return_value={
         "city": "Paris",
         "timezone": "Europe/Paris",
         "flag": "🇫🇷",
-    }
+    })
     monkeypatch.setattr("src.commands.settings.geo", mock_geo)
 
     # Setup message text

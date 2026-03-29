@@ -25,6 +25,10 @@ class TimePoint(BaseModel):
     city: Optional[str] = Field(
         description="City or timezone name mentioned for THIS specific time. Use null if not specified."
     )
+    event_title: Optional[str] = Field(
+        default=None,
+        description="Optional short event label for this specific time point."
+    )
 
 
 class TimezoneResponse(BaseModel):

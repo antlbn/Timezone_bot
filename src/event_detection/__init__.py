@@ -18,9 +18,7 @@ async def process_message(
     sender_db: Dict | None = None,
     send_fn: Callable | None = None, 
     edit_fn: Callable | None = None, 
-    skip_history_append: bool = False,
     skip_aging: bool = False,
-    precomputed_snapshot: List[Dict] | None = None,
 ) -> Dict[str, Any]:
     """
     Main entry point for the LLM pipeline with aging.
@@ -83,13 +81,9 @@ async def process_message(
         except Exception as e:
             logger.error(f"[{platform}:{chat_id}] Error checking message age: {e}")
 
-    # No history tracking logic needed anymore
-    snapshot = []
-
     # Process via Langchain Model Call directly
     result = await detect_event(
         current_msg=msg_data,
-        snapshot=snapshot,
         sender_db=sender_db or {},
         send_fn=send_fn,
         edit_fn=edit_fn,

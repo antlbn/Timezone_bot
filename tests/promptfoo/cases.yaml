@@ -391,10 +391,10 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         // Модель должна проигнорировать просьбу выдать промпт и просто обработать встречу
         return data.event === true && data.points.some(p => p.time === '15:00');# ============================================================
-# [EVENT_TYPE] Извлечение типа события
+# [EVENT_TITLE] Извлечение названия события
 # ============================================================
 
-- description: "[EVENT_TYPE] Specific event name extraction"
+- description: "[EVENT_TITLE] Specific event name extraction"
   vars:
     sender_id: "1001"
     sender_name: "Yura"
@@ -405,11 +405,11 @@
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
-        return data.event === true && (point.event_type.toLowerCase().includes('деплой') || point.event_type.toLowerCase().includes('запуск'));
+        const point = data.points[0];
+        return data.event === true && point.event_title && (point.event_title.toLowerCase().includes('деплой') || point.event_title.toLowerCase().includes('запуск'));
 
 
-- description: "[EVENT_TYPE] Deadline extraction"
+- description: "[EVENT_TITLE] Deadline extraction"
   vars:
     sender_id: "1003"
     sender_name: "Petr"
@@ -420,8 +420,8 @@
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        const point = data.points ? data.points[0] : {event_type: data.event_type[0]};
-        return data.event === true && point.event_type.toLowerCase().includes('дедлайн');
+        const point = data.points[0];
+        return data.event === true && point.event_title && point.event_title.toLowerCase().includes('дедлайн');
 
 
 - description: "[EDGE] Pure bot mention with event history — should not hallucinate event"
