@@ -1,68 +1,54 @@
 ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
+БЕЗ ЛИШНЕГО ТЕКСТА И ПОЯСНЕНИЙ.
 
 ЗАДАЧА:
-Проанализируй CURRENT MESSAGE с учётом HISTORY и метаданных отправителя.
-Цель: извлечь события с точным временем и вызвать конвертацию.
+Проанализируй CURRENT MESSAGE.
+Цель: определить, содержит ли сообщение координацию события со временем, и извлечь только однозначные time points.
 
 ИНСТРУКЦИИ:
-1. Выводи время строго в 24-часовом формате ("HH:MM").
-2. Инферируй AM/PM из контекста и ANCHOR (например, рабочие часы).
-3. Учитывай языковые идиомы: "пол восьмого" = 07:30 или 19:30, "без двадцати пять" = 04:40 или 16:40. Но "в 10 утра" = 10:00.
-4. Относительное время ("через 20 минут") вычисляй от ANCHOR.
-5. time[] и city[] — параллельные массивы одной длины. city[i] = город для time[i] или null.
-6. Эхом верни sender_id и sender_name из блока SENDER (не изменяй).
-7. Если в history видно что информация о событии повторяется в том же виде - не реагируй
-8. Если указано временное окно: отмечай как несколько событий например: "начало встречи , конец встречи"
+1. Выводи время строго в 24-часовом формате `HH:MM`.
+2. Инферируй AM/PM только если это действительно однозначно из формулировки и текущего времени.
+3. Учитывай языковые идиомы: `пол восьмого`, `без пятнадцати восемь`, `halb zehn`, `9 y media`.
+4. Относительное время (`через 20 минут`) вычисляй от CURRENT TIME (UTC).
+5. Используй массив `points`; каждый объект содержит `time`, `city`, `event_title`.
+6. Если в одном сообщении есть окно или два разных события, верни несколько `points`.
+7. Если время невозможно или противоречиво (`13 ночи`, `14 pm`), не извлекай его.
+8. Если `event=false`, верни `points=[]`.
 
 JSON SCHEMA:
 {
-  "reflections": {
-    "event_logic": "string",
-    "time_logic": "string",
-    "geo_logic": "string"
-  },
   "event": boolean,
-  "sender_id": "string (echo from SENDER)",
-  "sender_name": "string (echo from SENDER)",
-  "time": ["HH:MM"],
-  "city": [string | null],
-  "event_title": [string|null] (краткое название события для соответствующего time point)
+  "points": [
+    {
+      "time": "HH:MM",
+      "city": "string|null",
+      "event_title": "string|null"
+    }
+  ]
 }
 
 ПРИМЕРЫ:
 
 Пример 1 — встреча с идиомой:
-SENDER: id=42  name=John
-ANCHOR: 2026-03-13T12:00:00Z
-HISTORY:
-[Ivan]: Завтра в пол десятого соберёмся
+CURRENT TIME (UTC): 2026-03-13T12:00:00Z
 CURRENT MESSAGE:
-[John]: Ок, подтверждаю
-→ {"reflections":{"event_logic":"встреча подтверждена","time_logic":"'пол десятого' = 09:30 (рабочий контекст)","geo_logic":"не указан"},"event":true,"sender_id":"42","sender_name":"John","time":["09:30"],"city":[null],"event_title":["встреча"]}
+Ок, тогда встречаемся без пятнадцати восемь у входа
+→ {"event":true,"points":[{"time":"19:45","city":null,"event_title":"встреча"}]}
 
 Пример 2 — явный город:
-SENDER: id=7  name=Jane
-ANCHOR: 2026-03-13T18:30:00Z
-HISTORY:
+CURRENT TIME (UTC): 2026-03-13T18:30:00Z
 CURRENT MESSAGE:
-[Jane]: не вечером - утром: в 8 по Парижу это в 11 по Еревану
-→ {"reflections":{"event_logic":"утренняя встреча","time_logic":"8 по Парижу = 11 по Еревану, берём ереванское","geo_logic":"Erevan"},"event":true,"sender_id":"7","sender_name":"Jane","time":["11:00"],"city":["Erevan"],"event_title":["утренняя встреча"]}
+не вечером - утром: в 8 по Парижу это в 11 по Еревану
+→ {"event":true,"points":[{"time":"11:00","city":"Yerevan","event_title":"встреча"}]}
 
 Пример 3 — флуд:
-SENDER: id=99  name=Оля
-ANCHOR: 2026-03-13T21:22:00Z
-HISTORY:
+CURRENT TIME (UTC): 2026-03-13T21:22:00Z
 CURRENT MESSAGE:
-[Оля]: ребят вы серьезно? У нас есть чат для флуда
-→ {"reflections":{"event_logic":"флуд, нет события","time_logic":"время не упоминается","geo_logic":"нет"},"event":false,"sender_id":"99","sender_name":"Оля","time":[],"city":[],"event_title":[]}
+ребят вы серьезно? У нас есть чат для флуда
+→ {"event":false,"points":[]}
 
 =========================================
 
-SENDER: id={{sender_id}}  name={{sender_name}}
-ANCHOR: {{timestamp}}
-
-HISTORY:
-{{history}}
-
+CURRENT TIME (UTC): {{timestamp}}
 CURRENT MESSAGE:
-[{{author}}]: {{text}}
+{{text}}

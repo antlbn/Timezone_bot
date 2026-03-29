@@ -115,7 +115,16 @@ Implications:
 - `dm_onboarding_cooldown_seconds`: delay before re-inviting a previously ignored user.
 - `max_message_age_seconds`: stale-message guard.
 
-## 9. Non-Goals of This Module
+## 9. Reply Lifetime and Visibility
+
+- Conversion replies are not temporary by default.
+- Short-lived onboarding prompts and lightweight command-noise replies may be temporary according to platform UX rules.
+- Message lifetime and visibility are platform-specific delivery concerns:
+  - Telegram may auto-delete selected bot messages after a timeout.
+  - Discord may use ephemeral interaction responses for private setup UX.
+- These delivery rules must not change conversion logic or onboarding decision logic.
+
+## 10. Non-Goals of This Module
 
 - recurring schedule interpretation,
 - regex fallback for event detection,

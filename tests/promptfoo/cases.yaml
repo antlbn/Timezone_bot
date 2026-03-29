@@ -99,10 +99,10 @@
 
 
 # ============================================================
-# [CONTEXT] Контекст из истории
+# [DISAMBIGUATION] Разбор смысла текущего сообщения
 # ============================================================
 
-- description: "[CONTEXT] Explicit refusal — event still exists in history"
+- description: "[DISAMBIGUATION] Explicit refusal with time mention"
   vars:
     sender_id: "401"
     sender_name: "Dmitry"
@@ -115,7 +115,7 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === false && data.points.some(p => p.time === '17:00');
 
-- description: "[CONTEXT] Ambiguous number — resolved by history (or not)"
+- description: "[DISAMBIGUATION] Ambiguous bare hour still treated as event proposal"
   vars:
     sender_id: "402"
     sender_name: "Anton"
@@ -174,10 +174,10 @@
 
 
 # ============================================================
-# [STRESS] Стресс-тест
+# [STRESS] Длинное шумное сообщение с несколькими событиями
 # ============================================================
 
-- description: "[STRESS] Massive history (EN) + tired message with typos — 3 events, ignoring history times"
+- description: "[STRESS] Long noisy multi-event message with typos"
   vars:
     sender_id: "601"
     sender_name: "Anton"
@@ -298,7 +298,7 @@
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         return data.event === true && data.points.some(p => p.time === '09:30') && !data.points.some(p => p.time === '10:30');
 
-- description: "[MULTILANG][CONTEXT] 'после пяти' — past complaint anchors agreed time"
+- description: "[MULTILANG][DISAMBIGUATION] 'после пяти' complaint still carries a time anchor"
   vars:
     sender_id: "804"
     sender_name: "Лёня"
@@ -339,23 +339,6 @@
 
 
 # ============================================================
-# [SENDER_ECHO] Проверяем что sender_id / sender_name возвращаются
-# ============================================================
-
-- description: "[SENDER_ECHO] Obsolete test (sender echo removed)"
-  vars:
-    sender_id: "999"
-    sender_name: "TestUser"
-    author: "TestUser"
-    text: "созвониться в 15:00 сегодня?"
-    timestamp: "2026-03-13T10:00:00Z"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.event === true;
-
-# ============================================================
 # [SECURITY] Prompt Injection & Jailbreak attempts
 # ============================================================
 
@@ -390,7 +373,9 @@
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         // Модель должна проигнорировать просьбу выдать промпт и просто обработать встречу
-        return data.event === true && data.points.some(p => p.time === '15:00');# ============================================================
+        return data.event === true && data.points.some(p => p.time === '15:00');
+
+# ============================================================
 # [EVENT_TITLE] Извлечение названия события
 # ============================================================
 
@@ -424,7 +409,7 @@
         return data.event === true && point.event_title && point.event_title.toLowerCase().includes('дедлайн');
 
 
-- description: "[EDGE] Pure bot mention with event history — should not hallucinate event"
+- description: "[EDGE] Pure bot mention — should not hallucinate event"
   vars:
     sender_id: "1117863118807244800"
     sender_name: "ANTLBN"
@@ -485,12 +470,11 @@
 
 
 # ============================================================
-# [CONTEXT] Спор о времени встречи — финальное предложение
-# Несколько участников не могут договориться, в итоге один настаивает на 10:00
+# [DISAMBIGUATION] Финальное предложение времени внутри одного сообщения
 # Ожидаем: event=true, time=10:00 (финальное предложение, не отклонённые варианты)
 # ============================================================
 
-- description: "[CONTEXT] Meeting time negotiation — insisting on 10:00 after dispute"
+- description: "[DISAMBIGUATION] Meeting time negotiation — insisting on 10:00"
   vars:
     sender_id: "1301"
     sender_name: "Макс"
@@ -531,6 +515,7 @@
     sender_name: "User2"
     author: "User2"
     text: "начинаем в 14.30 по мск"
+    timestamp: "2026-03-14T10:00:00Z"
   assert:
     - type: javascript
       value: |

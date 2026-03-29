@@ -1,28 +1,16 @@
 import json
 import os
+from typing import List, Optional
 
 import instructor
 from openai import OpenAI
 from pydantic import BaseModel, Field
-from typing import List, Optional
-
-
-# Define the exact output schema expected by promptfoo assertions
-class Reflections(BaseModel):
-    event_logic: str = Field(
-        description="Step by step reasoning to determine if this message proposes or modifies an event/meeting."
-    )
-    time_logic: str = Field(
-        description="Step by step calculation of the event time in 24h HH:MM format. If relative (e.g. 'in an hour'), explicitly add it to the ANCHOR time."
-    )
-    geo_logic: str = Field(
-        description="Reasoning for the extracted city/timezone, if any."
-    )
 
 
 class TimePoint(BaseModel):
     time: str = Field(description="Time in exact HH:MM format (24 hour clock).")
     city: Optional[str] = Field(
+        default=None,
         description="City or timezone name mentioned for THIS specific time. Use null if not specified."
     )
     event_title: Optional[str] = Field(
@@ -32,18 +20,11 @@ class TimePoint(BaseModel):
 
 
 class TimezoneResponse(BaseModel):
-    reflections: Reflections
     event: bool = Field(
         description="True if the message discusses a specific upcoming meeting, call, or event coordination. False if it's just chatter or past events."
     )
     points: List[TimePoint] = Field(
         description="List of extracted time points. If one event is mentioned in multiple zones, PICK ONLY ONE (the most specific one)."
-    )
-    sender_id: str = Field(
-        description="The exact sender_id given in the prompt's SENDER block."
-    )
-    sender_name: str = Field(
-        description="The exact sender_name given in the prompt's SENDER block."
     )
 
 
@@ -53,6 +34,7 @@ def call_api(prompt, options, context):
     Config options:
       - model: e.g. "openrouter/nvidia/nemotron-3-super-120b-a12b:free" or "groq/llama-3.1-8b-instant"
       - temperature: float
+    This provider follows the current runtime-style schema: `event` + `points[]`.
     """
     config = options.get("config", {})
     full_model_name = config.get("model", "")

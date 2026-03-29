@@ -60,7 +60,14 @@ Discord does not require `/tb_remove` in MVP because stale membership cleanup is
 - one user must not be able to complete onboarding for another user,
 - server membership cleanup must affect only bot storage.
 
-## 8. Non-Goals
+## 8. Message Visibility and Lifetime
+
+- Public onboarding invites in server channels may be short-lived.
+- Interactive onboarding and settings UX should prefer ephemeral responses where platform capabilities allow it.
+- Conversion replies are public shared-chat outputs and are not ephemeral by default.
+- Ephemeral visibility is a delivery concern only; it must not change conversion logic or onboarding outcomes.
+
+## 9. Non-Goals
 
 - separate Discord-only business logic,
 - durable DM support mode,

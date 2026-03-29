@@ -7,7 +7,7 @@ providers:
       temperature: 0.1
 
 evaluateOptions:
-  maxConcurrency: 2
+  maxConcurrency: 1
   delay: 5000
 
 tests:

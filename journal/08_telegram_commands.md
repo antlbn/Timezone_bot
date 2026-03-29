@@ -98,6 +98,13 @@ This affects bot storage only, not real Telegram membership.
 - important reference messages in private onboarding may remain,
 - transient prompts may be cleaned up according to configuration.
 
+### 7.1 Telegram Message Lifetime Policy
+
+- Shared-chat onboarding invites are short-lived and should be auto-deleted.
+- Short command replies such as help/settings noise may be auto-deleted according to `settings_cleanup_timeout_seconds`.
+- Conversion replies are not temporary by default.
+- Private onboarding reference messages may remain when preserving setup context is more useful than aggressive cleanup.
+
 ## 8. Security Rules
 
 - deep-link payload must be validated,

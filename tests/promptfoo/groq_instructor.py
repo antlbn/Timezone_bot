@@ -1,33 +1,39 @@
 import json
 import os
+from typing import List, Optional
+
 import instructor
 from groq import Groq
 from pydantic import BaseModel, Field
-from typing import List, Optional
 
 
 # Define the exact output schema expected by promptfoo assertions
-class Reflections(BaseModel):
-    event_logic: str = Field(
-        description="Reasoning for whether an event is present or not"
+class TimePoint(BaseModel):
+    time: str = Field(description="Time in exact HH:MM format (24 hour clock).")
+    city: Optional[str] = Field(
+        default=None,
+        description="City or timezone label for this time point, if explicitly present.",
     )
-    time_logic: str = Field(description="Reasoning for the extracted time, if any")
-    geo_logic: str = Field(
-        description="Reasoning for the extracted city/timezone, if any"
+    event_title: Optional[str] = Field(
+        default=None,
+        description="Optional short event label for this specific time point.",
     )
 
 
 class TimezoneResponse(BaseModel):
-    reflections: Reflections
-    event: bool
-    time: List[str]
-    city: List[Optional[str]]
+    event: bool = Field(
+        description="True if the message proposes or coordinates an event with time."
+    )
+    points: List[TimePoint] = Field(
+        description="List of extracted time points for the current message."
+    )
 
 
 def call_api(prompt, options, context):
     """
-    Custom provider function for Promptfoo.
-    See: https://promptfoo.dev/docs/providers/python/
+    Instructor-based Groq provider for promptfoo.
+    This mirrors the current runtime contract: JSON-only, current message only,
+    and `points[]` instead of legacy parallel `time[]`/`city[]` arrays.
     """
     # Ensure atomic API key reading
     api_key = os.environ.get("GROQ_API_KEY")
@@ -43,8 +49,6 @@ def call_api(prompt, options, context):
     temperature = config.get("temperature", 0.1)
 
     try:
-        # Instructor handles the strict JSON schema validation, retries, and clean extraction
-        # We pass the full promptfoo prompt containing both system rules and user message
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -52,9 +56,6 @@ def call_api(prompt, options, context):
             temperature=temperature,
             max_retries=2,
         )
-
-        # Convert Pydantic model back to a dictionary and then return as string
-        # to ensure it behaves exactly like a raw API response holding JSON
         result_dict = resp.model_dump()
         return {"output": json.dumps(result_dict, ensure_ascii=False)}
 
