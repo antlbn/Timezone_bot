@@ -4,17 +4,18 @@ prompts:
   # - file://prompts_claude.txt
   # - file://prompt_v3.txt
   # - file://prompt_smart.txt
-  - file://prompt_minimal.txt
+  # - file://prompt_minimal.txt
   - file://prompt_balanced.txt
+  - file://prompt_extractive.txt
 
 providers:
   # Direct providers (raw API output)
   - id: groq:llama-3.1-8b-instant
     config:
       temperature: 0.1
-  - id: openrouter:arcee-ai/trinity-large-preview:free
-    config:
-      temperature: 0.1
+  # - id: openrouter:arcee-ai/trinity-large-preview:free
+  #   config:
+  #     temperature: 0.1
   # # - id: openrouter:nvidia/nemotron-3-super-120b-a12b:free
   #   config:
   #     temperature: 0.1
@@ -69,7 +70,6 @@ tests:
 #       apiBaseUrl: https://api.groq.com/openai/v1
 #       apiKey: GROQ_API_KEY
 #       temperature: 0
-
 
 
 

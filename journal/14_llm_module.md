@@ -90,6 +90,13 @@ Outcome handling:
 - Failed primary and fallback attempts must be logged with enough context to diagnose provider/model failure.
 - Fallback switching must not change business rules; it changes only the provider/model used for the same contract.
 
+## 8.1 Client Lifecycle
+
+- The runtime should reuse async LLM clients across messages when provider endpoint and credentials are unchanged.
+- Per-message recreation of the HTTP client / LLM client is not part of the canonical MVP design because it adds avoidable connection churn and latency.
+- Config-derived LLM attempt plans may be cached, but that cache must be invalidated when config is reloaded in-process.
+- Fallback attempts must reuse the same business contract and prompt contract as the primary attempt; only provider/model selection may differ.
+
 ## 9. Non-Goals
 
 - recurring event scheduling,

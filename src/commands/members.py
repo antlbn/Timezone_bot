@@ -107,5 +107,5 @@ async def process_remove(message: Message, state: FSMContext):
     await storage.remove_chat_member(message.chat.id, user_id, platform="telegram")
 
     await state.clear()
-    return await message.answer(f"Removed member #{num}")
     logger.info(f"[chat:{message.chat.id}] Removed user {user_id}")
+    return await message.answer(f"Removed member #{num}")

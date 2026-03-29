@@ -8,9 +8,10 @@ Architecture:
 """
 
 import json
+import os
+from functools import lru_cache
 from typing import Any
 
-import os
 from openai import AsyncOpenAI
 
 from src.logger import get_logger
@@ -25,6 +26,9 @@ from src.config import (
 )
 
 logger = get_logger()
+
+
+_openai_clients: dict[tuple[str | None, str | None], AsyncOpenAI] = {}
 
 
 def _strip_json_fences(raw: str) -> str:
@@ -70,7 +74,8 @@ def _resolve_api_key(preferred_env: str | None) -> str | None:
     return None
 
 
-def _build_llm_attempts() -> list[dict]:
+@lru_cache(maxsize=1)
+def _build_llm_attempts() -> tuple[dict, ...]:
     """Build primary and optional fallback LLM configurations."""
     cfg = get_config()
     llm_cfg = cfg.get("llm", {})
@@ -96,16 +101,27 @@ def _build_llm_attempts() -> list[dict]:
             }
         )
 
-    return attempts
+    return tuple(attempts)
 
 
 def _create_openai_client(attempt: dict) -> AsyncOpenAI:
-    """Create an OpenAI-compatible async client for a single LLM attempt."""
-    return AsyncOpenAI(
-        api_key=attempt["api_key"],
-        base_url=attempt["base_url"],
-        http_client=None,
-    )
+    """Reuse OpenAI-compatible async clients across requests."""
+    client_key = (attempt["base_url"], attempt["api_key"])
+    client = _openai_clients.get(client_key)
+    if client is None:
+        client = AsyncOpenAI(
+            api_key=attempt["api_key"],
+            base_url=attempt["base_url"],
+            http_client=None,
+        )
+        _openai_clients[client_key] = client
+    return client
+
+
+def clear_runtime_caches() -> None:
+    """Clear detector-level caches used by config and test reloads."""
+    _build_llm_attempts.cache_clear()
+    _openai_clients.clear()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

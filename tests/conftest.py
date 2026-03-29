@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+from src.config import reload_config
 from src.storage import storage
 
 
@@ -38,3 +39,14 @@ async def cancel_pending_tasks():
 
     # Give tasks a moment to realize they are cancelled
     await asyncio.gather(*pending, return_exceptions=True)
+
+
+@pytest.fixture(autouse=True)
+def reload_runtime_config():
+    """
+    Reset cached config and detector runtime state around every test so tests
+    can patch config/env values without stale singletons leaking across cases.
+    """
+    reload_config()
+    yield
+    reload_config()

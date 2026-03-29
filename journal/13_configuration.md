@@ -125,6 +125,14 @@ Examples:
 - New config flags should be added here when they become part of the MVP contract.
 - Flags that exist only as implementation leftovers should not remain undocumented.
 
+## 5.1 Runtime Semantics
+
+- Runtime code must read product configuration through the canonical config access layer rather than ad-hoc YAML reads inside feature modules.
+- Cached configuration is allowed, but the cache must support explicit reset/reload in the same Python process.
+- Reloading config must also clear dependent runtime caches whose values are derived from config, such as LLM attempt lists.
+- Tests must be able to change `configuration.yaml` content or patch config/env accessors and observe the updated values without restarting the process.
+- Stable config accessors are part of the internal runtime contract. When an accessor is renamed, all call sites must be updated in the same change or a backward-compatible alias must remain.
+
 ## 6. Non-Goals
 
 - exhaustive vendor-specific environment options,

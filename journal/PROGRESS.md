@@ -1,3 +1,12 @@
+> Note: `PROGRESS.md` is a working session journal, not a canonical source of truth.
+> Canonical product and architecture rules live in the dedicated spec documents under `journal/`.
+
+## 2026-03-29 (session) - Minimal Spec Hardening for Runtime Contracts
+- **Docs**: Hardened `13_configuration.md` with explicit runtime rules for config caching, reload semantics, and backward-compatible accessor changes.
+- **Docs**: Hardened `14_llm_module.md` with canonical LLM client lifecycle rules and cache invalidation requirements.
+- **Docs**: Hardened `10_testing_strategy.md` with reset/isolation requirements for runtime caches and critical callback coverage.
+- **Docs**: Hardened `09_logging.md` with required operational logs for state-changing handlers and an explicit prohibition on unreachable required logs.
+
 ## 2026-03-29 (session) - Detector Delivery Separation and Member Cache
 - **Architecture**: Removed direct reply sending from `src/event_detection/detector.py`; the detector now returns structured output only, and platform adapters deliver messages themselves.
 - **Runtime**: Moved reply building into the bot-logic layer so `process_message(...)` returns `reply_text` while Telegram and Discord handlers remain responsible for transport/UI details.

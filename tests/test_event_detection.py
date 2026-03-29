@@ -118,9 +118,10 @@ async def test_llm_json_dispatch_strips_markdown_fences():
 @pytest.mark.asyncio
 async def test_llm_fallback_attempt_used(monkeypatch):
     """Primary LLM failure should fall back to a secondary configured LLM."""
-    from src.event_detection.detector import detect_event
+    from src.event_detection.detector import clear_runtime_caches, detect_event
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    clear_runtime_caches()
 
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
@@ -130,11 +131,10 @@ async def test_llm_fallback_attempt_used(monkeypatch):
         }
     )))]
 
-    primary_client = MagicMock()
-    primary_client.chat.completions.create = AsyncMock(side_effect=RuntimeError("primary down"))
-
-    fallback_client = MagicMock()
-    fallback_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    shared_client = MagicMock()
+    shared_client.chat.completions.create = AsyncMock(
+        side_effect=[RuntimeError("primary down"), mock_response]
+    )
 
     with (
         patch(
@@ -153,7 +153,7 @@ async def test_llm_fallback_attempt_used(monkeypatch):
         ),
         patch(
             "src.event_detection.detector.AsyncOpenAI",
-            side_effect=[primary_client, fallback_client],
+            return_value=shared_client,
         ) as mock_client_cls,
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[{
             "user_id": "888", "username": "boss",
@@ -172,7 +172,8 @@ async def test_llm_fallback_attempt_used(monkeypatch):
 
     assert result["event"] is True
     assert result["event_title"] == ["созвон"]
-    assert mock_client_cls.call_count == 2
+    assert shared_client.chat.completions.create.await_count == 2
+    assert mock_client_cls.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -228,6 +229,28 @@ async def test_process_message_builds_reply_text(monkeypatch):
     assert result["time"] == ["20:00"]
     assert result["reply_text"] == "20:00 London 🇬🇧"
     assert mock_client_cls.call_count == 1
+
+
+def test_openai_client_reused_for_same_endpoint():
+    from src.event_detection.detector import _create_openai_client, clear_runtime_caches
+
+    attempt = {
+        "api_key": "test-key",
+        "base_url": "https://example.invalid/v1",
+    }
+
+    with patch("src.event_detection.detector.AsyncOpenAI") as mock_client_cls:
+        first = _create_openai_client(attempt)
+        second = _create_openai_client(attempt)
+
+    assert first is second
+    mock_client_cls.assert_called_once_with(
+        api_key="test-key",
+        base_url="https://example.invalid/v1",
+        http_client=None,
+    )
+
+    clear_runtime_caches()
 
 
 @pytest.mark.asyncio

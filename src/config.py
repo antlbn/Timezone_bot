@@ -4,6 +4,7 @@ Loads configuration.yaml and .env file.
 """
 
 import os
+from functools import lru_cache
 from pathlib import Path
 from dotenv import load_dotenv
 import yaml
@@ -22,16 +23,25 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-# Singleton config
-_config = None
-
-
+@lru_cache(maxsize=1)
 def get_config() -> dict:
     """Get cached configuration."""
-    global _config
-    if _config is None:
-        _config = load_config()
-    return _config
+    return load_config()
+
+
+def reload_config() -> dict:
+    """Reload configuration from disk and clear dependent runtime caches."""
+    get_config.cache_clear()
+
+    try:
+        from src.event_detection.detector import clear_runtime_caches
+    except Exception:
+        clear_runtime_caches = None
+
+    if clear_runtime_caches is not None:
+        clear_runtime_caches()
+
+    return get_config()
 
 
 # Quick access
@@ -93,6 +103,11 @@ def get_max_message_hard_skip() -> int:
 def get_inactive_user_retention_days() -> int:
     """Read inactivity retention period for users."""
     return get_config().get("storage", {}).get("inactive_user_retention_days", 30)
+
+
+def get_data_retention_days() -> int:
+    """Backward-compatible alias for user data retention period."""
+    return get_inactive_user_retention_days()
 
 
 def get_onboarding_timeout() -> int:

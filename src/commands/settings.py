@@ -160,9 +160,9 @@ async def dm_setcity_callback(
 @router.callback_query(DMSettingsCallback.filter(F.action == "privacy"))
 async def dm_privacy_callback(callback: CallbackQuery):
     """Show data privacy information."""
-    from src.config import get_data_retention_days
+    from src.config import get_inactive_user_retention_days
 
-    retention_days = get_data_retention_days()
+    retention_days = get_inactive_user_retention_days()
 
     await callback.answer(
         text=f"Data is stored locally and auto-deleted after {retention_days} days of inactivity.",

@@ -41,3 +41,9 @@ Starting from **2026-03-16**, the LLM pipeline uses `logging.LoggerAdapter` to a
 We do **not hide** errors.
 - **Failures**: All exceptions in `except` blocks (Geo API, DB) must be logged as `WARNING` or `ERROR`.
 - **Silent Failures**: `except: pass` is **prohibited** for critical logic.
+
+## 6. Required Operational Logs
+
+- State-changing handlers must emit an observable log entry after the state change succeeds.
+- Logs required by the MVP include at least member removal, timezone save/update, onboarding decline, and LLM attempt failure.
+- Required logs must be reachable in the executed control flow; logging placed after a terminal `return` does not satisfy the contract.

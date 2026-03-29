@@ -82,3 +82,10 @@ In the future (Post-MVP) add GitHub Actions:
 - **L1.5 (Handlers)**: Use `unittest.mock` (don't touch disk at all).
 - **L2 (Integration)**: Tests in `test_storage.py` automatically create and delete a **temporary DB file** (`tests/test_bot.db`).
 This guarantees that tests can run on a clean machine right after `git clone`.
+
+## 7. Runtime Reset and Isolation
+
+- Any runtime cache that can affect deterministic test behavior must expose a reset hook or participate in a shared reload path.
+- Tests are allowed to patch env vars, config getters, and YAML-backed config values inside a single pytest process.
+- Critical user actions that can crash due to wiring mistakes must have automated coverage, including settings/privacy callbacks and LLM fallback behavior.
+- Stale config state leaking from one test to another is a bug, not an accepted limitation of the test harness.
