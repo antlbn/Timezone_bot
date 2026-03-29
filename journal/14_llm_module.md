@@ -10,6 +10,7 @@ It decides whether a message represents a time coordination event and returns st
 - LLM usage is mandatory for the core message flow.
 - There is no regex-first path and no regex fallback path in MVP.
 - The LLM does not send replies directly; it returns structured output to the bot logic.
+- Production runtime should support a primary LLM and an optional fallback LLM for resilience.
 
 ## 3. Input to the LLM
 
@@ -90,6 +91,9 @@ Outcome handling:
 - Max message length and max message age are enforced outside or around the LLM call.
 - The LLM must not infer durable sender timezone from natural language.
 - The LLM must not assume participant lists from conversation unless explicitly supported in future scope.
+- If the primary LLM call fails, runtime may retry via a configured fallback LLM.
+- Failed primary and fallback attempts must be logged with enough context to diagnose provider/model failure.
+- Fallback switching must not change business rules; it changes only the provider/model used for the same contract.
 
 ## 10. Non-Goals
 

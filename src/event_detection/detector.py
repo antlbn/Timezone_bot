@@ -17,7 +17,12 @@ from langchain_openai import ChatOpenAI
 from src.logger import get_logger
 from src.event_detection.client import get_llm_model
 from src.event_detection.prompts import get_system_prompt
-from src.config import get_log_llm_prompts, get_llm_base_url, get_llm_temperature
+from src.config import (
+    get_config,
+    get_log_llm_prompts,
+    get_llm_base_url,
+    get_llm_temperature,
+)
 
 logger = get_logger()
 
@@ -29,6 +34,35 @@ def _normalize_point(point: dict) -> dict:
         "city": point.get("city"),
         "event_title": point.get("event_title", point.get("event_type")),
     }
+
+
+def _build_llm_attempts() -> list[dict]:
+    """Build primary and optional fallback LLM configurations."""
+    cfg = get_config()
+    llm_cfg = cfg.get("llm", {})
+    attempts = [
+        {
+            "name": "primary",
+            "model": llm_cfg.get("model") or get_llm_model(),
+            "base_url": llm_cfg.get("base_url") or get_llm_base_url(),
+            "temperature": float(llm_cfg.get("temperature", get_llm_temperature())),
+            "api_key": os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"),
+        }
+    ]
+
+    fallback = llm_cfg.get("fallback")
+    if fallback and fallback.get("enabled", True) and fallback.get("model"):
+        attempts.append(
+            {
+                "name": "fallback",
+                "model": fallback["model"],
+                "base_url": fallback.get("base_url") or attempts[0]["base_url"],
+                "temperature": float(fallback.get("temperature", attempts[0]["temperature"])),
+                "api_key": os.getenv(fallback.get("api_key_env", "")) if fallback.get("api_key_env") else attempts[0]["api_key"],
+            }
+        )
+
+    return attempts
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,8 +106,8 @@ async def _build_reply(
         city_override = point.get("city")
 
         if city_override:
-            from src.geo import get_timezone_by_city
-            geo_result = get_timezone_by_city(city_override)
+            from src.geo import async_get_timezone_by_city
+            geo_result = await async_get_timezone_by_city(city_override)
             if geo_result and not geo_result.get("error"):
                 source_city = geo_result["city"]
                 source_tz = geo_result["timezone"]
@@ -133,18 +167,6 @@ async def detect_event(
     else:
         ctx_logger.debug(f"LLM call | msg='{current_msg.get('text', '')[:60]}'")
 
-    temp = get_llm_temperature()
-    model_name = get_llm_model()
-
-    # Use basic ChatOpenAI, requesting JSON object
-    llm = ChatOpenAI(
-        model=model_name,
-        openai_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"),
-        base_url=get_llm_base_url(),
-        temperature=temp,
-        model_kwargs={"response_format": {"type": "json_object"}},
-    )
-
     messages = [
         {"role": "system", "content": get_system_prompt()},
         {"role": "user", "content": user_content},
@@ -154,36 +176,55 @@ async def detect_event(
     message_id: str | None = None
     event_detected = False
 
-    try:
-        response = await llm.ainvoke(messages)
-        raw = response.content or "{}"
-        
-        parsed = json.loads(raw)
-        event_detected = bool(parsed.get("event"))
-        result_points = [_normalize_point(point) for point in parsed.get("points", [])]
+    last_error: Exception | None = None
+    for attempt in _build_llm_attempts():
+        try:
+            ctx_logger.info(
+                f"[chat:{chat_id}] LLM attempt={attempt['name']} model={attempt['model']}"
+            )
+            llm = ChatOpenAI(
+                model=attempt["model"],
+                openai_api_key=attempt["api_key"],
+                base_url=attempt["base_url"],
+                temperature=attempt["temperature"],
+                model_kwargs={"response_format": {"type": "json_object"}},
+            )
+            response = await llm.ainvoke(messages)
+            raw = response.content or "{}"
 
-        if not event_detected and getattr(response, "tool_calls", None):
-            for tool_call in response.tool_calls:
-                if tool_call.get("name") == "publish_event":
-                    event_detected = True
-                    args = tool_call.get("args", {})
-                    result_points = [
-                        _normalize_point(point) for point in args.get("points", [])
-                    ]
-                    break
-        
-        if event_detected and result_points and send_fn:
-             reply = await _build_reply(
-                 result_points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
-             )
-             if reply:
-                 message_id = await send_fn(reply)
-                 ctx_logger.info(
-                     f"[chat:{chat_id}] sent new message (id={message_id}, points={len(result_points)})"
-                 )
+            parsed = json.loads(raw)
+            event_detected = bool(parsed.get("event"))
+            result_points = [_normalize_point(point) for point in parsed.get("points", [])]
 
-    except Exception as exc:
-        ctx_logger.error(f"[chat:{chat_id}] Agent error: {exc}")
+            if not event_detected and getattr(response, "tool_calls", None):
+                for tool_call in response.tool_calls:
+                    if tool_call.get("name") == "publish_event":
+                        event_detected = True
+                        args = tool_call.get("args", {})
+                        result_points = [
+                            _normalize_point(point) for point in args.get("points", [])
+                        ]
+                        break
+
+            if event_detected and result_points and send_fn:
+                reply = await _build_reply(
+                    result_points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
+                )
+                if reply:
+                    message_id = await send_fn(reply)
+                    ctx_logger.info(
+                        f"[chat:{chat_id}] sent new message (id={message_id}, points={len(result_points)})"
+                    )
+            break
+        except Exception as exc:
+            last_error = exc
+            ctx_logger.error(
+                f"[chat:{chat_id}] LLM attempt failed: attempt={attempt['name']} model={attempt['model']} error={exc}"
+            )
+            continue
+    else:
+        if last_error:
+            ctx_logger.error(f"[chat:{chat_id}] All LLM attempts failed. last_error={last_error}")
 
     return {
         "event": event_detected,

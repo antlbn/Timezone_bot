@@ -26,6 +26,12 @@ llm:
   model: gpt-5
   temperature: 0.1
   base_url:
+  fallback:
+    enabled: false
+    model:
+    temperature: 0.1
+    base_url:
+    api_key_env:
 
 # Event Detection (LLM Layer)
 # See: journal/14_llm_module.md

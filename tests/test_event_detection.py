@@ -1,7 +1,8 @@
 import pytest
 import asyncio
 import datetime
-from unittest.mock import AsyncMock, patch
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 from src.event_detection import process_message
 from src.config import get_max_message_age
 
@@ -43,8 +44,6 @@ async def test_process_message_event():
 async def test_llm_json_dispatch(monkeypatch):
     """Test that detect_event correctly handles JSON responses from the LLM."""
     from src.event_detection.detector import detect_event
-    from unittest.mock import MagicMock, patch
-    import json
 
     # Build a fake response object that returns JSON text
     mock_response = MagicMock()
@@ -92,6 +91,77 @@ async def test_llm_json_dispatch(monkeypatch):
     assert result["event"] is True
     assert result["time"] == ["20:00"]
     assert result["event_title"] == ["созвон"]
+
+
+@pytest.mark.asyncio
+async def test_llm_fallback_attempt_used(monkeypatch):
+    """Primary LLM failure should fall back to a secondary configured LLM."""
+    from src.event_detection.detector import detect_event
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    mock_response = MagicMock()
+    mock_response.content = json.dumps(
+        {
+            "event": True,
+            "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
+        }
+    )
+
+    sent_messages = []
+
+    async def mock_send(text):
+        sent_messages.append(text)
+        return "msg_002"
+
+    primary_instance = MagicMock()
+    primary_instance.ainvoke = AsyncMock(side_effect=RuntimeError("primary down"))
+
+    fallback_instance = MagicMock()
+    fallback_instance.ainvoke = AsyncMock(return_value=mock_response)
+
+    with (
+        patch(
+            "src.event_detection.detector.get_config",
+            return_value={
+                "llm": {
+                    "model": "primary-model",
+                    "temperature": 0.1,
+                    "base_url": None,
+                    "fallback": {
+                        "enabled": True,
+                        "model": "fallback-model",
+                    },
+                }
+            },
+        ),
+        patch(
+            "src.event_detection.detector.ChatOpenAI",
+            side_effect=[primary_instance, fallback_instance],
+        ) as mock_llm_cls,
+        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[{
+            "user_id": "888", "username": "boss",
+            "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
+        }])),
+    ):
+        result = await detect_event(
+            current_msg={
+                "author_id": "888",
+                "author_name": "Boss",
+                "text": "Call at 8pm London",
+                "timestamp_utc": "2026-03-14T20:00:00Z",
+            },
+            snapshot=[],
+            sender_db={"timezone": "Europe/London", "city": "London"},
+            send_fn=mock_send,
+            platform="telegram",
+            chat_id="chat1",
+        )
+
+    assert len(sent_messages) == 1
+    assert result["event"] is True
+    assert result["event_title"] == ["созвон"]
+    assert mock_llm_cls.call_count == 2
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,6 @@
 """Tests for geo module - city lookup and timezone resolution."""
 
+import pytest
 from unittest.mock import patch
 
 
@@ -155,3 +156,25 @@ class TestGetCountryFlag:
         assert get_country_flag("X") == ""
         assert get_country_flag("TOOLONG") == ""
         assert get_country_flag(None) == ""
+
+
+class TestAsyncGeoWrappers:
+    @pytest.mark.asyncio
+    async def test_async_get_timezone_by_city_uses_sync_impl(self):
+        from src.geo import async_get_timezone_by_city
+
+        with patch("src.geo.get_timezone_by_city", return_value={"timezone": "Europe/Berlin"}) as mock_get:
+            result = await async_get_timezone_by_city("Berlin")
+
+        mock_get.assert_called_once_with("Berlin")
+        assert result["timezone"] == "Europe/Berlin"
+
+    @pytest.mark.asyncio
+    async def test_async_resolve_timezone_from_input_uses_sync_impl(self):
+        from src.geo import async_resolve_timezone_from_input
+
+        with patch("src.geo.resolve_timezone_from_input", return_value={"timezone": "Europe/London"}) as mock_resolve:
+            result = await async_resolve_timezone_from_input("London")
+
+        mock_resolve.assert_called_once_with("London")
+        assert result["timezone"] == "Europe/London"

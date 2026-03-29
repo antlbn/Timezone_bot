@@ -3,6 +3,8 @@ Geo module.
 City to timezone mapping using Nominatim and TimezoneFinder.
 """
 
+import asyncio
+
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
@@ -62,6 +64,11 @@ def get_timezone_by_city(city_name: str) -> dict | None:
     except (GeocoderTimedOut, GeocoderServiceError) as e:
         logger.error(f"Geocoding error for '{city_name}': {e}")
         return {"error": "Geocoding service unavailable", "details": str(e)}
+
+
+async def async_get_timezone_by_city(city_name: str) -> dict | None:
+    """Async wrapper for city geocoding to avoid blocking the event loop."""
+    return await asyncio.to_thread(get_timezone_by_city, city_name)
 
 
 # Common timezones by UTC offset (for fallback)
@@ -194,3 +201,8 @@ def resolve_timezone_from_input(user_input: str) -> dict | None:
         return location
 
     return None
+
+
+async def async_resolve_timezone_from_input(user_input: str) -> dict | None:
+    """Async wrapper for universal timezone resolver to avoid blocking the event loop."""
+    return await asyncio.to_thread(resolve_timezone_from_input, user_input)

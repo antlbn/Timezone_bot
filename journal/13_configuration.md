@@ -51,6 +51,12 @@ llm:
   model: gpt-5
   temperature: 0.1
   base_url: null
+  fallback:
+    enabled: false
+    model: null
+    temperature: 0.1
+    base_url: null
+    api_key_env: null
 ```
 
 Meaning:
@@ -59,6 +65,11 @@ Meaning:
 - `model`: selected model identifier.
 - `temperature`: generation strictness / creativity balance.
 - `base_url`: optional custom endpoint for compatible providers.
+- `fallback.enabled`: allow automatic retry on a secondary LLM.
+- `fallback.model`: fallback model identifier.
+- `fallback.temperature`: fallback generation setting.
+- `fallback.base_url`: optional custom endpoint for fallback model.
+- `fallback.api_key_env`: optional environment variable name for fallback API key.
 
 ### 4.3 Event Detection
 

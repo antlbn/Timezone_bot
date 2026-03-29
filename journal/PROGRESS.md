@@ -1,9 +1,12 @@
 ## 2026-03-29 (session) - Code Alignment With Specs
 - **Config**: Aligned runtime config toward canonical spec keys (`reply_to_original_message`, `show_event_title`, `llm.*`) while keeping compatibility fallback for legacy names.
 - **LLM Pipeline**: Replaced primary point metadata field `event_type` with `event_title` in prompts, detector output, and conversion pipeline; added normalization fallback for older payloads.
+- **Reliability**: Added primary→fallback LLM attempt chain with explicit logging for failed attempts and fallback usage.
+- **Performance**: Moved blocking geo resolution calls behind async wrappers (`asyncio.to_thread`) so geocoding no longer blocks the event loop in detector and onboarding flows.
 - **Formatter**: Reworked reply rendering to match the new output contract: no sender header/footer, source row first, timezone-first grouping, joined city labels inside a timezone group, optional event titles, and `first two names + X more`.
 - **Runtime**: Updated Telegram and Discord reply mode checks to use the canonical reply-to-original-message behavior.
 - **Verification**: `uv run pytest tests/test_formatter.py tests/test_event_detection.py tests/test_integration.py` → **18 passed**.
+- **Verification**: `uv run pytest tests/test_formatter.py tests/test_event_detection.py tests/test_integration.py tests/test_geo.py tests/test_discord_handlers.py` → **44 passed**.
 
 ## 2026-03-29 (session) - Final Spec Review Pass
 - **Review**: Performed a final consistency pass over the updated specs before commit preparation.

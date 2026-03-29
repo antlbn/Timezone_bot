@@ -28,6 +28,7 @@ Failure returns no timezone.
 - `event_location` is a one-message override and must not update stored user timezone.
 - MVP uses best-match resolution; explicit disambiguation UI is out of scope.
 - If location cannot be resolved, no source timezone is produced from this module.
+- External geocoding calls must not block the main async event loop; runtime integration should use non-blocking wrappers or background-thread execution for sync libraries.
 
 ## 5. Resolution Flow
 
@@ -72,6 +73,10 @@ Examples:
 |---|---|
 | `geopy` | Geocoding |
 | `timezonefinder` | Coordinates to IANA timezone |
+
+Implementation note:
+
+- if the selected geocoding library is synchronous, the application must wrap it in an async-safe execution boundary before calling it from async handlers or detector flow.
 
 ## 9. Edge Cases
 

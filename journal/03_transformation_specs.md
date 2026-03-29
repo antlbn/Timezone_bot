@@ -257,6 +257,9 @@ The runtime must stop without sending a conversion reply in these cases:
 - The geo stage must never overwrite stored user timezone from runtime message text.
 - Conversion output must include only configured members of the current chat.
 - One message produces at most one bot reply for the conversion scenario.
+- Synchronous network-bound geo resolution must not block the main async runtime path.
+- LLM execution may use a primary attempt plus a fallback attempt, but both must honor the same detection/output contract.
+- LLM fallback activation and complete failure must be logged explicitly.
 
 ## 11. Relation to Other Specs
 
