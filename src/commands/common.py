@@ -151,14 +151,7 @@ async def handle_time_mention(
     # 2. Update activity timestamp (for all active users)
     await storage.update_activity(user_id, "telegram")
 
-    # 3. Define send_fn for the LLM pipeline
-    async def send_fn(text: str) -> None:
-        if get_reply_to_original_message():
-            await message.reply(text)
-        else:
-            await message.answer(text)
-
-    # 4. LLM pipeline — detection + tool dispatch
+    # 3. LLM pipeline — detection + bot logic
     # Declined users may still produce a reply when the message itself carries
     # an explicit source location such as "12:00 in London".
     result = await process_message(
@@ -169,7 +162,6 @@ async def handle_time_mention(
         author_name=user_name,
         timestamp_utc=timestamp_utc,
         sender_db=sender,
-        send_fn=send_fn if (is_configured or is_declined) else None,
         skip_aging=skip_aging,
     )
 
@@ -178,7 +170,14 @@ async def handle_time_mention(
         f"points={len(result.get('points', []))}"
     )
 
-    # 5. Lazy Onboarding Trigger
+    reply_text = result.get("reply_text")
+    if reply_text and (is_configured or is_declined):
+        if get_reply_to_original_message():
+            await message.reply(reply_text)
+        else:
+            await message.answer(reply_text)
+
+    # 4. Lazy Onboarding Trigger
     # We only prompt for registration if an event was detected AND the user is unknown
     if not is_configured and not is_declined and result.get("event"):
         msg_data = {

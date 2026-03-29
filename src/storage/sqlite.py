@@ -1,4 +1,5 @@
 import aiosqlite
+import time
 from pathlib import Path
 from src.logger import get_logger
 from src.storage.base import Storage
@@ -11,6 +12,24 @@ class SQLiteStorage(Storage):
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self._db: Optional[aiosqlite.Connection] = None
+        self._chat_members_cache: dict[tuple[str, str], tuple[float, List[Dict]]] = {}
+        self._chat_members_cache_ttl_seconds = 60.0
+
+    def _chat_members_cache_key(
+        self, chat_id: int | str, platform: str
+    ) -> tuple[str, str]:
+        return str(chat_id), platform
+
+    def _invalidate_chat_members_cache(
+        self, chat_id: int | str | None = None, platform: str | None = None
+    ):
+        if chat_id is None or platform is None:
+            self._chat_members_cache.clear()
+            return
+        self._chat_members_cache.pop(
+            self._chat_members_cache_key(chat_id, platform),
+            None,
+        )
 
     async def _get_conn(self) -> aiosqlite.Connection:
         """Get or create shared connection."""
@@ -93,6 +112,9 @@ class SQLiteStorage(Storage):
             (chat_id, user_id, platform),
         )
         await db.commit()
+        self._invalidate_chat_members_cache()
+        self._invalidate_chat_members_cache()
+        self._invalidate_chat_members_cache(chat_id, platform)
 
     async def clear_chat_members(self, chat_id: int, platform: str):
         """Remove all members of a chat."""
@@ -102,6 +124,7 @@ class SQLiteStorage(Storage):
             (chat_id, platform),
         )
         await db.commit()
+        self._invalidate_chat_members_cache(chat_id, platform)
 
     async def update_activity(self, user_id: int, platform: str):
         """Update last_active_at for a user."""
@@ -111,6 +134,7 @@ class SQLiteStorage(Storage):
             (user_id, platform),
         )
         await db.commit()
+        self._invalidate_chat_members_cache()
 
     async def delete_inactive_users(self, days: int) -> int:
         """Delete users who haven't been active for N days. Returns count."""
@@ -166,6 +190,7 @@ class SQLiteStorage(Storage):
             ),
         )
         await db.commit()
+        self._invalidate_chat_members_cache()
 
     async def add_chat_member(self, chat_id: int, user_id: int, platform: str):
         """Register user as member of a chat."""
@@ -178,9 +203,16 @@ class SQLiteStorage(Storage):
             (chat_id, user_id, platform),
         )
         await db.commit()
+        self._invalidate_chat_members_cache(chat_id, platform)
 
     async def get_chat_members(self, chat_id: int, platform: str) -> List[Dict]:
         """Get all users in a chat with their timezone info."""
+        cache_key = self._chat_members_cache_key(chat_id, platform)
+        cached = self._chat_members_cache.get(cache_key)
+        now = time.monotonic()
+        if cached and cached[0] > now:
+            return [dict(member) for member in cached[1]]
+
         db = await self._get_conn()
         async with db.execute(
             """
@@ -192,10 +224,16 @@ class SQLiteStorage(Storage):
             (chat_id, platform),
         ) as cursor:
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            members = [dict(row) for row in rows]
+            self._chat_members_cache[cache_key] = (
+                now + self._chat_members_cache_ttl_seconds,
+                [dict(member) for member in members],
+            )
+            return members
 
     async def close(self):
         """Close shared connection."""
         if self._db:
             await self._db.close()
             self._db = None
+        self._chat_members_cache.clear()

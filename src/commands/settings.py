@@ -635,15 +635,7 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
     user_record = await get_user_cached(user_id, platform="telegram")
 
     for pending in messages:
-
-        async def send_reply_fn(text: str, _pending=pending) -> None:
-            await bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                reply_to_message_id=_pending.get("message_id"),
-            )
-
-        await process_message(
+        result = await process_message(
             message_text=pending["text"],
             chat_id=str(chat_id),
             user_id=str(user_id),
@@ -651,9 +643,15 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
             author_name=pending.get("author_name", "User"),
             timestamp_utc=pending.get("timestamp_utc", ""),
             sender_db=user_record,
-            send_fn=send_reply_fn,
             skip_aging=True,
         )
+        reply_text = result.get("reply_text")
+        if reply_text:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=reply_text,
+                reply_to_message_id=pending.get("message_id"),
+            )
 
 
 # Register the exploration callback for pending storage

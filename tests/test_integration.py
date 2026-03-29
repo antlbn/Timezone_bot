@@ -57,19 +57,12 @@ async def test_full_pipeline_integration():
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
     mock_client_cls = MagicMock(return_value=mock_client)
 
-    # 3. Capture sent messages
-    sent_messages = []
-
-    async def mock_send(text):
-        sent_messages.append(text)
-        return "msg_999"
-
     # 4. Execute Pipeline
     with (
         patch("src.event_detection.detector.AsyncOpenAI", mock_client_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
     ):
-        await process_message(
+        result = await process_message(
             message_text=text,
             chat_id=chat_id,
             user_id=user_id,
@@ -77,14 +70,10 @@ async def test_full_pipeline_integration():
             author_name=sender_name,
             timestamp_utc="2026-03-14T20:00:00Z",
             sender_db=sender_db,
-            send_fn=mock_send,
             skip_aging=True,
         )
 
-    # 5. Assertions — exactly ONE aggregated message
-    assert len(sent_messages) == 1, f"Expected 1 message, got {len(sent_messages)}"
-
-    reply = sent_messages[0]
+    reply = result["reply_text"]
     print(f"\nCaptured Integrated Reply:\n{reply}")
 
     # Check that both times are present in the single message

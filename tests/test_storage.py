@@ -185,3 +185,32 @@ async def test_sqlite_wal_mode(storage):
     async with db.execute("PRAGMA journal_mode;") as cursor:
         row = await cursor.fetchone()
         assert row[0].lower() == "wal"
+
+
+@pytest.mark.asyncio
+async def test_chat_members_cache_invalidates_on_member_change(storage):
+    """Cached member lists should refresh after membership changes."""
+    await storage.set_user(1, "telegram", "Berlin", "Europe/Berlin", "🇩🇪", "user1")
+    await storage.set_user(2, "telegram", "Paris", "Europe/Paris", "🇫🇷", "user2")
+
+    await storage.add_chat_member(777, 1, platform="telegram")
+    members = await storage.get_chat_members(777, platform="telegram")
+    assert {member["user_id"] for member in members} == {1}
+
+    await storage.add_chat_member(777, 2, platform="telegram")
+    members = await storage.get_chat_members(777, platform="telegram")
+    assert {member["user_id"] for member in members} == {1, 2}
+
+
+@pytest.mark.asyncio
+async def test_chat_members_cache_invalidates_on_user_update(storage):
+    """Cached joined member data should refresh after user changes."""
+    await storage.set_user(1, "telegram", "Berlin", "Europe/Berlin", "🇩🇪", "user1")
+    await storage.add_chat_member(888, 1, platform="telegram")
+
+    members = await storage.get_chat_members(888, platform="telegram")
+    assert members[0]["city"] == "Berlin"
+
+    await storage.set_user(1, "telegram", "Munich", "Europe/Berlin", "🇩🇪", "user1")
+    members = await storage.get_chat_members(888, platform="telegram")
+    assert members[0]["city"] == "Munich"

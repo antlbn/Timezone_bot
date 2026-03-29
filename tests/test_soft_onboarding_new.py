@@ -242,7 +242,10 @@ async def test_dm_decline_processes_queue():
                 }
             ),
         ),
-        patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
+        patch(
+            "src.commands.settings.process_message",
+            AsyncMock(return_value={"reply_text": None}),
+        ) as mock_process,
         patch("src.commands.settings.clear_dm_invite", AsyncMock()) as mock_clear,
     ):
         await dm_decline_callback(
@@ -313,7 +316,10 @@ async def test_dm_city_saves_and_drains():
             "src.commands.settings.get_user_cached",
             AsyncMock(return_value={"user_id": user_id, "timezone": "Europe/Berlin"}),
         ),
-        patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
+        patch(
+            "src.commands.settings.process_message",
+            AsyncMock(return_value={"reply_text": None}),
+        ) as mock_process,
         patch("src.commands.settings.clear_dm_invite", AsyncMock()),
         patch.object(Message, "answer", new_callable=AsyncMock),
     ):

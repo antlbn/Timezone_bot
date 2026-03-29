@@ -37,26 +37,14 @@ async def on_message(message: discord.Message):
     # 1. Update activity timestamp (for all active users)
     await storage.update_activity(message.author.id, PLATFORM)
 
-    # 2. Build send_fn (returns message_id) for the runtime pipeline
-    async def send_fn(text: str) -> str | None:
-        embed = discord.Embed(
-            description=text,
-            color=discord.Color.blue(),
-        )
-        if get_reply_to_original_message():
-            sent = await message.reply(embed=embed)
-        else:
-            sent = await message.channel.send(embed=embed)
-        return str(sent.id)
-
-    # 3. Check registration status
+    # 2. Check registration status
     is_configured = bool(
         sender and sender.get("timezone") and not sender.get("onboarding_declined")
     )
     is_declined = bool(sender and sender.get("onboarding_declined"))
 
     try:
-        # 4. LLM pipeline — detection + tool dispatch
+        # 3. LLM pipeline — detection + bot logic
         result = await process_message(
             message_text=message.content,
             chat_id=chat_id,
@@ -65,7 +53,6 @@ async def on_message(message: discord.Message):
             author_name=user_name,
             timestamp_utc=timestamp_utc,
             sender_db=sender,
-            send_fn=send_fn if (is_configured or is_declined) else None,
         )
     except Exception as e:
         logger.error(
@@ -79,7 +66,15 @@ async def on_message(message: discord.Message):
         f"points={len(result.get('points', []))}"
     )
 
-    # 5. Lazy Onboarding Trigger
+    reply_text = result.get("reply_text")
+    if reply_text and (is_configured or is_declined):
+        embed = discord.Embed(description=reply_text, color=discord.Color.blue())
+        if get_reply_to_original_message():
+            await message.reply(embed=embed)
+        else:
+            await message.channel.send(embed=embed)
+
+    # 4. Lazy Onboarding Trigger
     if not is_configured and not is_declined and result.get("event"):
         from src.discord.ui import SetTimezoneView
         from src.config import get_settings_cleanup_timeout

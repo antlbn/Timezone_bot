@@ -91,7 +91,7 @@ class TestProcessDiscordPending:
             "src.discord.commands.get_and_delete_pending_messages",
             AsyncMock(return_value=[]),
         )
-        process_mock = AsyncMock()
+        process_mock = AsyncMock(return_value={"reply_text": None})
         monkeypatch.setattr("src.discord.commands.process_message", process_mock)
 
         from src.discord.commands import _process_discord_pending
@@ -120,7 +120,7 @@ class TestProcessDiscordPending:
             "src.discord.commands.get_user_cached",
             AsyncMock(return_value={"timezone": "Europe/Berlin"}),
         )
-        process_mock = AsyncMock()
+        process_mock = AsyncMock(return_value={"reply_text": None})
         monkeypatch.setattr("src.discord.commands.process_message", process_mock)
         # Bot.get_channel returns a working channel
         mock_channel = AsyncMock()
@@ -162,6 +162,7 @@ class TestProcessDiscordPending:
             call_count += 1
             if call_count == 2:
                 raise RuntimeError("LLM error on second message")
+            return {"reply_text": None}
 
         monkeypatch.setattr("src.discord.commands.process_message", process_side_effect)
 
@@ -178,7 +179,7 @@ class TestProcessDiscordPending:
         self, mock_interaction, monkeypatch
     ):
         """
-        Validates the loop-closure fix: each send_fn must reply to its own channel,
+        Validates pending delivery: each processed reply must go to its own channel,
         not always the last pending's channel.
         """
         pending_list = [
@@ -198,7 +199,6 @@ class TestProcessDiscordPending:
             AsyncMock(return_value={"timezone": "UTC"}),
         )
 
-        # Track which channel ids the send_fn calls resolve to
         resolved_channel_ids = []
 
         def get_channel(channel_id):
@@ -208,24 +208,15 @@ class TestProcessDiscordPending:
             return ch
 
         monkeypatch.setattr("src.discord.commands.bot.get_channel", get_channel)
-
-        captured_send_fns = []
-
-        async def capture_send_fn(**kwargs):
-            captured_send_fns.append(kwargs["send_fn"])
-
-        monkeypatch.setattr("src.discord.commands.process_message", capture_send_fn)
+        monkeypatch.setattr(
+            "src.discord.commands.process_message",
+            AsyncMock(return_value={"reply_text": "hello"}),
+        )
 
         from src.discord.commands import _process_discord_pending
 
         await _process_discord_pending(mock_interaction)
 
-        # Now call each captured send_fn and verify it resolves to its own channel
-        resolved_channel_ids.clear()
-        for fn in captured_send_fns:
-            await fn("hello")
-
-        # First fn → channel 100, second fn → channel 101. Not both 101.
         assert resolved_channel_ids == [100, 101], (
             f"Loop closure bug: expected [100, 101], got {resolved_channel_ids}"
         )

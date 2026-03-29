@@ -1,3 +1,11 @@
+## 2026-03-29 (session) - Detector Delivery Separation and Member Cache
+- **Architecture**: Removed direct reply sending from `src/event_detection/detector.py`; the detector now returns structured output only, and platform adapters deliver messages themselves.
+- **Runtime**: Moved reply building into the bot-logic layer so `process_message(...)` returns `reply_text` while Telegram and Discord handlers remain responsible for transport/UI details.
+- **Performance**: Added a simple in-memory TTL cache for `get_chat_members(...)` in `SQLiteStorage` with invalidation on membership and user updates to reduce repeated SQLite reads.
+- **Tests**: Updated Telegram/Discord handler, onboarding, integration, and storage tests to the new `reply_text` contract and added cache invalidation coverage.
+- **Verification**: `uv run ruff check .` → **All checks passed**.
+- **Verification**: `uv run pytest` → **153 passed**.
+
 ## 2026-03-29 (session) - LLM Config Contract Cleanup
 - **Config**: Added canonical primary `llm.api_key_env` so `configuration.yaml` now describes both primary and fallback LLM credentials symmetrically.
 - **Runtime**: Reworked LLM API key resolution in `detector.py` to use config-driven env var names first, while keeping backward-compatible fallback to `GEMINI_API_KEY` and `OPENAI_API_KEY`.

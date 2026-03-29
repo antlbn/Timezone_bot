@@ -1,11 +1,72 @@
 import datetime
 import logging
-from typing import Dict, Any, Callable
+from typing import Dict, Any
 from src.config import get_max_message_age, get_max_message_hard_skip
 from src.logger import get_logger
 from src.event_detection.detector import detect_event
 
 logger = get_logger()
+
+
+async def _build_reply(
+    *,
+    points: list[dict],
+    sender_db: Dict[str, Any],
+    sender_name: str,
+    platform: str,
+    chat_id: str,
+    ctx_logger: logging.LoggerAdapter,
+) -> str | None:
+    """Build a formatted reply from structured detection output."""
+    from src import formatter
+    from src.geo import async_get_timezone_by_city
+    from src.storage import storage
+
+    members = await storage.get_chat_members(chat_id, platform=platform)
+    if not members:
+        ctx_logger.warning(f"No members in DB for chat {chat_id}, skipping reply.")
+        return None
+
+    conversions = []
+    for point in points:
+        city_override = point.get("city")
+        if city_override:
+            geo_result = await async_get_timezone_by_city(city_override)
+            if geo_result and not geo_result.get("error"):
+                source_city = geo_result["city"]
+                source_tz = geo_result["timezone"]
+                source_flag = geo_result["flag"]
+            else:
+                source_city = sender_db.get("city")
+                source_tz = sender_db.get("timezone")
+                source_flag = sender_db.get("flag", "")
+        else:
+            source_city = sender_db.get("city")
+            source_tz = sender_db.get("timezone")
+            source_flag = sender_db.get("flag", "")
+
+        if not source_tz:
+            ctx_logger.debug(f"No source timezone for point {point}, skipping.")
+            continue
+
+        conversions.append(
+            {
+                "original_time": point.get("time"),
+                "source_city": source_city,
+                "source_tz": source_tz,
+                "source_flag": source_flag,
+                "event_title": point.get("event_title"),
+            }
+        )
+
+    if not conversions:
+        return None
+
+    return formatter.format_multi_conversion(
+        conversions=conversions,
+        members=members,
+        sender_name=sender_name,
+    )
 
 
 async def process_message(
@@ -16,7 +77,6 @@ async def process_message(
     author_name: str,
     timestamp_utc: str,
     sender_db: Dict | None = None,
-    send_fn: Callable | None = None, 
     skip_aging: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -83,12 +143,23 @@ async def process_message(
     # Run current-message event detection via the OpenAI-compatible LLM client
     result = await detect_event(
         current_msg=msg_data,
-        sender_db=sender_db or {},
-        send_fn=send_fn,
-        platform=platform,
         chat_id=chat_id,
         ctx_logger=ctx_logger,
     )
+
+    reply_text = None
+    points = result.get("points", [])
+    if result.get("event") and points and sender_db:
+        reply_text = await _build_reply(
+            points=points,
+            sender_db=sender_db,
+            sender_name=author_name,
+            platform=platform,
+            chat_id=chat_id,
+            ctx_logger=ctx_logger,
+        )
+
+    result["reply_text"] = reply_text
 
     return result
 

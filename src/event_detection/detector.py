@@ -4,11 +4,11 @@ detector.py — Simplified JSON-based Event Detection
 Architecture:
   1. Build user-turn content (CURRENT MESSAGE only).
   2. Query LLM with JSON output formatting.
-  3. Respond to the chat if an event is detected.
+  3. Return structured detection output to the bot logic.
 """
 
 import json
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 import os
 from openai import AsyncOpenAI
@@ -121,78 +121,8 @@ def _build_user_content(current_msg: dict) -> str:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Reply formatter helper 
-# ─────────────────────────────────────────────────────────────────────────────
-
-async def _build_reply(
-    points: list[dict],
-    sender_id: str,
-    sender_name: str,
-    sender_db: dict,
-    platform: str,
-    chat_id: str,
-    ctx_logger: Any,
-) -> str | None:
-    """Build the formatted conversion reply string, or None if no members."""
-    from src.storage import storage
-    from src import formatter
-
-    members = await storage.get_chat_members(chat_id, platform=platform)
-    if not members:
-        ctx_logger.warning(f"[chat:{chat_id}] No members in DB, skipping reply.")
-        return None
-
-    conversions = []
-    for point in points:
-        time_str = point.get("time")
-        city_override = point.get("city")
-
-        if city_override:
-            from src.geo import async_get_timezone_by_city
-            geo_result = await async_get_timezone_by_city(city_override)
-            if geo_result and not geo_result.get("error"):
-                source_city = geo_result["city"]
-                source_tz = geo_result["timezone"]
-                source_flag = geo_result["flag"]
-            else:
-                source_city = sender_db.get("city")
-                source_tz = sender_db.get("timezone")
-                source_flag = sender_db.get("flag", "")
-        else:
-            source_city = sender_db.get("city")
-            source_tz = sender_db.get("timezone")
-            source_flag = sender_db.get("flag", "")
-
-        if not source_tz:
-            ctx_logger.debug(f"[chat:{chat_id}] No source TZ for point {point}, skipping.")
-            continue
-
-        conversions.append({
-            "original_time": time_str,
-            "source_city": source_city,
-            "source_tz": source_tz,
-            "source_flag": source_flag,
-            "event_title": point.get("event_title"),
-        })
-
-    if not conversions:
-        return None
-
-    return formatter.format_multi_conversion(
-        conversions=conversions, members=members, sender_name=sender_name
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Main detect_event entry point
-# ─────────────────────────────────────────────────────────────────────────────
-
 async def detect_event(
     current_msg: dict,
-    sender_db: dict,
-    send_fn: Callable[[str], Awaitable[str | None]] | None = None,
-    platform: str = "",
     chat_id: str = "",
     ctx_logger: Any = None,
 ) -> dict:
@@ -215,8 +145,6 @@ async def detect_event(
 
     result_points: list[dict] = []
     event_detected = False
-    reply_to_send: str | None = None
-
     last_error: Exception | None = None
     for attempt in _build_llm_attempts():
         try:
@@ -236,10 +164,6 @@ async def detect_event(
             event_detected = bool(parsed.get("event"))
             result_points = [_normalize_point(point) for point in parsed.get("points", [])]
 
-            if event_detected and result_points and send_fn:
-                reply_to_send = await _build_reply(
-                    result_points, sender_id, sender_name, sender_db, platform, chat_id, ctx_logger
-                )
             break
         except Exception as exc:
             last_error = exc
@@ -250,17 +174,6 @@ async def detect_event(
     else:
         if last_error:
             ctx_logger.error(f"[chat:{chat_id}] All LLM attempts failed. last_error={last_error}")
-
-    if reply_to_send and send_fn:
-        try:
-            sent_message_id = await send_fn(reply_to_send)
-            ctx_logger.info(
-                f"[chat:{chat_id}] sent new message (id={sent_message_id}, points={len(result_points)})"
-            )
-        except Exception as exc:
-            ctx_logger.error(
-                f"[chat:{chat_id}] Reply send failed after successful detection: error={exc}"
-            )
 
     return {
         "event": event_detected,

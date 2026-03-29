@@ -157,8 +157,15 @@ async def test_handle_time_mention_success(
 
     # Mock event_detection.process_message
     mock_process = AsyncMock()
-    mock_process.return_value = {"event": True, "time": ["15:00"], "city": [None]}
+    mock_process.return_value = {
+        "event": True,
+        "time": ["15:00"],
+        "city": [None],
+        "reply_text": "15:00 Berlin 🇩🇪",
+    }
     monkeypatch.setattr("src.commands.common.process_message", mock_process)
+
+    monkeypatch.setattr("src.commands.common.get_reply_to_original_message", lambda: True)
 
     # Input message
     mock_message.text = "Let's meet at 15:00"
@@ -172,7 +179,6 @@ async def test_handle_time_mention_success(
     # 1. process_message called?
     mock_process.assert_called_once()
 
-    # Verify send_fn is passed
     kwargs = mock_process.call_args.kwargs
-    assert "send_fn" in kwargs
-    assert kwargs["send_fn"] is not None
+    assert "send_fn" not in kwargs
+    mock_message.reply.assert_called_once_with("15:00 Berlin 🇩🇪")

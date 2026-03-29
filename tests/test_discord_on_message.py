@@ -3,7 +3,7 @@ Tests for Discord on_message event handler.
 
 Covers:
 - Lazy onboarding trigger (time detected, user not registered)
-- Registered user flow (send_fn passed, no onboarding)
+- Registered user flow (reply_text delivered by adapter, no onboarding)
 - Bot message is ignored
 - DM (non-guild) message is ignored
 - LLM pipeline exception is caught and logged
@@ -32,6 +32,7 @@ def mock_message():
     # Channel
     message.channel = MagicMock()
     message.channel.id = 111
+    message.channel.send = AsyncMock()
 
     # Content / metadata
     message.content = "Meeting at 15:00!"
@@ -95,13 +96,13 @@ class TestOnMessageBotFilter:
 
 
 class TestOnMessageRegisteredUser:
-    """Registered user path — send_fn is passed, no onboarding shown."""
+    """Registered user path — reply_text is delivered, no onboarding shown."""
 
     @pytest.mark.asyncio
     async def test_registered_user_triggers_pipeline(
         self, mock_message, mock_storage, mock_process_message, monkeypatch
     ):
-        """Registered user: process_message called with send_fn, no onboarding message."""
+        """Registered user: process_message called and reply_text is sent by the adapter."""
         from src.discord.events import on_message
 
         # User has timezone → registered
@@ -110,17 +111,22 @@ class TestOnMessageRegisteredUser:
             AsyncMock(return_value={"timezone": "Europe/Berlin", "city": "Berlin"}),
         )
 
+        mock_process_message.return_value = {
+            "event": True,
+            "points": [{"time": "15:00", "city": None}],
+            "reply_text": "15:00 Berlin",
+        }
+
         await on_message(mock_message)
 
         mock_process_message.assert_called_once()
         call_kwargs = mock_process_message.call_args[1]
 
-        assert call_kwargs["send_fn"] is not None  # send_fn provided
         assert call_kwargs["platform"] == "discord"
         assert call_kwargs["message_text"] == "Meeting at 15:00!"
-
-        # No onboarding reply sent
+        assert "send_fn" not in call_kwargs
         mock_message.reply.assert_not_called()
+        mock_message.channel.send.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_activity_always_updated(
@@ -172,8 +178,9 @@ class TestOnMessageLazyOnboarding:
 
         await on_message(mock_message)
 
-        # Onboarding reply sent
+        # Onboarding invite is a direct reply in the channel
         mock_message.reply.assert_called_once()
+        mock_message.channel.send.assert_not_called()
         reply_kwargs = mock_message.reply.call_args[1]
         assert reply_kwargs.get("mention_author") is True
 
@@ -207,10 +214,10 @@ class TestOnMessageLazyOnboarding:
         mock_message.reply.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_fn_not_passed_for_unregistered_user(
+    async def test_no_inline_reply_contract_for_unregistered_user(
         self, mock_message, mock_storage, monkeypatch
     ):
-        """Unregistered users: send_fn must be None so the bot doesn't reply inline."""
+        """Unregistered users should not have reply delivery embedded in the pipeline call."""
         from src.discord.events import on_message
 
         monkeypatch.setattr(
@@ -224,10 +231,10 @@ class TestOnMessageLazyOnboarding:
         await on_message(mock_message)
 
         call_kwargs = process_mock.call_args[1]
-        assert call_kwargs["send_fn"] is None  # No send_fn for unregistered
+        assert "send_fn" not in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_declined_user_no_reinvite_and_send_fn_is_available(
+    async def test_declined_user_no_reinvite_and_reply_is_sent(
         self, mock_message, mock_storage, monkeypatch
     ):
         """Declined users should not be re-invited, but explicit-source messages may still reply."""
@@ -238,14 +245,21 @@ class TestOnMessageLazyOnboarding:
             AsyncMock(return_value={"timezone": None, "onboarding_declined": True}),
         )
 
-        process_mock = AsyncMock(return_value={"event": True, "points": [{"time": "15:00", "city": "London"}]})
+        process_mock = AsyncMock(
+            return_value={
+                "event": True,
+                "points": [{"time": "15:00", "city": "London"}],
+                "reply_text": "15:00 London 🇬🇧",
+            }
+        )
         monkeypatch.setattr("src.discord.events.process_message", process_mock)
 
         await on_message(mock_message)
 
         call_kwargs = process_mock.call_args[1]
-        assert call_kwargs["send_fn"] is not None
+        assert "send_fn" not in call_kwargs
         mock_message.reply.assert_not_called()
+        mock_message.channel.send.assert_called_once()
 
 
 class TestOnMessageExceptionHandling:

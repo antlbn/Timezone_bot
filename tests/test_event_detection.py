@@ -52,12 +52,6 @@ async def test_llm_json_dispatch(monkeypatch):
             "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
         }
     )))]
-    sent_messages = []
-
-    async def mock_send(text):
-        sent_messages.append(text)
-        return "msg_001"
-
     mock_member = {
         "user_id": "888", "username": "boss",
         "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
@@ -78,13 +72,9 @@ async def test_llm_json_dispatch(monkeypatch):
                 "text": "Call at 8pm London",
                 "timestamp_utc": "2026-03-14T20:00:00Z",
             },
-            sender_db={"timezone": "Europe/London", "city": "London"},
-            send_fn=mock_send,
-            platform="telegram",
             chat_id="chat1",
         )
 
-    assert len(sent_messages) == 1
     assert result["event"] is True
     assert result["time"] == ["20:00"]
     assert result["event_title"] == ["созвон"]
@@ -100,12 +90,6 @@ async def test_llm_json_dispatch_strips_markdown_fences():
 ```"""
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=fenced_json))]
-
-    sent_messages = []
-
-    async def mock_send(text):
-        sent_messages.append(text)
-        return "msg_fenced"
 
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
@@ -124,15 +108,11 @@ async def test_llm_json_dispatch_strips_markdown_fences():
                 "text": "Call at 8pm London",
                 "timestamp_utc": "2026-03-14T20:00:00Z",
             },
-            sender_db={"timezone": "Europe/London", "city": "London"},
-            send_fn=mock_send,
-            platform="telegram",
             chat_id="chat1",
         )
 
     assert result["event"] is True
     assert result["time"] == ["20:00"]
-    assert len(sent_messages) == 1
 
 
 @pytest.mark.asyncio
@@ -149,12 +129,6 @@ async def test_llm_fallback_attempt_used(monkeypatch):
             "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
         }
     )))]
-
-    sent_messages = []
-
-    async def mock_send(text):
-        sent_messages.append(text)
-        return "msg_002"
 
     primary_client = MagicMock()
     primary_client.chat.completions.create = AsyncMock(side_effect=RuntimeError("primary down"))
@@ -193,22 +167,17 @@ async def test_llm_fallback_attempt_used(monkeypatch):
                 "text": "Call at 8pm London",
                 "timestamp_utc": "2026-03-14T20:00:00Z",
             },
-            sender_db={"timezone": "Europe/London", "city": "London"},
-            send_fn=mock_send,
-            platform="telegram",
             chat_id="chat1",
         )
 
-    assert len(sent_messages) == 1
     assert result["event"] is True
     assert result["event_title"] == ["созвон"]
     assert mock_client_cls.call_count == 2
 
 
 @pytest.mark.asyncio
-async def test_send_failure_does_not_trigger_llm_fallback(monkeypatch):
-    """A reply send failure should not be treated as an LLM failure."""
-    from src.event_detection.detector import detect_event
+async def test_process_message_builds_reply_text(monkeypatch):
+    """Bot logic should build reply text after structured detection succeeds."""
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
@@ -222,12 +191,6 @@ async def test_send_failure_does_not_trigger_llm_fallback(monkeypatch):
 
     primary_client = MagicMock()
     primary_client.chat.completions.create = AsyncMock(return_value=mock_response)
-
-    fallback_client = MagicMock()
-    fallback_client.chat.completions.create = AsyncMock(side_effect=AssertionError("fallback should not be used"))
-
-    async def failing_send(_text):
-        raise RuntimeError("platform timeout")
 
     with (
         patch(
@@ -244,30 +207,26 @@ async def test_send_failure_does_not_trigger_llm_fallback(monkeypatch):
                 }
             },
         ),
-        patch(
-            "src.event_detection.detector.AsyncOpenAI",
-            side_effect=[primary_client, fallback_client],
-        ) as mock_client_cls,
+        patch("src.event_detection.detector.AsyncOpenAI", return_value=primary_client) as mock_client_cls,
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[{
             "user_id": "888", "username": "boss",
             "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
         }])),
     ):
-        result = await detect_event(
-            current_msg={
-                "author_id": "888",
-                "author_name": "Boss",
-                "text": "Call at 8pm London",
-                "timestamp_utc": "2026-03-14T20:00:00Z",
-            },
-            sender_db={"timezone": "Europe/London", "city": "London"},
-            send_fn=failing_send,
-            platform="telegram",
+        result = await process_message(
+            message_text="Call at 8pm London",
             chat_id="chat1",
+            user_id="888",
+            platform="telegram",
+            author_name="Boss",
+            timestamp_utc="2026-03-14T20:00:00Z",
+            sender_db={"timezone": "Europe/London", "city": "London"},
+            skip_aging=True,
         )
 
     assert result["event"] is True
     assert result["time"] == ["20:00"]
+    assert result["reply_text"] == "20:00 London 🇬🇧"
     assert mock_client_cls.call_count == 1
 
 

@@ -139,46 +139,8 @@ async def _process_discord_pending(interaction: discord.Interaction):
     user_record = await get_user_cached(interaction.user.id, platform=PLATFORM)
 
     for pending in pending_list:
-        # Build send_reply_fn using MessageReference.
-        # NOTE: Default argument `_pending=pending` is intentional — it captures
-        # the current loop variable by value, avoiding the classic Python
-        # closure-in-loop bug where all closures would share the last `pending`.
-        async def send_reply_fn(text: str, _pending: dict = pending) -> None:
-            # IMPORTANT: Releasing from queue must use the original channel
-            # to allow replying to the original message.
-            original_channel_id = int(
-                _pending.get("channel_id") or _pending["chat_id"]
-            )
-            channel = bot.get_channel(original_channel_id)
-
-            if not channel:
-                # If bot doesn't "see" it in cache, try fetching it
-                try:
-                    channel = await bot.fetch_channel(original_channel_id)
-                except Exception:
-                    logger.error(f"Could not fetch channel {original_channel_id}")
-                    return
-
-            if channel:
-                message_ref = discord.MessageReference(
-                    message_id=int(_pending["message_id"]),
-                    channel_id=original_channel_id,
-                    guild_id=interaction.guild_id,
-                )
-                embed = discord.Embed(
-                    description=text,
-                    color=discord.Color.green(),
-                )
-                sent = await channel.send(embed=embed, reference=message_ref)
-                return str(sent.id)
-            else:
-                logger.error(
-                    f"Could not find channel {_pending['chat_id']} to send pending reply"
-                )
-                return None
-
         try:
-            await process_message(
+            result = await process_message(
                 message_text=pending["text"],
                 chat_id=str(pending["chat_id"]),
                 user_id=str(interaction.user.id),
@@ -186,9 +148,38 @@ async def _process_discord_pending(interaction: discord.Interaction):
                 author_name=pending["author_name"],
                 timestamp_utc=pending["timestamp_utc"],
                 sender_db=user_record,
-                send_fn=send_reply_fn,
                 skip_aging=True,
             )
+            reply_text = result.get("reply_text")
+            if not reply_text:
+                continue
+
+            original_channel_id = int(pending.get("channel_id") or pending["chat_id"])
+            channel = bot.get_channel(original_channel_id)
+
+            if not channel:
+                try:
+                    channel = await bot.fetch_channel(original_channel_id)
+                except Exception:
+                    logger.error(f"Could not fetch channel {original_channel_id}")
+                    continue
+
+            if not channel:
+                logger.error(
+                    f"Could not find channel {pending['chat_id']} to send pending reply"
+                )
+                continue
+
+            message_ref = discord.MessageReference(
+                message_id=int(pending["message_id"]),
+                channel_id=original_channel_id,
+                guild_id=interaction.guild_id,
+            )
+            embed = discord.Embed(
+                description=reply_text,
+                color=discord.Color.green(),
+            )
+            await channel.send(embed=embed, reference=message_ref)
 
         except Exception as e:
             logger.error(

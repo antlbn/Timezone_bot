@@ -138,6 +138,8 @@ async def test_lazy_decline_releases_queue_through_pipeline():
     callback.from_user = User(id=user_id, is_bot=False, first_name="Decliner")
     callback.message = MagicMock(spec=Message)
     callback.message.edit_text = AsyncMock()
+    callback.message.bot = MagicMock()
+    callback.message.bot.send_message = AsyncMock()
     callback.answer = AsyncMock()
 
     # Pre-populate pending queue
@@ -151,7 +153,10 @@ async def test_lazy_decline_releases_queue_through_pipeline():
 
     with (
         patch("src.commands.settings.storage.set_user", AsyncMock()),
-        patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
+        patch(
+            "src.commands.settings.process_message",
+            AsyncMock(return_value={"reply_text": None}),
+        ) as mock_process,
         patch(
             "src.commands.settings.get_user_cached",
             AsyncMock(
@@ -240,7 +245,10 @@ async def test_lazy_success_converts_queue():
             "src.commands.settings.get_user_cached",
             AsyncMock(return_value={"timezone": "Europe/Berlin"}),
         ),
-        patch("src.commands.settings.process_message", AsyncMock()) as mock_process,
+        patch(
+            "src.commands.settings.process_message",
+            AsyncMock(return_value={"reply_text": None}),
+        ) as mock_process,
         patch.object(Message, "answer", AsyncMock()),
     ):
         await process_city(msg, state)
@@ -265,6 +273,7 @@ async def test_declined_user_no_reinvite_and_can_still_be_processed():
         "points": [{"time": "12:00", "city": "London"}],
         "sender_id": str(user_id),
         "sender_name": "TestUser",
+        "reply_text": "12:00 London",
     }
 
     with (
@@ -282,9 +291,10 @@ async def test_declined_user_no_reinvite_and_can_still_be_processed():
             "src.commands.common.process_message", AsyncMock(return_value=llm_result)
         ) as mock_process,
         patch.object(Message, "reply", new_callable=AsyncMock) as mock_reply,
+        patch("src.commands.common.get_reply_to_original_message", lambda: True),
     ):
         await handle_time_mention(msg, state)
 
-        assert mock_process.call_args[1]["send_fn"] is not None
-        mock_reply.assert_not_called()
+        assert "send_fn" not in mock_process.call_args[1]
+        mock_reply.assert_called_once_with("12:00 London")
         assert len(_frozen_messages) == 0
