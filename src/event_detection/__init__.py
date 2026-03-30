@@ -72,7 +72,7 @@ async def _build_reply(
 async def process_message(
     message_text: str,
     chat_id: str,
-    user_id: int | str,
+    user_id: int,
     platform: str,
     author_name: str,
     timestamp_utc: str,

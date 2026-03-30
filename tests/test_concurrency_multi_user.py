@@ -111,7 +111,7 @@ async def test_concurrency_multi_user_flow():
 
         # Drain Alice's queue (from DM)
         await _process_pending_queue_dm(
-            bot, user_id=1, source_chat_id=chat_id, user_name="Alice"
+            bot, user_id=1, source_chat_id=chat_id
         )
 
         # VERIFY Alice processed

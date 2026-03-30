@@ -28,6 +28,31 @@ class TestGetTimezoneByCity:
 
         assert result is None
 
+    def test_city_label_uses_geocoder_short_name(self):
+        """Canonical city label should come from the geocoder, not raw input casing."""
+        from src.geo import get_timezone_by_city
+
+        fake_location = type(
+            "Location",
+            (),
+            {
+                "latitude": 33.66,
+                "longitude": -95.55,
+                "raw": {"address": {"country_code": "us"}},
+                "address": "Paris, Lamar County, Texas, United States",
+            },
+        )()
+
+        with (
+            patch("src.geo._create_geolocator") as mock_factory,
+            patch("src.geo._tf") as mock_tf,
+        ):
+            mock_factory.return_value.geocode.return_value = fake_location
+            mock_tf.timezone_at.return_value = "America/Chicago"
+            result = get_timezone_by_city("paris, texas, usa")
+
+        assert result["city"] == "Paris"
+
     def test_geocoder_timeout_returns_error_dict(self):
         """Test that geocoder timeout returns error dict, not exception."""
         from src.geo import get_timezone_by_city

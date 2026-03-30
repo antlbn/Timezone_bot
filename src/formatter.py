@@ -169,7 +169,10 @@ def format_conversion_reply(
     members: list[dict],
     sender_name: str = "",
 ) -> str:
-    """Format a single-point conversion reply."""
+    """Format a single-point conversion reply.
+
+    Kept as a convenience wrapper for tests and any external single-point callers.
+    """
     conversions = [
         {
             "original_time": original_time,

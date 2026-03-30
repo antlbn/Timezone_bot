@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 from src.config import reload_config
+from src.storage.activity_throttle import _last_activity_flush
 from src.storage import storage
 
 
@@ -50,3 +51,10 @@ def reload_runtime_config():
     reload_config()
     yield
     reload_config()
+
+
+@pytest.fixture(autouse=True)
+def reset_activity_flush_cache():
+    _last_activity_flush.clear()
+    yield
+    _last_activity_flush.clear()

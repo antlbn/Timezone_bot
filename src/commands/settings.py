@@ -10,6 +10,7 @@ from aiogram.filters import CommandStart, CommandObject
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 
+from src.config import get_inactive_user_retention_days
 from src.storage import storage
 from src.storage.user_cache import get_user_cached, invalidate_user_cache
 from src.storage.pending import (
@@ -212,7 +213,7 @@ async def dm_decline_callback(
 
     # Release pending messages through the normal pipeline. Only messages with
     # explicit source location will produce a reply for declined users.
-    await _process_pending_queue_dm(callback.message.bot, user_id, chat_id, "declined")
+    await _process_pending_queue_dm(callback.message.bot, user_id, chat_id)
 
 
 # ---------------------------------------------------------------------------
@@ -367,7 +368,7 @@ async def dm_extra_settings_callback(
         "I don't have access to the full member list. "
         "Use the commands above to manage tracked members.\n"
         "\n"
-        "💡 *Note:* I automatically remove inactive users after 30 days of silence."
+        f"💡 *Note:* I automatically remove inactive users after {get_inactive_user_retention_days()} days of silence."
     )
 
     kb = InlineKeyboardMarkup(
@@ -545,7 +546,7 @@ async def _save_and_finish(
 
     # Process all pending messages — send results to the source group chat
     if is_dm and source_chat_id:
-        await _process_pending_queue_dm(message.bot, user_id, source_chat_id, user_name)
+        await _process_pending_queue_dm(message.bot, user_id, source_chat_id)
     else:
         await _process_pending_queue(message, user_id, user_name)
 
@@ -593,14 +594,12 @@ async def _process_pending_queue_for_user(
     await _drain_pending_messages(bot, user_id, pending_list)
 
 
-async def _process_pending_queue(message: Message, user_id: int, user_name: str):
+async def _process_pending_queue(message: Message, user_id: int, _user_name: str):
     """Backward-compatible wrapper for group-chat pending draining."""
     await _process_pending_queue_for_user(message.bot, user_id, log_chat_id=message.chat.id)
 
 
-async def _process_pending_queue_dm(
-    bot, user_id: int, source_chat_id: int, user_name: str
-):
+async def _process_pending_queue_dm(bot, user_id: int, source_chat_id: int):
     """Backward-compatible wrapper for DM pending draining."""
     await _process_pending_queue_for_user(bot, user_id)
 
@@ -615,7 +614,8 @@ async def _handle_expired_messages(
     logger.info(
         f"Onboarding timed out for user {user_id} ({platform}). Discarding {len(messages)} frozen messages."
     )
-    # No action needed - messages are already removed from the pending storage by the cleanup loop
+    # Intentional for MVP: timeout drops the frozen queue after logging. If timeout
+    # UX changes later, extend this callback instead of removing the hook silently.
 
 
 async def _drain_pending_messages(bot, user_id: int, messages: list[dict]):
@@ -642,7 +642,7 @@ async def _drain_to_chat(bot, user_id: int, chat_id: int, messages: list[dict]):
         result = await process_message(
             message_text=pending["text"],
             chat_id=str(chat_id),
-            user_id=str(user_id),
+            user_id=user_id,
             platform="telegram",
             author_name=pending.get("author_name", "User"),
             timestamp_utc=pending.get("timestamp_utc", ""),

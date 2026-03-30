@@ -149,6 +149,8 @@ async def cleanup_loop(bot=None):
 
         # 1. Handle expired frozen messages (onboarding timeouts)
         to_process = []
+        # No await occurs while scanning this snapshot, so cooperative asyncio
+        # scheduling will not interleave writes into the dict during iteration.
         for k, v in _frozen_messages.items():
             if now > v["expires"]:
                 to_process.append((k, v["messages"]))

@@ -1,6 +1,8 @@
 import pytest
+import time
 from unittest.mock import AsyncMock, patch
 from src.storage.user_cache import (
+    CACHE_TTL_SECONDS,
     get_user_cached,
     invalidate_user_cache,
     _users_snapshot,
@@ -36,6 +38,7 @@ async def test_get_user_cached_hits_db_first_time():
         assert res2 == mock_user
         assert mock_get.call_count == 1  # Still 1
         assert (1, "tg") in _users_snapshot
+        assert _users_snapshot[(1, "tg")][1] == mock_user
 
 
 @pytest.mark.asyncio
@@ -55,5 +58,22 @@ async def test_invalidate_cache():
         assert (1, "tg") not in _users_snapshot
 
         # Call again - should hit DB
+        await get_user_cached(1, "tg")
+        assert mock_get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_cache_entry_expires_after_ttl():
+    mock_user = {"user_id": 1, "platform": "tg", "city": "London"}
+
+    with patch("src.storage.storage.get_user", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_user
+
+        await get_user_cached(1, "tg")
+        assert mock_get.call_count == 1
+
+        expiry_ts, cached_user = _users_snapshot[(1, "tg")]
+        _users_snapshot[(1, "tg")] = (time.monotonic() - CACHE_TTL_SECONDS, cached_user)
+
         await get_user_cached(1, "tg")
         assert mock_get.call_count == 2

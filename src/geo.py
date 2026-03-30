@@ -59,7 +59,7 @@ def get_timezone_by_city(city_name: str) -> dict | None:
         country_code = address.get("country_code", "").upper()
 
         return {
-            "city": city_name.title(),
+            "city": location.address.split(",")[0],
             "timezone": timezone,
             "country_code": country_code,
             "flag": get_country_flag(country_code),

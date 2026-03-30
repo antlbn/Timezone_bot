@@ -12,6 +12,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.deep_linking import create_start_link
 
 from src.storage import storage
+from src.storage.activity_throttle import should_flush_activity
 from src.storage.user_cache import get_user_cached
 from src.storage.pending import (
     save_pending_message,
@@ -29,9 +30,6 @@ from src.commands.utils import auto_cleanup, delete_message_after
 
 router = Router()
 logger = get_logger()
-
-# Cooldown tracking: {chat_id: last_reply_timestamp}
-_last_reply: dict[int, float] = {}
 
 
 @router.message(Command("tb_help"))
@@ -149,7 +147,8 @@ async def handle_time_mention(
     is_declined = bool(sender and sender.get("onboarding_declined"))
 
     # 2. Update activity timestamp (for all active users)
-    await storage.update_activity(user_id, "telegram")
+    if should_flush_activity(user_id, "telegram"):
+        await storage.update_activity(user_id, "telegram")
 
     # 3. LLM pipeline — detection + bot logic
     # Declined users may still produce a reply when the message itself carries
@@ -157,7 +156,7 @@ async def handle_time_mention(
     result = await process_message(
         message_text=message.text,
         chat_id=str(chat_id),
-        user_id=str(user_id),
+        user_id=user_id,
         platform="telegram",
         author_name=user_name,
         timestamp_utc=timestamp_utc,

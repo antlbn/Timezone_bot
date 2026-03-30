@@ -7,6 +7,7 @@ import discord
 from src.config import get_reply_to_original_message
 from src.discord import bot
 from src.storage import storage
+from src.storage.activity_throttle import should_flush_activity
 from src.storage.user_cache import get_user_cached
 from src.storage.pending import save_pending_message
 from src.logger import get_logger
@@ -35,7 +36,8 @@ async def on_message(message: discord.Message):
     chat_id = str(message.guild.id)
 
     # 1. Update activity timestamp (for all active users)
-    await storage.update_activity(message.author.id, PLATFORM)
+    if should_flush_activity(message.author.id, PLATFORM):
+        await storage.update_activity(message.author.id, PLATFORM)
 
     # 2. Check registration status
     is_configured = bool(
@@ -48,7 +50,7 @@ async def on_message(message: discord.Message):
         result = await process_message(
             message_text=message.content,
             chat_id=chat_id,
-            user_id=str(message.author.id),
+            user_id=message.author.id,
             platform=PLATFORM,
             author_name=user_name,
             timestamp_utc=timestamp_utc,

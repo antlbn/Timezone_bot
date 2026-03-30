@@ -1,11 +1,13 @@
 from collections import OrderedDict
+import time
 from src.storage import storage
 from src.logger import get_logger
 
 logger = get_logger()
 
-# In-memory LRU snapshot: {(user_id, platform): user_data_dict}
+# In-memory LRU snapshot: {(user_id, platform): (expiry_ts, user_data_dict)}
 CACHE_SIZE_LIMIT = 10000
+CACHE_TTL_SECONDS = 300.0
 _users_snapshot = OrderedDict()
 
 
@@ -17,13 +19,17 @@ async def get_user_cached(user_id: int, platform: str) -> dict | None:
 
     # 1. Cache HIT
     if key in _users_snapshot:
-        _users_snapshot.move_to_end(key)  # Mark as recently used
-        return _users_snapshot[key]
+        expiry_ts, cached_user = _users_snapshot[key]
+        if expiry_ts > time.monotonic():
+            _users_snapshot.move_to_end(key)  # Mark as recently used
+            return cached_user
+
+        del _users_snapshot[key]
 
     # 2. Cache MISS
     user = await storage.get_user(user_id, platform)
     if user:
-        _users_snapshot[key] = user
+        _users_snapshot[key] = (time.monotonic() + CACHE_TTL_SECONDS, user)
         _users_snapshot.move_to_end(key)
 
         # Prune if over limit

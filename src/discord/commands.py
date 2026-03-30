@@ -143,7 +143,7 @@ async def _process_discord_pending(interaction: discord.Interaction):
             result = await process_message(
                 message_text=pending["text"],
                 chat_id=str(pending["chat_id"]),
-                user_id=str(interaction.user.id),
+                user_id=interaction.user.id,
                 platform=PLATFORM,
                 author_name=pending["author_name"],
                 timestamp_utc=pending["timestamp_utc"],
