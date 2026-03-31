@@ -2,7 +2,19 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from src.formatter import format_conversion_reply, format_multi_conversion, normalize_time
+
+
+@pytest.fixture(autouse=True)
+def formatter_config_defaults():
+    with (
+        patch("src.formatter.get_response_style", return_value="block"),
+        patch("src.formatter.get_show_event_title", return_value=False),
+        patch("src.formatter.get_show_usernames", return_value=False),
+    ):
+        yield
 
 
 class TestNormalizeTime:
@@ -141,6 +153,7 @@ class TestFormatConversionReply:
                 "source_city": "Amsterdam",
                 "source_tz": "Europe/Amsterdam",
                 "source_flag": "🇳🇱",
+                "event_title": "Standup",
                 "am_pm_clear": True,
             }
         ]
@@ -149,10 +162,33 @@ class TestFormatConversionReply:
             {"city": "Yerevan", "timezone": "Asia/Yerevan", "flag": "🇦🇲", "username": "charlie"},
         ]
 
-        with patch("src.formatter.get_response_style", return_value="inline_sentence"):
+        with (
+            patch("src.formatter.get_response_style", return_value="inline_sentence"),
+            patch("src.formatter.get_show_event_title", return_value=False),
+        ):
             reply = format_multi_conversion(conversions, members)
 
         assert reply == "It is 10:30 Amsterdam, 11:30 Cyprus, 12:30 Yerevan"
+
+    def test_inline_sentence_style_shows_event_title_when_enabled(self):
+        conversions = [
+            {
+                "original_time": "10:30",
+                "source_city": "Amsterdam",
+                "source_tz": "Europe/Amsterdam",
+                "source_flag": "🇳🇱",
+                "event_title": "Standup",
+                "am_pm_clear": True,
+            }
+        ]
+
+        with (
+            patch("src.formatter.get_response_style", return_value="inline_sentence"),
+            patch("src.formatter.get_show_event_title", return_value=True),
+        ):
+            reply = format_multi_conversion(conversions, [])
+
+        assert reply == "Standup\nIt is 10:30 Amsterdam"
 
     def test_inline_sentence_style_keeps_ambiguous_prefix(self):
         conversions = [
@@ -165,7 +201,10 @@ class TestFormatConversionReply:
             }
         ]
 
-        with patch("src.formatter.get_response_style", return_value="inline_sentence"):
+        with (
+            patch("src.formatter.get_response_style", return_value="inline_sentence"),
+            patch("src.formatter.get_show_event_title", return_value=False),
+        ):
             reply = format_multi_conversion(conversions, [])
 
         assert reply == "AM/PM🤔 It is 08:00 Amsterdam"

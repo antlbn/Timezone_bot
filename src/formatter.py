@@ -183,6 +183,7 @@ def format_single_point_sentence(
     sender_tz: str,
     sender_flag: str,
     members: list[dict],
+    event_title: str = "",
     ambiguous_prefix: str = "",
 ) -> str:
     """Format one conversion block as a single compact sentence without flags."""
@@ -196,12 +197,17 @@ def format_single_point_sentence(
     if not rows:
         return ""
 
+    lines = []
+    if event_title and get_show_event_title():
+        lines.append(event_title)
+
     sentence = "It is " + ", ".join(
         f"{row['displayed_time']} {row['label']}" for row in rows
     )
     if ambiguous_prefix:
-        return f"{ambiguous_prefix} {sentence}"
-    return sentence
+        sentence = f"{ambiguous_prefix} {sentence}"
+    lines.append(sentence)
+    return "\n".join(lines)
 
 
 def format_multi_conversion(conversions: list[dict], members: list[dict], sender_name: str = "") -> str:
@@ -217,6 +223,7 @@ def format_multi_conversion(conversions: list[dict], members: list[dict], sender
                 conversion["source_tz"],
                 conversion["source_flag"],
                 members,
+                event_title=conversion.get("event_title", ""),
                 ambiguous_prefix=ambiguous_prefix,
             )
         else:
