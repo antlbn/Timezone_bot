@@ -134,6 +134,42 @@ class TestFormatConversionReply:
 
         assert reply == "AM/PM🤔 08:00 Sarajevo 🇧🇦"
 
+    def test_inline_sentence_style_has_compact_no_emoji_layout(self):
+        conversions = [
+            {
+                "original_time": "10:30",
+                "source_city": "Amsterdam",
+                "source_tz": "Europe/Amsterdam",
+                "source_flag": "🇳🇱",
+                "am_pm_clear": True,
+            }
+        ]
+        members = [
+            {"city": "Cyprus", "timezone": "Asia/Nicosia", "flag": "🇨🇾", "username": "bob"},
+            {"city": "Yerevan", "timezone": "Asia/Yerevan", "flag": "🇦🇲", "username": "charlie"},
+        ]
+
+        with patch("src.formatter.get_response_style", return_value="inline_sentence"):
+            reply = format_multi_conversion(conversions, members)
+
+        assert reply == "It is 10:30 Amsterdam, 11:30 Cyprus, 12:30 Yerevan"
+
+    def test_inline_sentence_style_keeps_ambiguous_prefix(self):
+        conversions = [
+            {
+                "original_time": "08:00",
+                "source_city": "Amsterdam",
+                "source_tz": "Europe/Amsterdam",
+                "source_flag": "🇳🇱",
+                "am_pm_clear": False,
+            }
+        ]
+
+        with patch("src.formatter.get_response_style", return_value="inline_sentence"):
+            reply = format_multi_conversion(conversions, [])
+
+        assert reply == "AM/PM🤔 It is 08:00 Amsterdam"
+
     def test_name_list_truncation(self):
         members = [
             {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "alice"},

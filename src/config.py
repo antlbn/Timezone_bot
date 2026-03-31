@@ -80,6 +80,11 @@ def get_show_event_title() -> bool:
     return get_bot_settings().get("show_event_title", False)
 
 
+def get_response_style() -> str:
+    """Get reply rendering style."""
+    return get_bot_settings().get("response_style", "block")
+
+
 def get_reply_to_original_message() -> bool:
     """Check if bot responses should be sent as direct replies."""
     return get_bot_settings().get("reply_to_original_message", False)

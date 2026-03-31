@@ -3,7 +3,7 @@ Formatter module.
 Builds conversion replies according to 07_response_format.md.
 """
 
-from src.config import get_show_event_title, get_show_usernames
+from src.config import get_response_style, get_show_event_title, get_show_usernames
 from src.transform import convert_time, get_utc_offset, parse_time_string
 from src.logger import get_logger
 
@@ -89,18 +89,15 @@ def _render_row(
     return row
 
 
-def format_single_point_line(
+def _build_conversion_rows(
+    *,
     original_time: str,
     sender_city: str,
     sender_tz: str,
     sender_flag: str,
     members: list[dict],
-    event_title: str = "",
-    ambiguous_prefix: str = "",
-) -> str:
-    """Format one conversion block for a single time point."""
-    show_usernames = get_show_usernames()
-    normalized_source_time = normalize_time(original_time)
+) -> list[dict]:
+    """Build normalized rows for source and converted timezones."""
     grouped_members = _group_members_by_timezone(members)
 
     source_group: list[dict] = []
@@ -114,20 +111,14 @@ def format_single_point_line(
     source_label = _join_city_labels(source_group, sender_city or sender_tz)
     source_flag = source_group[0].get("flag", sender_flag) if source_group else sender_flag
 
-    lines = []
-    if event_title and get_show_event_title():
-        lines.append(event_title)
-
-    lines.append(
-        _render_row(
-            displayed_time=normalized_source_time,
-            label=source_label,
-            flag=source_flag,
-            group=source_group,
-            show_usernames=show_usernames,
-            prefix=ambiguous_prefix,
-        )
-    )
+    rows = [
+        {
+            "displayed_time": normalize_time(original_time),
+            "label": source_label,
+            "flag": source_flag,
+            "group": source_group,
+        }
+    ]
 
     for timezone, group in other_groups:
         try:
@@ -136,34 +127,110 @@ def format_single_point_line(
             logger.error(f"Format group conversion failed for '{original_time}': {exc}")
             continue
 
+        rows.append(
+            {
+                "displayed_time": _format_time_with_shift(converted_time, day_shift),
+                "label": _join_city_labels(group, timezone),
+                "flag": group[0].get("flag", ""),
+                "group": group,
+            }
+        )
+
+    return rows
+
+
+def format_single_point_line(
+    original_time: str,
+    sender_city: str,
+    sender_tz: str,
+    sender_flag: str,
+    members: list[dict],
+    event_title: str = "",
+    ambiguous_prefix: str = "",
+) -> str:
+    """Format one conversion block for a single time point."""
+    show_usernames = get_show_usernames()
+    rows = _build_conversion_rows(
+        original_time=original_time,
+        sender_city=sender_city,
+        sender_tz=sender_tz,
+        sender_flag=sender_flag,
+        members=members,
+    )
+
+    lines = []
+    if event_title and get_show_event_title():
+        lines.append(event_title)
+
+    for index, row in enumerate(rows):
         lines.append(
             _render_row(
-                displayed_time=_format_time_with_shift(converted_time, day_shift),
-                label=_join_city_labels(group, timezone),
-                flag=group[0].get("flag", ""),
-                group=group,
+                displayed_time=row["displayed_time"],
+                label=row["label"],
+                flag=row["flag"],
+                group=row["group"],
                 show_usernames=show_usernames,
+                prefix=ambiguous_prefix if index == 0 else "",
             )
         )
 
     return "\n".join(lines)
 
 
+def format_single_point_sentence(
+    original_time: str,
+    sender_city: str,
+    sender_tz: str,
+    sender_flag: str,
+    members: list[dict],
+    ambiguous_prefix: str = "",
+) -> str:
+    """Format one conversion block as a single compact sentence without flags."""
+    rows = _build_conversion_rows(
+        original_time=original_time,
+        sender_city=sender_city,
+        sender_tz=sender_tz,
+        sender_flag=sender_flag,
+        members=members,
+    )
+    if not rows:
+        return ""
+
+    sentence = "It is " + ", ".join(
+        f"{row['displayed_time']} {row['label']}" for row in rows
+    )
+    if ambiguous_prefix:
+        return f"{ambiguous_prefix} {sentence}"
+    return sentence
+
+
 def format_multi_conversion(conversions: list[dict], members: list[dict], sender_name: str = "") -> str:
     """Format one atomic reply containing one or more time blocks."""
+    response_style = get_response_style()
     point_lines = []
     for conversion in conversions:
-        point_lines.append(
-            format_single_point_line(
+        ambiguous_prefix = "" if conversion.get("am_pm_clear", True) else "AM/PM🤔"
+        if response_style == "inline_sentence":
+            line = format_single_point_sentence(
+                conversion["original_time"],
+                conversion["source_city"],
+                conversion["source_tz"],
+                conversion["source_flag"],
+                members,
+                ambiguous_prefix=ambiguous_prefix,
+            )
+        else:
+            line = format_single_point_line(
                 conversion["original_time"],
                 conversion["source_city"],
                 conversion["source_tz"],
                 conversion["source_flag"],
                 members,
                 event_title=conversion.get("event_title", ""),
-                ambiguous_prefix="" if conversion.get("am_pm_clear", True) else "AM/PM🤔",
+                ambiguous_prefix=ambiguous_prefix,
             )
-        )
+        if line:
+            point_lines.append(line)
     return "\n\n".join(point_lines)
 
 

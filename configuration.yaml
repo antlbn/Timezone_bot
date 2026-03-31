@@ -14,7 +14,9 @@ bot:
   # Show usernames next to timezone (default: false)
   show_usernames: false
   # Show event title above each block if explicitly returned by the LLM
-  show_event_title: false
+  show_event_title: true
+  # Reply layout: block or inline_sentence
+  response_style: inline_sentence
   # Send response as a reply to the original user message
   reply_to_original_message: false
   # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.
