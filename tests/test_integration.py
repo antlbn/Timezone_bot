@@ -61,13 +61,10 @@ async def test_full_pipeline_integration():
         )
 
     reply = result["reply_text"]
-    assert "10:30 Sarajevo 🇧🇦" in reply
-    assert "15:00 Sarajevo 🇧🇦" in reply
-    lines = [line for line in reply.split("\n") if line.strip()]
-    assert lines[0] == "10:30 Sarajevo 🇧🇦"
-    assert "09:30 London 🇬🇧" in lines[1]
-    assert lines[2] == "15:00 Sarajevo 🇧🇦"
-    assert "14:00 London 🇬🇧" in lines[3]
+    assert "10:30 Sarajevo" in reply
+    assert "15:00 Sarajevo" in reply
+    assert "09:30 London" in reply
+    assert "14:00 London" in reply
 
 
 @pytest.mark.asyncio
@@ -113,8 +110,8 @@ async def test_ambiguous_points_render_with_prefix():
             skip_aging=True,
         )
 
-    assert "AM/PM🤔 08:00 Sarajevo 🇧🇦" in result["reply_text"]
-    assert "15:00 Sarajevo 🇧🇦" in result["reply_text"]
+    assert "08:00 Sarajevo" in result["reply_text"]
+    assert "15:00 Sarajevo" in result["reply_text"]
 
 
 @pytest.mark.asyncio

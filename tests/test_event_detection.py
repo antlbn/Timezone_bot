@@ -208,7 +208,8 @@ async def test_process_message_builds_reply_text(monkeypatch):
 
     assert result["time_mentioned"] is True
     assert result["time"] == ["20:00"]
-    assert result["reply_text"] == "20:00 London 🇬🇧"
+    assert "20:00 London" in result["reply_text"]
+    assert "созвон" in result["reply_text"]
     assert mock_client_cls.call_count == 1
 
 

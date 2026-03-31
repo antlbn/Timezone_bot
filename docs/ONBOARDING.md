@@ -32,7 +32,9 @@ cd Timezone_bot
 3.  **Environment**:
     ```bash
     cp env.example .env
-    # Edit .env and paste TELEGRAM_TOKEN and/or DISCORD_TOKEN
+    # Edit .env and paste:
+    # 1. TELEGRAM_TOKEN and/or DISCORD_TOKEN
+    # 2. GEMINI_API_KEY (Required for the LLM to detect events)
     ```
 
 > [!TIP]
@@ -69,7 +71,7 @@ uv run pytest tests/ -v
 Once the bot is running:
 1.  **Add the bot** to any Telegram group or Discord channel.
 2.  **No setup required**: You don't need to send `/start` or any configuration commands.
-3.  **Zero-Friction Onboarding**: When an unregistered user sends **any** message to the chat, the bot immediately triggers the onboarding flow and **saves (buffers)** that message. Once the user sets their city, the bot automatically processes the buffered message and replies to it.
+3.  **Zero-Friction Onboarding**: When an unregistered user sends **any** time mentioned message to the chat, the bot immediately triggers the onboarding flow and **saves (buffers)** that message. Once the user sets their city, the bot automatically processes the buffered message and replies to it.
 4.  **LLM-Powered Detection**: The bot uses an LLM to understand natural language time mentions and extracted events, ensuring high accuracy without complex regex configuration.
 
 ---
@@ -87,3 +89,6 @@ The bot is configurable via `configuration.yaml`.
 | `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
 | `bot.max_message_age_seconds` | Integer | Max age (seconds) for messages in queue before they are considered stale (default 20). |
 | `llm.model` | String | Model used for event detection (e.g., `gpt-4o`, `llama-3`). |
+
+
+
