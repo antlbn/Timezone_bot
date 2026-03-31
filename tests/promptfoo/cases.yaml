@@ -44,7 +44,9 @@
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
         // 'без пятнадцати восемь' is 19:45
-        return data.time_mentioned === true && data.points.some(p => p.time === '19:45' && p.city === 'Вена');
+        return data.time_mentioned === true && data.points.some(p =>
+          p.time === '19:45' && (p.tz_city === 'Вена' || p.tz_city === 'Вене' || p.tz_city === 'Vienna')
+        );
 
 - description: "[TIME_PARSING] Relative time — 'через час'"
   vars:
@@ -101,7 +103,8 @@
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.time_mentioned === false;
+        return data.time_mentioned === true
+          && data.points.some(p => p.time === '08:00' && p.am_pm_clear === false);
 
 
 # ============================================================
@@ -145,7 +148,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.time_mentioned === true && data.points.some(p => p.time === '14:00' && p.city === 'London');
+        return data.time_mentioned === true && data.points.some(p => p.time === '14:00' && p.tz_city === 'London');
 
 
 # ============================================================
@@ -432,7 +435,8 @@
     - type: javascript
       value: |
         const data = JSON.parse(output.replace(/```json\n?|```/g, '').trim());
-        return data.time_mentioned === false;
+        return data.time_mentioned === true
+          && data.points.some(p => p.time === '10:00' && p.am_pm_clear === false);
 
 # ============================================================
 # [WEIRD_FORMATS] Странные форматы записи времени
