@@ -74,11 +74,14 @@ def _render_row(
     flag: str,
     group: list[dict],
     show_usernames: bool,
+    prefix: str = "",
 ) -> str:
     parts = [displayed_time, label]
     if flag:
         parts.append(flag)
     row = " ".join(part for part in parts if part)
+    if prefix:
+        row = f"{prefix} {row}"
     if show_usernames:
         names = _format_names(group)
         if names:
@@ -93,6 +96,7 @@ def format_single_point_line(
     sender_flag: str,
     members: list[dict],
     event_title: str = "",
+    ambiguous_prefix: str = "",
 ) -> str:
     """Format one conversion block for a single time point."""
     show_usernames = get_show_usernames()
@@ -121,6 +125,7 @@ def format_single_point_line(
             flag=source_flag,
             group=source_group,
             show_usernames=show_usernames,
+            prefix=ambiguous_prefix,
         )
     )
 
@@ -156,6 +161,7 @@ def format_multi_conversion(conversions: list[dict], members: list[dict], sender
                 conversion["source_flag"],
                 members,
                 event_title=conversion.get("event_title", ""),
+                ambiguous_prefix="" if conversion.get("am_pm_clear", True) else "AM/PM🤔",
             )
         )
     return "\n\n".join(point_lines)

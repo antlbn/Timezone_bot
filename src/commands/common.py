@@ -164,8 +164,9 @@ async def handle_time_mention(
         skip_aging=skip_aging,
     )
 
+    time_mentioned = result.get("time_mentioned", result.get("event"))
     logger.info(
-        f"[chat:{chat_id}] LLM result for {user_name}: event={result.get('event')} "
+        f"[chat:{chat_id}] LLM result for {user_name}: time_mentioned={time_mentioned} "
         f"points={len(result.get('points', []))}"
     )
 
@@ -178,7 +179,7 @@ async def handle_time_mention(
 
     # 4. Lazy Onboarding Trigger
     # We only prompt for registration if an event was detected AND the user is unknown
-    if not is_configured and not is_declined and result.get("event"):
+    if not is_configured and not is_declined and time_mentioned:
         msg_data = {
             "platform": "telegram",
             "chat_id": str(chat_id),

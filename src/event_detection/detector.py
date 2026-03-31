@@ -30,6 +30,7 @@ logger = get_logger()
 
 
 _openai_clients: dict[tuple[str | None, str | None], AsyncOpenAI] = {}
+_TIME_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 def _strip_json_fences(raw: str) -> str:
@@ -41,13 +42,59 @@ def _strip_json_fences(raw: str) -> str:
     return text
 
 
-def _normalize_point(point: dict) -> dict:
-    """Normalize old and new point schemas into the current internal shape."""
+def _is_valid_time_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(_TIME_PATTERN.fullmatch(value))
+
+
+def _normalize_point(point: dict[str, Any]) -> dict[str, Any] | None:
+    """Normalize the runtime schema into the internal shape and drop invalid points."""
+    time_value = point.get("time")
+    tz_city = point.get("tz_city")
+    event_title = point.get("event_title")
+    am_pm_clear = point.get("am_pm_clear")
+
+    if not _is_valid_time_string(time_value):
+        return None
+    if tz_city is not None and not isinstance(tz_city, str):
+        return None
+    if event_title is not None and not isinstance(event_title, str):
+        return None
+    if not isinstance(am_pm_clear, bool):
+        return None
+
     return {
-        "time": point.get("time"),
-        "city": point.get("city"),
-        "event_title": point.get("event_title"),
+        "time": time_value,
+        "tz_city": tz_city,
+        "event_title": event_title,
+        "am_pm_clear": am_pm_clear,
     }
+
+
+def _parse_detection_payload(raw: str) -> tuple[bool, list[dict[str, Any]]]:
+    """Parse and validate the LLM payload. Invalid payloads fail safe to silence."""
+    parsed = json.loads(_strip_json_fences(raw))
+    if not isinstance(parsed, dict):
+        raise ValueError("LLM payload must be a JSON object")
+
+    time_mentioned = parsed.get("time_mentioned")
+    points = parsed.get("points")
+    if not isinstance(time_mentioned, bool):
+        raise ValueError("LLM payload missing boolean time_mentioned")
+    if not isinstance(points, list):
+        raise ValueError("LLM payload missing list points")
+
+    normalized_points: list[dict[str, Any]] = []
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        normalized = _normalize_point(point)
+        if normalized is not None:
+            normalized_points.append(normalized)
+
+    if time_mentioned and not normalized_points:
+        return False, []
+
+    return time_mentioned and bool(normalized_points), normalized_points
 
 
 def _resolve_api_key(preferred_env: str | None) -> str | None:
@@ -157,7 +204,7 @@ async def detect_event(
     ]
 
     result_points: list[dict] = []
-    event_detected = False
+    time_mentioned = False
     last_error: Exception | None = None
     for attempt in _build_llm_attempts():
         try:
@@ -172,10 +219,7 @@ async def detect_event(
                 messages=messages,
             )
             raw = response.choices[0].message.content or "{}"
-
-            parsed = json.loads(_strip_json_fences(raw))
-            event_detected = bool(parsed.get("event"))
-            result_points = [_normalize_point(point) for point in parsed.get("points", [])]
+            time_mentioned, result_points = _parse_detection_payload(raw)
 
             break
         except Exception as exc:
@@ -189,11 +233,14 @@ async def detect_event(
             ctx_logger.error(f"[chat:{chat_id}] All LLM attempts failed. last_error={last_error}")
 
     return {
-        "event": event_detected,
+        "time_mentioned": time_mentioned,
+        "event": time_mentioned,
         "sender_id": sender_id,
         "sender_name": sender_name,
         "time": [p.get("time", "") for p in result_points],
-        "city": [p.get("city") for p in result_points],
+        "tz_city": [p.get("tz_city") for p in result_points],
+        "city": [p.get("tz_city") for p in result_points],
         "event_title": [p.get("event_title") for p in result_points],
+        "am_pm_clear": [p.get("am_pm_clear") for p in result_points],
         "points": result_points,
     }

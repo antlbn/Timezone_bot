@@ -1,48 +1,19 @@
 """Integration tests for storage module."""
 
 import pytest
-import os
-from pathlib import Path
 from src.storage.sqlite import SQLiteStorage
-
-# Temporary database path for testing
-TEST_DB = Path(__file__).parent / "test_bot.db"
 
 
 @pytest.fixture
-async def storage():
-    """Setup a fresh temporary database and storage instance for each test."""
-
-    def cleanup_files():
-        for suffix in ["", "-wal", "-shm"]:
-            p = Path(str(TEST_DB) + suffix)
-            if p.exists():
-                try:
-                    os.remove(p)
-                except Exception:
-                    pass
-
-    cleanup_files()
-
-    _storage = SQLiteStorage(TEST_DB)
+async def storage(tmp_path):
+    """Setup an isolated temporary database for each test."""
+    db_path = tmp_path / "test_bot.db"
+    _storage = SQLiteStorage(db_path)
     await _storage.init()
 
     yield _storage
 
-    # Clean up
     await _storage.close()
-
-    # Robust deletion with retry
-    import asyncio
-
-    for _ in range(5):
-        try:
-            for suffix in ["", "-wal", "-shm"]:
-                p = Path(str(TEST_DB) + suffix)
-                if p.exists():
-                    os.remove(p)
-        except Exception:
-            await asyncio.sleep(0.1)
 
 
 @pytest.mark.asyncio

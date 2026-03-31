@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from src.formatter import normalize_time, format_conversion_reply, format_multi_conversion
+from src.formatter import format_conversion_reply, format_multi_conversion, normalize_time
 
 
 class TestNormalizeTime:
@@ -45,18 +45,8 @@ class TestFormatConversionReply:
 
     def test_multiple_timezones_source_first(self):
         members = [
-            {
-                "city": "New York",
-                "timezone": "America/New_York",
-                "flag": "🇺🇸",
-                "username": "bob",
-            },
-            {
-                "city": "Tokyo",
-                "timezone": "Asia/Tokyo",
-                "flag": "🇯🇵",
-                "username": "charlie",
-            },
+            {"city": "New York", "timezone": "America/New_York", "flag": "🇺🇸", "username": "bob"},
+            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"},
         ]
 
         reply = format_conversion_reply(
@@ -77,12 +67,7 @@ class TestFormatConversionReply:
 
     def test_day_offset(self):
         members = [
-            {
-                "city": "Tokyo",
-                "timezone": "Asia/Tokyo",
-                "flag": "🇯🇵",
-                "username": "charlie",
-            }
+            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"}
         ]
 
         reply = format_conversion_reply(
@@ -97,18 +82,8 @@ class TestFormatConversionReply:
 
     def test_grouping_by_timezone_joins_city_labels(self):
         members = [
-            {
-                "city": "Berlin",
-                "timezone": "Europe/Berlin",
-                "flag": "🇩🇪",
-                "username": "alice",
-            },
-            {
-                "city": "Munich",
-                "timezone": "Europe/Berlin",
-                "flag": "🇩🇪",
-                "display_name": "Bob Smith",
-            },
+            {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "alice"},
+            {"city": "Munich", "timezone": "Europe/Berlin", "flag": "🇩🇪", "display_name": "Bob Smith"},
         ]
 
         with patch("src.formatter.get_show_usernames", return_value=True):
@@ -130,15 +105,11 @@ class TestFormatConversionReply:
                 "source_tz": "Europe/Sarajevo",
                 "source_flag": "🇧🇦",
                 "event_title": "Deadline",
+                "am_pm_clear": True,
             }
         ]
         members = [
-            {
-                "city": "London",
-                "timezone": "Europe/London",
-                "flag": "🇬🇧",
-                "username": "jane",
-            }
+            {"city": "London", "timezone": "Europe/London", "flag": "🇬🇧", "username": "jane"}
         ]
 
         with patch("src.formatter.get_show_event_title", return_value=True):
@@ -147,6 +118,21 @@ class TestFormatConversionReply:
         lines = reply.split("\n")
         assert lines[0] == "Deadline"
         assert lines[1] == "10:30 Sarajevo 🇧🇦"
+
+    def test_ambiguous_prefix_added_to_source_line(self):
+        conversions = [
+            {
+                "original_time": "08:00",
+                "source_city": "Sarajevo",
+                "source_tz": "Europe/Sarajevo",
+                "source_flag": "🇧🇦",
+                "am_pm_clear": False,
+            }
+        ]
+
+        reply = format_multi_conversion(conversions, [])
+
+        assert reply == "AM/PM🤔 08:00 Sarajevo 🇧🇦"
 
     def test_name_list_truncation(self):
         members = [

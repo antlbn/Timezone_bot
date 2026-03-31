@@ -1,21 +1,26 @@
-import pytest
 import datetime
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
-from src.event_detection import process_message
+
+import pytest
+
 from src.config import get_max_message_age
+from src.event_detection import process_message
 
 
 @pytest.mark.asyncio
 async def test_process_message_event():
-    """Test that process_message calls the detector and returns the new schema result."""
     mock_result = {
+        "time_mentioned": True,
         "event": True,
         "sender_id": "456",
         "sender_name": "John",
         "time": ["15:00"],
+        "tz_city": [None],
         "city": [None],
         "event_title": [None],
+        "am_pm_clear": [True],
+        "points": [{"time": "15:00", "tz_city": None, "event_title": None, "am_pm_clear": True}],
     }
 
     with patch("src.event_detection.detect_event", new_callable=AsyncMock) as mock_detect:
@@ -32,39 +37,29 @@ async def test_process_message_event():
             skip_aging=True,
         )
 
-        assert res["event"] is True
-        assert res["time"] == ["15:00"]
-        assert res["sender_id"] == "456"
-        mock_detect.assert_called_once()
-
+    assert res["time_mentioned"] is True
+    assert res["event"] is True
+    assert res["time"] == ["15:00"]
+    assert res["sender_id"] == "456"
+    mock_detect.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_llm_json_dispatch(monkeypatch):
-    """Test that detect_event correctly handles JSON responses from the LLM."""
+async def test_llm_json_dispatch():
     from src.event_detection.detector import detect_event
 
-    # Build a fake OpenAI response object that returns JSON text
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
         {
-            "event": True,
-            "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
+            "time_mentioned": True,
+            "points": [{"time": "20:00", "tz_city": "London", "event_title": "созвон", "am_pm_clear": True}],
         }
     )))]
-    mock_member = {
-        "user_id": "888", "username": "boss",
-        "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
-    }
 
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-    mock_client_cls = MagicMock(return_value=mock_client)
 
-    with (
-        patch("src.event_detection.detector.AsyncOpenAI", mock_client_cls),
-        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[mock_member])),
-    ):
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
         result = await detect_event(
             current_msg={
                 "author_id": "888",
@@ -75,18 +70,18 @@ async def test_llm_json_dispatch(monkeypatch):
             chat_id="chat1",
         )
 
-    assert result["event"] is True
+    assert result["time_mentioned"] is True
     assert result["time"] == ["20:00"]
+    assert result["tz_city"] == ["London"]
     assert result["event_title"] == ["созвон"]
 
 
 @pytest.mark.asyncio
 async def test_llm_json_dispatch_strips_markdown_fences():
-    """Fence-wrapped JSON should still parse successfully."""
     from src.event_detection.detector import detect_event
 
     fenced_json = """```json
-{"event": true, "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}]}
+{"time_mentioned": true, "points": [{"time": "20:00", "tz_city": "London", "event_title": "созвон", "am_pm_clear": true}]}
 ```"""
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=fenced_json))]
@@ -94,13 +89,7 @@ async def test_llm_json_dispatch_strips_markdown_fences():
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-    with (
-        patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client),
-        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[{
-            "user_id": "888", "username": "boss",
-            "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
-        }])),
-    ):
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
         result = await detect_event(
             current_msg={
                 "author_id": "888",
@@ -111,21 +100,20 @@ async def test_llm_json_dispatch_strips_markdown_fences():
             chat_id="chat1",
         )
 
-    assert result["event"] is True
+    assert result["time_mentioned"] is True
     assert result["time"] == ["20:00"]
 
 
 def test_strip_json_fences_handles_language_and_trailing_fence():
     from src.event_detection.detector import _strip_json_fences
 
-    raw = "```json\n{\"event\": true, \"points\": []}\n```"
+    raw = "```json\n{\"time_mentioned\": true, \"points\": []}\n```"
 
-    assert _strip_json_fences(raw) == "{\"event\": true, \"points\": []}"
+    assert _strip_json_fences(raw) == "{\"time_mentioned\": true, \"points\": []}"
 
 
 @pytest.mark.asyncio
 async def test_llm_fallback_attempt_used(monkeypatch):
-    """Primary LLM failure should fall back to a secondary configured LLM."""
     from src.event_detection.detector import clear_runtime_caches, detect_event
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -134,8 +122,8 @@ async def test_llm_fallback_attempt_used(monkeypatch):
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
         {
-            "event": True,
-            "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
+            "time_mentioned": True,
+            "points": [{"time": "20:00", "tz_city": "London", "event_title": "созвон", "am_pm_clear": True}],
         }
     )))]
 
@@ -152,21 +140,11 @@ async def test_llm_fallback_attempt_used(monkeypatch):
                     "model": "primary-model",
                     "temperature": 0.1,
                     "base_url": None,
-                    "fallback": {
-                        "enabled": True,
-                        "model": "fallback-model",
-                    },
+                    "fallback": {"enabled": True, "model": "fallback-model"},
                 }
             },
         ),
-        patch(
-            "src.event_detection.detector.AsyncOpenAI",
-            return_value=shared_client,
-        ) as mock_client_cls,
-        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=[{
-            "user_id": "888", "username": "boss",
-            "timezone": "Europe/London", "city": "London", "flag": "🇬🇧",
-        }])),
+        patch("src.event_detection.detector.AsyncOpenAI", return_value=shared_client) as mock_client_cls,
     ):
         result = await detect_event(
             current_msg={
@@ -178,7 +156,7 @@ async def test_llm_fallback_attempt_used(monkeypatch):
             chat_id="chat1",
         )
 
-    assert result["event"] is True
+    assert result["time_mentioned"] is True
     assert result["event_title"] == ["созвон"]
     assert shared_client.chat.completions.create.await_count == 2
     assert mock_client_cls.call_count == 1
@@ -186,15 +164,13 @@ async def test_llm_fallback_attempt_used(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_process_message_builds_reply_text(monkeypatch):
-    """Bot logic should build reply text after structured detection succeeds."""
-
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
         {
-            "event": True,
-            "points": [{"time": "20:00", "city": "London", "event_title": "созвон"}],
+            "time_mentioned": True,
+            "points": [{"time": "20:00", "tz_city": "London", "event_title": "созвон", "am_pm_clear": True}],
         }
     )))]
 
@@ -209,10 +185,7 @@ async def test_process_message_builds_reply_text(monkeypatch):
                     "model": "primary-model",
                     "temperature": 0.1,
                     "base_url": None,
-                    "fallback": {
-                        "enabled": True,
-                        "model": "fallback-model",
-                    },
+                    "fallback": {"enabled": True, "model": "fallback-model"},
                 }
             },
         ),
@@ -233,7 +206,7 @@ async def test_process_message_builds_reply_text(monkeypatch):
             skip_aging=True,
         )
 
-    assert result["event"] is True
+    assert result["time_mentioned"] is True
     assert result["time"] == ["20:00"]
     assert result["reply_text"] == "20:00 London 🇬🇧"
     assert mock_client_cls.call_count == 1
@@ -263,20 +236,136 @@ def test_openai_client_reused_for_same_endpoint():
 
 @pytest.mark.asyncio
 async def test_message_age_limit():
-    """Verify that messages older than max_age are skipped (Pass 1)."""
     max_age = get_max_message_age()
-    # Build an old timestamp (e.g. max_age + 1s ago)
     old_time = (
         datetime.datetime.now(datetime.timezone.utc)
         - datetime.timedelta(seconds=max_age + 1)
     ).isoformat()
 
-    with patch(
-        "src.event_detection.detector.detect_event", new_callable=AsyncMock
-    ) as mock_detect:
-        res = await process_message(
-            "Old message", "chat1", "u1", "tg", "J", old_time, skip_aging=False
+    with patch("src.event_detection.detect_event", new_callable=AsyncMock) as mock_detect:
+        res = await process_message("Old message", "chat1", "u1", "tg", "J", old_time, skip_aging=False)
+
+    assert res["time_mentioned"] is False
+    assert "stale" in res.get("reason", "").lower()
+    mock_detect.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_llm_invalid_json_fails_silent():
+    from src.event_detection.detector import detect_event
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content="not json"))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
+        result = await detect_event(
+            current_msg={
+                "author_id": "888",
+                "author_name": "Boss",
+                "text": "Call at 8pm London",
+                "timestamp_utc": "2026-03-14T20:00:00Z",
+            },
+            chat_id="chat1",
         )
-        assert res["event"] is False
-        assert "stale" in res.get("reason", "").lower()
-        mock_detect.assert_not_called()
+
+    assert result["time_mentioned"] is False
+    assert result["points"] == []
+
+
+@pytest.mark.asyncio
+async def test_llm_invalid_time_point_dropped_but_valid_survives():
+    from src.event_detection.detector import detect_event
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
+        {
+            "time_mentioned": True,
+            "points": [
+                {"time": "99:99", "tz_city": "Chicago", "event_title": None, "am_pm_clear": True},
+                {"time": "20:00", "tz_city": "London", "event_title": "call", "am_pm_clear": True},
+            ],
+        }
+    )))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
+        result = await detect_event(
+            current_msg={
+                "author_id": "888",
+                "author_name": "Boss",
+                "text": "Call at 8pm London",
+                "timestamp_utc": "2026-03-14T20:00:00Z",
+            },
+            chat_id="chat1",
+        )
+
+    assert result["time_mentioned"] is True
+    assert result["time"] == ["20:00"]
+    assert result["tz_city"] == ["London"]
+
+
+@pytest.mark.asyncio
+async def test_llm_missing_am_pm_clear_fails_silent():
+    from src.event_detection.detector import detect_event
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
+        {
+            "time_mentioned": True,
+            "points": [{"time": "20:00", "tz_city": "London", "event_title": "созвон"}],
+        }
+    )))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
+        result = await detect_event(
+            current_msg={
+                "author_id": "888",
+                "author_name": "Boss",
+                "text": "Call at 8pm London",
+                "timestamp_utc": "2026-03-14T20:00:00Z",
+            },
+            chat_id="chat1",
+        )
+
+    assert result["time_mentioned"] is False
+    assert result["points"] == []
+
+
+@pytest.mark.asyncio
+async def test_llm_wrong_top_level_types_fail_silent():
+    from src.event_detection.detector import detect_event
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
+        {"time_mentioned": "yes", "points": {}}
+    )))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
+        result = await detect_event(
+            current_msg={
+                "author_id": "888",
+                "author_name": "Boss",
+                "text": "Call at 8pm London",
+                "timestamp_utc": "2026-03-14T20:00:00Z",
+            },
+            chat_id="chat1",
+        )
+
+    assert result["time_mentioned"] is False
+    assert result["points"] == []
+
+
+def test_runtime_prompt_mentions_v5_fields():
+    from src.event_detection.prompts import get_system_prompt
+
+    prompt = get_system_prompt()
+    assert "time_mentioned" in prompt
+    assert "tz_city" in prompt
+    assert "am_pm_clear" in prompt

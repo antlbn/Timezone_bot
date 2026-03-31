@@ -63,8 +63,9 @@ async def on_message(message: discord.Message):
         )
         return
 
+    time_mentioned = result.get("time_mentioned", result.get("event"))
     logger.info(
-        f"[guild:{chat_id}] LLM result for {user_name}: event={result.get('event')} "
+        f"[guild:{chat_id}] LLM result for {user_name}: time_mentioned={time_mentioned} "
         f"points={len(result.get('points', []))}"
     )
 
@@ -77,7 +78,7 @@ async def on_message(message: discord.Message):
             await message.channel.send(embed=embed)
 
     # 4. Lazy Onboarding Trigger
-    if not is_configured and not is_declined and result.get("event"):
+    if not is_configured and not is_declined and time_mentioned:
         from src.discord.ui import SetTimezoneView
         from src.config import get_settings_cleanup_timeout
 

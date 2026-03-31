@@ -3,7 +3,7 @@
 ## 1. Purpose
 
 The LLM is the mandatory event-detection and extraction layer for the Timezone Bot MVP.
-It decides whether a message represents a time coordination event and returns structured data for downstream conversion.
+It decides whether a message contains a usable clock-time reference and returns structured data for downstream conversion.
 
 ## 2. Architectural Position
 
@@ -23,50 +23,59 @@ The module is platform-agnostic. Telegram and Discord messages are normalized be
 
 ## 4. Output Contract
 
-The LLM must return structured JSON with at least:
+The LLM must return structured JSON with:
 
-- `event: boolean`
+- `time_mentioned: boolean`
 - `points: []`
 
 Each point contains:
 
 - `time: HH:MM`
-- `city: string | null`
+- `tz_city: string | null`
 - `event_title: string | null`
+- `am_pm_clear: boolean`
 
-`city` is the per-point source-location override for the current message only.
+`tz_city` is the per-point source-timezone override for the current message only.
 `event_title` is optional presentation metadata only.
+`am_pm_clear` defines whether the extracted point is unambiguous enough to be published without annotation.
 
 ## 5. Runtime Rules
 
-### 5.1 `event=false`
+### 5.1 `time_mentioned=false`
 
 - no conversion,
 - no onboarding,
 - stop.
 
-### 5.2 `event=true`
+### 5.2 `time_mentioned=true`
 
 The bot proceeds according to sender registration state:
 
 - registered sender -> normal conversion path,
 - unregistered sender -> freeze message and start onboarding.
 
+### 5.3 Ambiguous AM/PM
+
+- `am_pm_clear=true` -> publish normally
+- `am_pm_clear=false` -> publish with `AM/PM🤔` on the source line
+- mixed clear + ambiguous points -> publish both kinds in one reply, annotating only ambiguous points
+
 ## 6. Source Time Interpretation
 
 The LLM may extract:
 
 - one or more time points,
-- optional per-point `city`,
-- optional `event_title` attached to the relevant point or block.
+- optional per-point `tz_city`,
+- optional `event_title`,
+- per-point `am_pm_clear`.
 
 The LLM does not persist any user profile data.
-If `city` exists, the downstream runtime may use it as the source-time override for the current message only.
+If `tz_city` exists, the downstream runtime may use it as the source-time override for the current message only.
 If `event_title` exists, it is presentation metadata only and must not affect conversion eligibility.
 
 ## 7. Unknown Sender Rule
 
-When `event=true` for an unknown sender:
+When `time_mentioned=true` for an unknown sender:
 
 1. freeze the message,
 2. start onboarding asynchronously,
@@ -77,7 +86,7 @@ Outcome handling:
 | Outcome | Runtime consequence |
 |---|---|
 | Onboarding completed | Save timezone and process frozen message |
-| Onboarding declined | Process frozen message only if point `city` is sufficient |
+| Onboarding declined | Process frozen message only if point `tz_city` is sufficient |
 | Onboarding ignored / timeout | Discard frozen message |
 
 ## 8. Guardrails
@@ -90,7 +99,14 @@ Outcome handling:
 - Failed primary and fallback attempts must be logged with enough context to diagnose provider/model failure.
 - Fallback switching must not change business rules; it changes only the provider/model used for the same contract.
 
-## 8.1 Client Lifecycle
+## 8.1 Malformed Output Policy
+
+- Unparsable JSON, non-object JSON, or missing required top-level fields must fail safe to silence.
+- Invalid individual points must be dropped instead of crashing the pipeline.
+- Examples of invalid points: impossible times like `99:99`, wrong field types, missing `am_pm_clear`.
+- If all points are dropped after validation, runtime must behave as `time_mentioned=false`.
+
+## 8.2 Client Lifecycle
 
 - The runtime should reuse async LLM clients across messages when provider endpoint and credentials are unchanged.
 - Per-message recreation of the HTTP client / LLM client is not part of the canonical MVP design because it adds avoidable connection churn and latency.
@@ -102,4 +118,4 @@ Outcome handling:
 - recurring event scheduling,
 - participant subset extraction,
 - regex fallback for production behavior,
-- updating sender DB timezone from per-message `city`.
+- updating sender DB timezone from per-message `tz_city`.

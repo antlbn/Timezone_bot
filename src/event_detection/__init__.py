@@ -29,9 +29,9 @@ async def _build_reply(
 
     conversions = []
     for point in points:
-        city_override = point.get("city")
-        if city_override:
-            geo_result = await async_get_timezone_by_city(city_override)
+        tz_city_override = point.get("tz_city")
+        if tz_city_override:
+            geo_result = await async_get_timezone_by_city(tz_city_override)
             if geo_result and not geo_result.get("error"):
                 source_city = geo_result["city"]
                 source_tz = geo_result["timezone"]
@@ -56,6 +56,7 @@ async def _build_reply(
                 "source_tz": source_tz,
                 "source_flag": source_flag,
                 "event_title": point.get("event_title"),
+                "am_pm_clear": point.get("am_pm_clear", True),
             }
         )
 
@@ -98,10 +99,13 @@ async def process_message(
         )
         return {
             "event": False,
+            "time_mentioned": False,
             "sender_id": normalized_user_id,
             "sender_name": author_name,
             "time": [],
+            "tz_city": [],
             "city": [],
+            "am_pm_clear": [],
             "reason": f"Message exceeded hard limit of {hard_limit} chars",
         }
 
@@ -132,10 +136,13 @@ async def process_message(
                 )
                 return {
                     "event": False,
+                    "time_mentioned": False,
                     "sender_id": normalized_user_id,
                     "sender_name": author_name,
                     "time": [],
+                    "tz_city": [],
                     "city": [],
+                    "am_pm_clear": [],
                     "reason": "Message stale before processing",
                 }
         except Exception as e:
@@ -148,9 +155,17 @@ async def process_message(
         ctx_logger=ctx_logger,
     )
 
+    time_mentioned = result.get("time_mentioned")
+    if time_mentioned is None:
+        time_mentioned = bool(result.get("event"))
+
+    tz_city = result.get("tz_city")
+    if tz_city is None:
+        tz_city = result.get("city", [])
+
     reply_text = None
     points = result.get("points", [])
-    if result.get("event") and points and sender_db:
+    if time_mentioned and points and sender_db:
         reply_text = await _build_reply(
             points=points,
             sender_db=sender_db,
@@ -161,6 +176,10 @@ async def process_message(
         )
 
     result["reply_text"] = reply_text
+    result["time_mentioned"] = time_mentioned
+    result["event"] = time_mentioned
+    result["tz_city"] = tz_city
+    result["city"] = tz_city
 
     return result
 

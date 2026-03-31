@@ -1,20 +1,13 @@
-import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from src.event_detection import process_message
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_integration():
-    """
-    Simulates: Message → process_message → detect_event JSON output
-               → _build_reply → send_fn
-
-    Ensures that multiple time points from the LLM result in a single
-    aggregated message from a single JSON response.
-    """
-
-    # 1. Mock Data
     chat_id = "integration_chat_123"
     user_id = "user_anton"
     sender_name = "Anton"
@@ -39,27 +32,21 @@ async def test_full_pipeline_integration():
         },
     ]
 
-    # 2. OpenAI mock: model returns canonical JSON content
     points_payload = [
-        {"time": "10:30", "city": None, "event_title": "event 1"},
-        {"time": "15:00", "city": None, "event_title": "event 2"},
+        {"time": "10:30", "tz_city": None, "event_title": "event 1", "am_pm_clear": True},
+        {"time": "15:00", "tz_city": None, "event_title": "event 2", "am_pm_clear": True},
     ]
 
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
-        {
-            "event": True,
-            "points": points_payload,
-        }
+        {"time_mentioned": True, "points": points_payload}
     )))]
 
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-    mock_client_cls = MagicMock(return_value=mock_client)
 
-    # 4. Execute Pipeline
     with (
-        patch("src.event_detection.detector.AsyncOpenAI", mock_client_cls),
+        patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
     ):
         result = await process_message(
@@ -74,14 +61,89 @@ async def test_full_pipeline_integration():
         )
 
     reply = result["reply_text"]
-    print(f"\nCaptured Integrated Reply:\n{reply}")
-
-    # Check that both times are present in the single message
     assert "10:30 Sarajevo 🇧🇦" in reply
     assert "15:00 Sarajevo 🇧🇦" in reply
-    # Check formatting
     lines = [line for line in reply.split("\n") if line.strip()]
     assert lines[0] == "10:30 Sarajevo 🇧🇦"
     assert "09:30 London 🇬🇧" in lines[1]
-    assert "15:00 Sarajevo 🇧🇦" in lines[2]
+    assert lines[2] == "15:00 Sarajevo 🇧🇦"
     assert "14:00 London 🇬🇧" in lines[3]
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_points_render_with_prefix():
+    chat_id = "integration_chat_123"
+    user_id = "user_anton"
+    sender_db = {"timezone": "Europe/Sarajevo", "city": "Sarajevo", "flag": "🇧🇦"}
+    mock_members = [
+        {
+            "user_id": user_id,
+            "username": "anton",
+            "timezone": "Europe/Sarajevo",
+            "city": "Sarajevo",
+            "flag": "🇧🇦",
+        }
+    ]
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
+        {
+            "time_mentioned": True,
+            "points": [
+                {"time": "08:00", "tz_city": None, "event_title": None, "am_pm_clear": False},
+                {"time": "15:00", "tz_city": None, "event_title": None, "am_pm_clear": True},
+            ],
+        }
+    )))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with (
+        patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client),
+        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
+    ):
+        result = await process_message(
+            message_text="tomorrow at 8 and 15:00",
+            chat_id=chat_id,
+            user_id=user_id,
+            platform="discord",
+            author_name="Anton",
+            timestamp_utc="2026-03-14T20:00:00Z",
+            sender_db=sender_db,
+            skip_aging=True,
+        )
+
+    assert "AM/PM🤔 08:00 Sarajevo 🇧🇦" in result["reply_text"]
+    assert "15:00 Sarajevo 🇧🇦" in result["reply_text"]
+
+
+@pytest.mark.asyncio
+async def test_invalid_points_only_produce_no_reply():
+    chat_id = "integration_chat_123"
+    user_id = "user_anton"
+    sender_db = {"timezone": "Europe/Sarajevo", "city": "Sarajevo", "flag": "🇧🇦"}
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
+        {
+            "time_mentioned": True,
+            "points": [{"time": "99:99", "tz_city": None, "event_title": None, "am_pm_clear": True}],
+        }
+    )))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    with patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client):
+        result = await process_message(
+            message_text="broken point",
+            chat_id=chat_id,
+            user_id=user_id,
+            platform="discord",
+            author_name="Anton",
+            timestamp_utc="2026-03-14T20:00:00Z",
+            sender_db=sender_db,
+            skip_aging=True,
+        )
+
+    assert result["time_mentioned"] is False
+    assert result["reply_text"] is None

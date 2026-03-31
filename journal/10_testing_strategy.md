@@ -1,91 +1,75 @@
 # Technical Spec: Testing Strategy
 
 ## 1. Philosophy (MVP)
-We follow a **Pragmatic approach**:
-1.  **Logic First**: Automatically test only complex business logic (Regex, time math).
-2.  **Manual UI**: Test Telegram interactions (buttons, commands) manually.
-3.  **Zero External Deps**: Use standard library `unittest` (or simple `pytest` without complex plugins).
+We follow a pragmatic approach:
+1. logic first,
+2. manual UI verification,
+3. plain `pytest` with mocks.
 
----
-
-## 2. Test Pyramid (Telegram + Discord)
+## 2. Test Pyramid
 
 | Layer | Type | Scope | Automation | Tool |
 |-------|------|-------|------------|------|
-| **L1** | **Unit** | `src/event_detection/` (LLM output parsing, golden fixtures)<br>`src/transform.py` (Time math)<br>`src/geo.py` (Geocoding) | ✅ Automated | `pytest` |
-| **L1.5** | **Handlers** | `src/commands/*.py` (Telegram)<br>`src/discord/commands.py` (Discord) | ✅ Automated | `pytest` + `mock` |
-| **L2** | **Integration** | `src/storage/`, `middleware`, events | ✅ Automated | `pytest` |
-| **L3** | **E2E / UI** | Bot Commands, Dialogs, Flows | ❌ Manual | Telegram App, Discord |
+| **L1** | **Unit** | `src/event_detection/`, `src/transform.py`, `src/geo.py`, `src/formatter.py` | ✅ Automated | `pytest` |
+| **L1.5** | **Handlers** | Telegram and Discord command/event handlers | ✅ Automated | `pytest` + mocks |
+| **L2** | **Integration** | storage, onboarding/runtime flow, reply building | ✅ Automated | `pytest` |
+| **L3** | **E2E / UI** | bot commands, dialogs, flows | ❌ Manual | Telegram App, Discord |
 
-
----
-
-## 3. Automated Logic Tests (L1)
+## 3. Automated Logic Tests
 
 These tests should run before every commit.
 
-### Scope:
-1. **Event Detection (LLM)**:
-    - Golden test cases from `tests/fixtures/event_detection_cases.yaml`
-    - Verify `trigger`, `polarity`, `times[]`, `event_location` for each fixture
-    - Test JSON schema validation
-2. **Transformation Logic**:
-    - UTC → Target TZ conversion
-    - `source_tz` override (event_location path)
-    - Day change handling (Day +1 / -1)
-    - Response string formatting
-3. **Resilience (L2)**:
-    - API error handling (Geo timeout, LLM error)
-    - Database stability (Middleware catch)
-    - Garbage data parsing
-4. **Handlers (L1.5)**:
-    - Unit tests for commands (`cmd_me`, `cmd_settz`)
-    - Mocking `aiogram.types.Message` and `storage`
-    - Verify `message.answer` is called with expected text
+### Scope
+1. **Event Detection runtime**
+   - parse `time_mentioned`, `tz_city`, `event_title`, `am_pm_clear`
+   - malformed JSON must fail safe to silence
+   - invalid points (`99:99`, wrong types, missing required fields) must be dropped
+   - if all points are invalid, runtime must stay silent
+2. **Transformation / formatting**
+   - UTC → target TZ conversion
+   - `tz_city` source override
+   - day shifts
+   - ambiguous-point presentation with `AM/PM🤔`
+3. **Resilience**
+   - LLM fallback behavior
+   - API errors
+   - garbage data parsing
+4. **Handlers**
+   - onboarding triggers only when `time_mentioned=true`
+   - no publish when no usable points survive validation
 
-### Location:
-- `tests/test_event_detection.py` — LLM output parsing + golden fixtures
-- `tests/test_transform.py` — UTC-pivot logic + source_tz override
-- `tests/test_formatter.py` — Reply formatting
-- `tests/test_geo.py` — Geocoding and timezone resolution
-- `tests/test_storage.py` — Database operations (platform separation)
-- `tests/test_handlers.py` — Telegram handlers
-- `tests/test_discord_handlers.py` — Discord handlers
-- `tests/test_discord_events.py` — Discord events (auto-cleanup)
-- `tests/test_exceptions_logging.py` — Error handling
+### Primary files
+- `tests/test_event_detection.py`
+- `tests/test_integration.py`
+- `tests/test_formatter.py`
+- `tests/test_transform.py`
+- `tests/test_geo.py`
+- `tests/test_storage.py`
+- `tests/test_handlers.py`
+- `tests/test_discord_*.py`
 
----
+## 4. Manual Verification
 
-## 4. Manual Verification Logic (L2 & L3)
-
-For integration and UI verification, use a checklist (`task.md` Phase 4).
-
-**Key scenarios:**
-1.  **Startup**: Bot starts, DB is created.
-2.  **New User Flow**: `/tb_settz` → enter city → save.
-3.  **Group Chat**:
-    -   User A (Berlin) writes "15:00"
-    -   User B (NY) sees "09:00 New York"
-4.  **Error Handling**: Enter non-existent city (fallback should work).
-
----
+Key scenarios:
+1. configured sender + clear point -> normal conversion
+2. configured sender + ambiguous point -> `AM/PM🤔`
+3. unknown sender + `time_mentioned=true` -> onboarding
+4. malformed provider response -> silence, no crash
 
 ## 5. Continuous Integration (Future)
-In the future (Post-MVP) add GitHub Actions:
-- Linting (`ruff`)
-- Running tests (`python -m unittest discover tests`)
 
----
+Future CI should run:
+- linting
+- full `pytest`
 
 ## 6. Database in Tests
-**Important:** Running tests does **not require** the `data/bot.db` file.
-- **L1.5 (Handlers)**: Use `unittest.mock` (don't touch disk at all).
-- **L2 (Integration)**: Tests in `test_storage.py` automatically create and delete a **temporary DB file** (`tests/test_bot.db`).
-This guarantees that tests can run on a clean machine right after `git clone`.
+
+Running tests must not require the production DB.
+- handler tests use mocks
+- storage tests use a temporary DB
 
 ## 7. Runtime Reset and Isolation
 
-- Any runtime cache that can affect deterministic test behavior must expose a reset hook or participate in a shared reload path.
-- Tests are allowed to patch env vars, config getters, and YAML-backed config values inside a single pytest process.
-- Critical user actions that can crash due to wiring mistakes must have automated coverage, including settings/privacy callbacks and LLM fallback behavior.
-- Stale config state leaking from one test to another is a bug, not an accepted limitation of the test harness.
+- Runtime caches that affect deterministic behavior must expose reset hooks.
+- Tests may patch env vars, config getters, and YAML-backed config values in a single pytest process.
+- Stale config state leaking between tests is a bug.
