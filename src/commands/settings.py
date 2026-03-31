@@ -149,8 +149,7 @@ async def dm_setcity_callback(
     await callback.message.answer(
         f"Great {user_name}! Tell me your city so I can show your local time to others.\n"
         f"\n"
-        f"💡 For best results, write it as: `City, Country` \n"
-        f"e.g. `Paris, France` or `Paris, Texas, USA`.",
+        f"💡 Write city: e.g. `Paris` for France, or specify `Paris, Texas` for USA.",
         parse_mode="Markdown",
     )
     await state.set_state(SetTimezone.waiting_for_city)
