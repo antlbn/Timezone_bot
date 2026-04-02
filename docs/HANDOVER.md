@@ -25,12 +25,13 @@ Discord adapter ──┘
 ```
 
 Shared core modules:
-- `event_detection`
-- `geo`
-- `transform`
-- `formatter`
-- `storage`
-- `pending onboarding`
+- `event_detection` — one-shot LLM orchestration and validation
+- `geo` — city/place → IANA timezone resolution
+- `transform` — UTC-pivot time conversion
+- `formatter` — human-readable reply rendering
+- `storage` — SQLite persistence + in-memory caches
+- `services` — cross-platform user logic
+- `onboarding / pending queue` — frozen message lifecycle
 
 The key boundary is intentional:
 - the LLM does not send replies,
@@ -147,6 +148,38 @@ Why:
 
 Important constraint:
 - location text from a message is a one-message override only; it must not overwrite stored user timezone.
+
+### 3.9 AM/PM Ambiguity: Publish with Annotation, Not Silence
+
+When the LLM cannot determine whether a bare hour is AM or PM, the bot publishes the conversion with an `AM/PM🤔` prefix on the source line rather than staying silent.
+
+The three states:
+
+| `time_mentioned` | `am_pm_clear` | Bot behavior |
+|---|---|---|
+| `false` | — | stay silent |
+| `true` | `true` | convert and publish normally |
+| `true` | `false` | publish with `AM/PM🤔` on the source line |
+
+Ambiguity rule (working-hours heuristic, `06:00–22:00`):
+- bare hour `1–5` → choose PM, mark clear
+- bare hour `6–10` → both AM and PM fall inside working hours → ambiguous
+- bare hour `11–12` → choose AM, mark clear
+
+Why:
+- silence on ambiguous times would hide coordination events entirely; the user gets no feedback.
+- the annotation signals uncertainty without blocking the reply.
+- a mixed message with both clear and ambiguous points publishes both; only ambiguous ones get the annotation.
+
+### 3.10 Dual-Timezone Reduction
+
+When one moment is expressed in two timezones in the same message (e.g., `"в 3 по мск, это 4 по Вене"`), the LLM keeps only the last target zone.
+
+Example: `"в 3 по мск, это 4 по Вене"` → `time=04:00`, `tz_city=Vienna`
+
+Why:
+- the second zone is the user's explicit restatement in a more useful timezone; it is the intended source for conversion.
+- keeping both would create a redundant or contradictory output.
 
 ## 4. Known Limits
 

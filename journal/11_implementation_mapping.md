@@ -11,9 +11,8 @@
 
 | Spec | Code File | Responsibility |
 |------|-----------|----------------|
-| — | `src/capture.py` | ❌ **REMOVED** — legacy prefilter no longer used. |
 | `03_transformation_specs.md` | `src/transform.py` | UTC-pivot conversion logic. |
-| `05_storage.md` | `src/storage/` | **Package**: SQLite operations. Added `pending.py` (Memory layer) and `user_cache.py`. |
+| `05_storage.md` | `src/storage/` | **Package**: SQLite operations. Includes `pending.py` (memory layer), `user_cache.py`, and `activity_throttle.py` for throttled activity writes. |
 | `06_city_to_timezone.md` | `src/geo.py` | Nominatim + TimezoneFinder mapping. |
 | `07_response_format.md` | `src/formatter.py` | String formatting and timezone grouping. |
 | `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram-side adapter. |
@@ -28,10 +27,6 @@
 ```
 config.py → logger.py → src/storage/ → src/event_detection/ → src/services/ → transform.py → geo.py → formatter.py → main.py
 ```
-
-> `capture.py` is removed from the build order — no longer part of the main message flow.
-
----
 
 ## Directory Structure
 ```
@@ -59,6 +54,7 @@ Timezone_bot/
 │   │   ├── __init__.py
 │   │   ├── base.py
 │   │   ├── sqlite.py    # Migrations & SQL
+│   │   ├── activity_throttle.py # Throttle update_activity writes
 │   │   ├── pending.py   # Frozen messages (Memory)
 │   │   └── user_cache.py # LRU caching
 │   ├── services/        # BUSINESS LAYER

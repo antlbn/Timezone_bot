@@ -1,7 +1,7 @@
 """
 In-Memory Pending Storage (Layer 4 of Working Memory).
 Stores messages for users currently in the onboarding flow.
-Replaces Redis-based storage.
+Also tracks DM invite cooldowns for onboarding prompts.
 
 Single-process runtime only: module-level state is not shared across worker
 processes. A PID guard clears inherited state after fork-like process changes

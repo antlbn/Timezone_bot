@@ -14,7 +14,13 @@ Minimalistic strategy:
 ```yaml
 logging:
   level: INFO   # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  format: text  # text | json
 ```
+
+Notes:
+
+- `INFO` is the canonical production-facing default in the spec.
+- The repository's checked-in local development config currently uses `DEBUG`.
 
 ---
 
@@ -34,7 +40,7 @@ logging:
 In log messages, simply add chat ID if available:
 `[chat:123] Timezone set to Europe/Berlin`
 
-Starting from **2026-03-16**, the LLM pipeline uses `logging.LoggerAdapter` to automatically inject `[platform:chat_id]` into all logs within the pipeline context.
+The LLM pipeline uses `logging.LoggerAdapter` to automatically inject `[platform:chat_id]` into all logs within the pipeline context.
 
 ---
 

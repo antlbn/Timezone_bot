@@ -26,7 +26,6 @@ CREATE TABLE users (
     flag                 TEXT DEFAULT '',
     onboarding_declined  INTEGER DEFAULT 0,       -- 1 when user explicitly refused setup
     created_at           TEXT DEFAULT (datetime('now')),
-    updated_at           TEXT DEFAULT (datetime('now')),
     last_active_at       TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, platform)
 );
@@ -36,10 +35,9 @@ CREATE TABLE users (
 
 ```sql
 CREATE TABLE chat_members (
-    chat_id     INTEGER NOT NULL,
-    user_id     INTEGER NOT NULL,
-    platform    TEXT NOT NULL,
-    joined_at   TEXT DEFAULT (datetime('now')),
+    chat_id     INTEGER,
+    user_id     INTEGER,
+    platform    TEXT,
     PRIMARY KEY (chat_id, user_id, platform),
     FOREIGN KEY (user_id, platform) REFERENCES users(user_id, platform) ON DELETE CASCADE
 );
@@ -71,9 +69,15 @@ CREATE INDEX idx_chat_members_chat ON chat_members(chat_id, platform);
 
 ```python
 get_user(user_id: int, platform: str) -> dict | None
-upsert_user_identity(user_id: int, platform: str, username: str | None) -> None
-set_user_timezone(user_id: int, platform: str, city: str, timezone: str, flag: str) -> None
-set_onboarding_declined(user_id: int, platform: str, declined: bool) -> None
+set_user(
+    user_id: int,
+    platform: str,
+    city: str | None,
+    timezone: str | None,
+    flag: str = "",
+    username: str = "",
+    onboarding_declined: bool = False,
+) -> None
 update_activity(user_id: int, platform: str) -> None
 ```
 
@@ -101,7 +105,8 @@ Rules:
 
 ### Known Members for Conversion
 
-Queries that feed conversion output must filter to configured users only.
+Queries that feed conversion output must exclude unconfigured users before final rendering.
+That filtering may happen either in the SQL query itself or in the formatter/business layer, as long as the final reply includes only members with a non-null stored timezone.
 
 Example:
 
@@ -112,8 +117,7 @@ JOIN chat_members cm
   ON u.user_id = cm.user_id
  AND u.platform = cm.platform
 WHERE cm.chat_id = ?
-  AND cm.platform = ?
-  AND u.timezone IS NOT NULL;
+  AND cm.platform = ?;
 ```
 
 ### Sender Lookup
@@ -137,6 +141,7 @@ To reduce active I/O, the bot caches frequently requested SQLite data in memory:
 
 1. **User Snapshot Cache (L1):** An LRU cache (e.g., 10,000 slots) tracks user configurations. It is populated on first read and explicitly invalidated whenever a user's configuration changes.
 2. **Chat Members Cache (L2):** A TTL cache (e.g., 60 seconds) handles chat member lists. It intercepts bursty events from active chats. The cache is invalidated automatically upon any member join/leave operations.
+3. **Activity Write Throttle:** A lightweight in-memory throttle may delay repeated `update_activity` writes for the same `(user_id, platform)` on chatty streams to reduce SQLite churn without changing the semantic meaning of `last_active_at`.
 
 ## 11. File Location
 

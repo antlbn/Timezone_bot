@@ -42,7 +42,8 @@ Platform-specific sections are allowed only for genuinely platform-specific beha
 bot:
   show_usernames: false
   reply_to_original_message: false
-  show_event_title: false
+  show_event_title: true
+  response_style: inline_sentence
   settings_cleanup_timeout_seconds: 30
 ```
 
@@ -51,6 +52,7 @@ Meaning:
 - `show_usernames`: show grouped user names in formatted replies.
 - `reply_to_original_message`: deliver conversion reply as a reply to the triggering message.
 - `show_event_title`: render `event_title` only when explicitly returned by the LLM.
+- `response_style`: reply rendering mode; `block` renders one row per timezone, `inline_sentence` renders one compact sentence per point.
 - `settings_cleanup_timeout_seconds`: TTL for short-lived bot messages in shared chats.
 
 ### 4.2 LLM
@@ -109,7 +111,17 @@ Notes:
 ```yaml
 logging:
   level: INFO
+  format: text
 ```
+
+Meaning:
+
+- `level`: canonical production log threshold.
+- `format`: output format; `text` for human-readable local logs, `json` for structured log pipelines.
+
+Notes:
+
+- The checked-in `configuration.yaml` currently uses `DEBUG` as a local development default. Production-oriented deployments should converge on `INFO` unless deeper diagnostics are needed.
 
 ### 4.5 Storage
 

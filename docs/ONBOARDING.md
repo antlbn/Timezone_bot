@@ -96,22 +96,67 @@ Once the bot is running:
 
 ## Configuration
 
-Runtime behavior is configured via `configuration.yaml`.
+Runtime behavior is configured via `configuration.yaml`. All sections and their defaults are described below.
 
-| Setting | Type | Description |
+---
+
+### `logging` — Observability
+
+| Key | Default | Description |
 | :--- | :--- | :--- |
-| `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
-| `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
-| `bot.show_event_title` | Boolean | Show `event_title` when the detector returns it. |
-| `bot.reply_to_original_message` | Boolean | Send conversion as a direct reply to the source message. |
-| `bot.settings_cleanup_timeout_seconds` | Integer | Auto-delete short-lived setup/help noise in shared chats. |
-| `llm.model` | String | Primary detection model. |
-| `llm.base_url` | String | OpenAI-compatible endpoint for the primary provider. |
-| `llm.api_key_env` | String | Env var name for the primary provider key. |
-| `llm.fallback.*` | Section | Optional fallback provider/model settings. |
-| `event_detection.onboarding_timeout_seconds` | Integer | How long frozen messages wait during onboarding. |
-| `event_detection.dm_onboarding_cooldown_seconds` | Integer | Cooldown before re-inviting ignored users. |
-| `event_detection.max_message_age_seconds` | Integer | Skip stale messages after downtime/restart. |
-| `event_detection.max_message_hard_skip_chars` | Integer | Hard length guard for oversized messages. |
+| `logging.level` | `DEBUG` | Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
+| `logging.format` | `text` | Output format: `text` (human-readable) or `json` (structured). |
 
-Canonical config details live in [journal/13_configuration.md](../journal/13_configuration.md).
+---
+
+### `bot` — Output and UX
+
+| Key | Default | Description |
+| :--- | :--- | :--- |
+| `bot.show_usernames` | `false` | Append names to each timezone row: `13:00 Berlin 🇩🇪 @alice, Bob`. |
+| `bot.show_event_title` | `true` | Show `event_title` above a block when the LLM explicitly extracted it. If `false`, titles are always suppressed. |
+| `bot.response_style` | `inline_sentence` | Reply layout. `block` — one timezone per line; `inline_sentence` — compact single-line format. |
+| `bot.reply_to_original_message` | `false` | Post the conversion as a thread reply to the triggering message. |
+| `bot.settings_cleanup_timeout_seconds` | `30` | Auto-delete TTL (in seconds) for short-lived bot messages (`/tb_help`, timezone prompts, etc.) in shared chats. Set `0` to disable. |
+
+> [!TIP]
+> `show_event_title` reads what the LLM returned — it never invents a title. Turning it `off` suppresses all titles regardless of LLM output.
+
+---
+
+### `llm` — Detection Model
+
+| Key | Default | Description |
+| :--- | :--- | :--- |
+| `llm.model` | `gemini-2.0-flash-lite` | Primary model identifier. |
+| `llm.temperature` | `0.1` | Low temperature keeps detection deterministic. |
+| `llm.base_url` | Gemini OpenAI-compat endpoint | Any OpenAI-compatible endpoint. Swap to use a different provider. |
+| `llm.api_key_env` | `LLM_API_KEY` | Name of the env var holding the primary provider key. |
+| `llm.fallback.enabled` | `true` | Enable automatic retry on the fallback model when the primary fails. |
+| `llm.fallback.model` | `llama-3.1-8b-instant` | Fallback model identifier. |
+| `llm.fallback.base_url` | Groq OpenAI-compat endpoint | Fallback provider endpoint. |
+| `llm.fallback.api_key_env` | `LLM_FALLBACK_API_KEY` | Name of the env var holding the fallback provider key. |
+
+---
+
+### `event_detection` — LLM Pipeline Guards
+
+| Key | Default | Description |
+| :--- | :--- | :--- |
+| `event_detection.onboarding_timeout_seconds` | `120` | How long a frozen message waits for onboarding to complete before being discarded. |
+| `event_detection.dm_onboarding_cooldown_seconds` | `600` | Minimum gap before re-prompting a user who ignored or abandoned the onboarding DM. |
+| `event_detection.max_message_age_seconds` | `30` | Messages older than this are skipped — prevents stale replies after restart or downtime. |
+| `event_detection.max_message_hard_skip_chars` | `2000` | Hard safety ceiling: messages longer than this are never sent to the LLM. |
+| `event_detection.log_prompts` | `false` | If `true`, prints the full LLM prompt to the console. Useful for debugging detection failures. |
+
+---
+
+### `storage` — Data Management
+
+| Key | Default | Description |
+| :--- | :--- | :--- |
+| `storage.inactive_user_retention_days` | `30` | Remove users who haven't interacted with the bot for this many days. Set `0` to disable pruning. |
+
+---
+
+Canonical config reference: [journal/13_configuration.md](../journal/13_configuration.md).

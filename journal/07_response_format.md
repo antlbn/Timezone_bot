@@ -17,7 +17,8 @@ Expected formatter-level options:
 bot:
   show_usernames: false
   reply_to_original_message: false
-  show_event_title: false
+  show_event_title: true
+  response_style: inline_sentence
 ```
 
 Meaning:
@@ -25,8 +26,10 @@ Meaning:
 - `show_usernames`: include user names in grouped rows.
 - `reply_to_original_message`: platform adapter posts the conversion as a reply to the triggering message.
 - `show_event_title`: include per-block event title only if the LLM explicitly returned it.
+- `response_style`: select `block` for multi-line timezone rows or `inline_sentence` for compact sentence rendering.
 
 `reply_to_original_message` affects delivery style only. It does not change the textual content.
+`response_style` changes the textual layout, but not the conversion semantics.
 
 ## 4. Formatter Input Contract
 
