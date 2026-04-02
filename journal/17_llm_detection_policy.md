@@ -6,7 +6,7 @@
 |---|---|---|
 | false | — | stay silent |
 | true | true | convert and publish normally |
-| true | false | publish with `AM/PM🤔` |
+| true | false | publish with `AM/PM?` |
 
 Mixed messages may contain both clear and ambiguous points. The bot publishes both, annotating only ambiguous points.
 
@@ -80,5 +80,5 @@ If no valid points remain, runtime behaves as `time_mentioned=false`.
 ## 7. Runtime Presentation Policy
 
 - clear point -> normal conversion block
-- ambiguous point -> same conversion block, but prefix the source line with `AM/PM🤔`
+- ambiguous point -> same conversion block, but prefix the source line with `AM/PM?`
 - annotation is presentation-only and does not change the extracted time value

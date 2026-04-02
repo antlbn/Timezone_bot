@@ -29,7 +29,7 @@ These tests should run before every commit.
    - UTC → target TZ conversion
    - `tz_city` source override
    - day shifts
-   - ambiguous-point presentation with `AM/PM🤔`
+   - ambiguous-point presentation with `AM/PM?`
 3. **Resilience**
    - LLM fallback behavior
    - API errors
@@ -52,7 +52,7 @@ These tests should run before every commit.
 
 Key scenarios:
 1. configured sender + clear point -> normal conversion
-2. configured sender + ambiguous point -> `AM/PM🤔`
+2. configured sender + ambiguous point -> `AM/PM?`
 3. unknown sender + `time_mentioned=true` -> onboarding
 4. malformed provider response -> silence, no crash
 

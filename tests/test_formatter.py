@@ -144,7 +144,7 @@ class TestFormatConversionReply:
 
         reply = format_multi_conversion(conversions, [])
 
-        assert reply == "AM/PM🤔 08:00 Sarajevo 🇧🇦"
+        assert reply == "AM/PM? 08:00 Sarajevo 🇧🇦"
 
     def test_inline_sentence_style_has_compact_no_emoji_layout(self):
         conversions = [
@@ -268,7 +268,7 @@ class TestFormatConversionReply:
         ):
             reply = format_multi_conversion(conversions, [])
 
-        assert reply == "It is AM/PM🤔 08:00 Amsterdam"
+        assert reply == "It is AM/PM? 08:00 Amsterdam"
 
     def test_name_list_truncation(self):
         members = [

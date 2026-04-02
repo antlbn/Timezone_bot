@@ -17,13 +17,13 @@ You can configure the bot to display times in a compact sentence or as a detaile
 🤖 It is 15:00 Berlin, 09:00 New York, 23:00 Tokyo
 ```
 
-*(Handles multiple data points seamlessly:)*
+*(Handles multiple time points in one reply:)*
 ```text
 👤 Jane: Standup at 10:30, then the retro is at 15:00.
 
-🤖 It is
-   10:30 London, 11:30 Berlin
-   15:00 London, 16:00 Berlin
+🤖 It is 10:30 London, 11:30 Berlin
+
+   It is 15:00 London, 16:00 Berlin
 ```
 
 **Extended Mode (`block`)**: Great for larger teams or detailed coordination. Includes flags, usernames, and extracted event titles.

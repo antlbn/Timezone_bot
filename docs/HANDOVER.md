@@ -151,7 +151,7 @@ Important constraint:
 
 ### 3.9 AM/PM Ambiguity: Publish with Annotation, Not Silence
 
-When the LLM cannot determine whether a bare hour is AM or PM, the bot publishes the conversion with an `AM/PM🤔` prefix on the source line rather than staying silent.
+When the LLM cannot determine whether a bare hour is AM or PM, the bot publishes the conversion with an `AM/PM?` prefix on the source line rather than staying silent.
 
 The three states:
 
@@ -159,7 +159,7 @@ The three states:
 |---|---|---|
 | `false` | — | stay silent |
 | `true` | `true` | convert and publish normally |
-| `true` | `false` | publish with `AM/PM🤔` on the source line |
+| `true` | `false` | publish with `AM/PM?` on the source line |
 
 Ambiguity rule (working-hours heuristic, `06:00–22:00`):
 - bare hour `1–5` → choose PM, mark clear

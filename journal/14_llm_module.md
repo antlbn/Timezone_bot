@@ -57,7 +57,7 @@ The bot proceeds according to sender registration state:
 ### 5.3 Ambiguous AM/PM
 
 - `am_pm_clear=true` -> publish normally
-- `am_pm_clear=false` -> publish with `AM/PM🤔` on the source line
+- `am_pm_clear=false` -> publish with `AM/PM?` on the source line
 - mixed clear + ambiguous points -> publish both kinds in one reply, annotating only ambiguous points
 
 ## 6. Source Time Interpretation

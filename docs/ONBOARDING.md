@@ -38,15 +38,15 @@ cd Timezone_bot
 
     - `TELEGRAM_TOKEN` for Telegram runtime
     - `DISCORD_TOKEN` for Discord runtime
-    - `LLM_BASE_URL` for the primary LLM endpoint
     - `LLM_API_KEY` for the primary LLM provider
-    - `LLM_FALLBACK_BASE_URL` for the fallback LLM endpoint
     - `LLM_FALLBACK_API_KEY` for the optional fallback provider
+    - `LLM_BASE_URL` *(optional)* — override the primary endpoint without editing `configuration.yaml`
+    - `LLM_FALLBACK_BASE_URL` *(optional)* — override the fallback endpoint without editing `configuration.yaml`
 
     Current default LLM runtime:
 
-    - primary model: Gemini 3.0 Flash-Lite via its OpenAI-compatible endpoint
-    - fallback model: llama 8b  via Groq its OpenAI-compatible endpoint
+    - primary model: Gemini 3.1 Flash-Lite via its OpenAI-compatible endpoint
+    - fallback model: for instance llama 8b / Nemotron 4 12B  / gpt 20b
     - the current prompt contract also works well with Nemotron and smaller models in the Llama 8B class
 
     Notes:
@@ -143,9 +143,10 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 👤 Jane: Standup at 10:30, then retro at 15:00.
 
 🤖 standup
-   10:30 London, 11:30 Berlin
+   It is 10:30 London, 11:30 Berlin
+
    retro
-   15:00 London, 16:00 Berlin
+   It is 15:00 London, 16:00 Berlin
 ```
 
 **Option B: Detailed Block with Usernames and Context**
@@ -166,10 +167,12 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 | :--- | :--- | :--- |
 | `llm.model` | `gemini-3.1-flash-lite-preview` | Primary model identifier. |
 | `llm.temperature` | `0.1` | Low temperature keeps detection deterministic. |
-| `llm.base_url` | Gemini OpenAI-compat endpoint | Default primary endpoint. Override it via `.env` with `LLM_BASE_URL`. |
+| `llm.base_url` | Gemini OpenAI-compat endpoint | Default primary endpoint. Override via `.env` with `LLM_BASE_URL`. |
+| `llm.api_key_env` | `LLM_API_KEY` | Name of the env var holding the primary provider key. |
 | `llm.fallback.enabled` | `true` | Enable automatic retry on the fallback model when the primary fails. |
 | `llm.fallback.model` | `llama-3.1-8b-instant` | Fallback model identifier. |
-| `llm.fallback.base_url` | Groq OpenAI-compat endpoint | Default fallback endpoint. Override it via `.env` with `LLM_FALLBACK_BASE_URL`. |
+| `llm.fallback.base_url` | Groq OpenAI-compat endpoint | Default fallback endpoint. Override via `.env` with `LLM_FALLBACK_BASE_URL`. |
+| `llm.fallback.api_key_env` | `LLM_FALLBACK_API_KEY` | Name of the env var holding the fallback provider key. |
 
 ---
 
