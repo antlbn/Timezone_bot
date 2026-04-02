@@ -22,18 +22,6 @@ The pending-message mechanism avoids all three.
 - reduces repeated SQLite reads,
 - invalidated when user profile state changes.
 
-### `chat_context`
-
-- short in-memory message history per chat,
-- used as LLM context,
-- not persisted across restarts.
-
-### `llm_queue`
-
-- per-chat concurrency control,
-- protects the LLM stage from overlapping processing,
-- stale queued messages may be skipped by age guard.
-
 ### `onboarding_frozen`
 
 - in-memory store for frozen messages waiting on onboarding outcome,
@@ -53,8 +41,8 @@ The pending-message mechanism avoids all three.
 | Outcome | Result |
 |---|---|
 | Onboarding success | Release and process normally |
-| Onboarding decline with valid `event_location` | Release and process using the explicit source location |
-| Onboarding decline without `event_location` | Discard |
+| Onboarding decline with valid `tz_city` | Release and process using the explicit source location |
+| Onboarding decline without `tz_city` | Discard |
 | Onboarding timeout / ignore | Discard |
 
 ## 6. UX Rule

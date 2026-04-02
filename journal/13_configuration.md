@@ -16,11 +16,20 @@ Expected keys:
 ```text
 TELEGRAM_TOKEN=
 DISCORD_TOKEN=
+LLM_API_KEY=
+LLM_FALLBACK_API_KEY=
 OPENAI_API_KEY=
 GEMINI_API_KEY=
+GROQ_API_KEY=
 ```
 
 If a platform token is absent, that platform may be skipped at startup.
+
+Notes:
+
+- `LLM_API_KEY` is the canonical primary provider key for the current MVP config.
+- `LLM_FALLBACK_API_KEY` is the canonical fallback-provider key.
+- `GEMINI_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY` remain accepted as backward-compatible aliases for older local setups or provider switches.
 
 ## 4. `configuration.yaml`
 
@@ -48,16 +57,16 @@ Meaning:
 
 ```yaml
 llm:
-  model: gpt-5
+  model: gemini-2.0-flash-lite
   temperature: 0.1
-  base_url: null
-  api_key_env: null
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai
+  api_key_env: LLM_API_KEY
   fallback:
-    enabled: false
-    model: null
+    enabled: true
+    model: llama-3.1-8b-instant
     temperature: 0.1
-    base_url: null
-    api_key_env: null
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: LLM_FALLBACK_API_KEY
 ```
 
 Meaning:
@@ -65,12 +74,12 @@ Meaning:
 - `model`: selected model identifier.
 - `temperature`: generation strictness / creativity balance.
 - `base_url`: optional custom endpoint for compatible providers.
-- `api_key_env`: optional environment variable name for the primary LLM API key.
+- `api_key_env`: environment variable name for the primary LLM API key.
 - `fallback.enabled`: allow automatic retry on a secondary LLM.
 - `fallback.model`: fallback model identifier.
 - `fallback.temperature`: fallback generation setting.
 - `fallback.base_url`: optional custom endpoint for fallback model.
-- `fallback.api_key_env`: optional environment variable name for fallback API key.
+- `fallback.api_key_env`: environment variable name for fallback API key.
 
 ### 4.3 Event Detection
 

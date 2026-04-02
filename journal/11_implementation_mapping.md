@@ -18,7 +18,7 @@
 | `07_response_format.md` | `src/formatter.py` | String formatting and timezone grouping. |
 | `08_telegram_commands.md` | `src/commands/` | **Package**: Telegram-side adapter. |
 | `09_logging.md` | `src/logger.py` | Project-wide logging setup. |
-| `14_llm_module.md` | `src/event_detection/` | **Package**: LLM orchestration. Includes `client.py`, `history.py`, `prompts.py`, and `tools.py`. |
+| `14_llm_module.md` | `src/event_detection/` | **Package**: One-shot LLM orchestration. Current runtime centers on `detector.py`, `prompts.py`, and `__init__.py`. |
 | `12_discord_integration.md` | `src/discord/` | **Package**: Discord-side adapter. |
 | — | `src/services/` | **Package**: Shared service layer (e.g., `user_service.py`). |
 
@@ -53,11 +53,8 @@ Timezone_bot/
 │   │   └── tasks.py     # Background sync & prune
 │   ├── event_detection/ # LLM PIPELINE
 │   │   ├── __init__.py
-│   │   ├── detector.py  
-│   │   ├── history.py   # Context buffer
-│   │   ├── client.py    # API logic
-│   │   ├── prompts.py   # System prompts
-│   │   └── tools.py     # Action dispatch
+│   │   ├── detector.py  # One-shot detection + validation
+│   │   └── prompts.py   # System prompt and schema
 │   ├── storage/         # DATA LAYER
 │   │   ├── __init__.py
 │   │   ├── base.py

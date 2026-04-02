@@ -61,7 +61,7 @@ CREATE INDEX idx_chat_members_chat ON chat_members(chat_id, platform);
 
 - `timezone IS NULL` means the user is known but not configured.
 - `onboarding_declined = 1` means the bot should avoid immediate repeated prompting, subject to cooldown rules.
-- `event_location` must never overwrite stored `timezone`.
+- explicit source-location text (`tz_city` in detector output) must never overwrite stored `timezone`.
 - Conversion output must include only chat members with non-null stored timezone.
 - Numeric offsets such as `UTC+3` are not valid persistent timezone values.
 
@@ -129,7 +129,7 @@ Sender lookup must return enough information to distinguish:
 
 - users who never wrote in the chat are absent from storage,
 - lurkers do not appear in conversion output,
-- history for LLM context is not stored in SQLite.
+- LLM conversation state is not stored in SQLite.
 
 ## 10. In-Memory Caching Strategies
 
@@ -150,5 +150,5 @@ Database file:
 
 - storing timezone history,
 - storing numeric UTC offsets as durable profile settings,
-- persisting LLM message history,
+- persisting multi-message LLM context,
 - full participant lists independent of observed activity.

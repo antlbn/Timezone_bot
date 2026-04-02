@@ -105,7 +105,15 @@ def _resolve_api_key(preferred_env: str | None) -> str | None:
     candidate_names: list[str] = []
     if preferred_env:
         candidate_names.append(preferred_env)
-    candidate_names.extend(["GEMINI_API_KEY", "OPENAI_API_KEY"])
+    candidate_names.extend(
+        [
+            "LLM_API_KEY",
+            "LLM_FALLBACK_API_KEY",
+            "GEMINI_API_KEY",
+            "GROQ_API_KEY",
+            "OPENAI_API_KEY",
+        ]
+    )
 
     seen = set()
     for env_name in candidate_names:

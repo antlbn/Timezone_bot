@@ -69,6 +69,12 @@ The LLM may extract:
 - optional `event_title`,
 - per-point `am_pm_clear`.
 
+`tz_city` means source-location text for that extracted point, not the sender's profile city.
+It is used only to resolve the source timezone for the current message or point.
+Examples:
+- `"12:00 in London"` -> `tz_city="London"`
+- `"7pm Berlin time"` -> `tz_city="Berlin"`
+
 The LLM does not persist any user profile data.
 If `tz_city` exists, the downstream runtime may use it as the source-time override for the current message only.
 If `event_title` exists, it is presentation metadata only and must not affect conversion eligibility.

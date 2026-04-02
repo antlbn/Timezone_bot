@@ -34,7 +34,7 @@ Discord is a thin adapter around the shared core:
 - message is frozen,
 - bot offers onboarding through Discord-native button and modal flow,
 - if setup succeeds, the frozen message is released,
-- if setup is declined, the frozen message is processed only when `event_location` is sufficient,
+- if setup is declined, the frozen message is processed only when explicit source-location text (`tz_city`) is sufficient,
 - if setup is ignored, the frozen message expires.
 
 ## 5. Commands
@@ -72,4 +72,4 @@ Discord does not require `/tb_remove` in MVP because stale membership cleanup is
 - separate Discord-only business logic,
 - durable DM support mode,
 - persistent manual UTC-offset registration,
-- updating stored timezone from runtime `event_location`.
+- updating stored timezone from runtime `tz_city`.

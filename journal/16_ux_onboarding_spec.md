@@ -18,7 +18,7 @@ Onboarding starts only when both conditions are true:
 1. the LLM detects a time coordination event,
 2. the author does not have a stored timezone.
 
-No onboarding is triggered for ordinary conversation with `trigger=false`.
+No onboarding is triggered for ordinary conversation with `time_mentioned=false`.
 
 ## 4. Pending Message Rule
 
@@ -28,8 +28,8 @@ It is not processed immediately.
 The frozen message is later:
 
 - released after successful onboarding,
-- released after decline only if `event_location` makes the source timezone explicit,
-- discarded after timeout or after decline without `event_location`.
+- released after decline only if explicit source-location text (`tz_city`) makes the source timezone explicit,
+- discarded after timeout or after decline without explicit source-location text.
 
 ## 5. Telegram UX
 
@@ -65,7 +65,7 @@ Behavior:
 | Outcome | Stored state | Pending message |
 |---|---|---|
 | Success | timezone saved, decline flag cleared | released |
-| Decline | decline flag saved | released only with valid `event_location`, otherwise discarded |
+| Decline | decline flag saved | released only with valid explicit source-location text (`tz_city`), otherwise discarded |
 | Ignore / timeout | no timezone saved | discarded |
 
 ## 8. Cooldown and Expiry

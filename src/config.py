@@ -126,7 +126,7 @@ def get_dm_onboarding_cooldown() -> int:
 
 
 def get_log_llm_prompts() -> bool:
-    """Whether to log the full LLM prompts (including history) for debugging."""
+    """Whether to log the full current-message LLM prompts for debugging."""
     return get_event_detection_settings().get("log_prompts", False)
 
 

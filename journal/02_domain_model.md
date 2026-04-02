@@ -88,9 +88,14 @@ Properties:
 - expires by timeout,
 - lives in memory, not in durable storage.
 
-### Event Location
+### Explicit Source Location
 
 A location extracted from a message that can define the source timezone for the current conversion.
+
+Detector contract note:
+
+- the current LLM schema exposes this field as `tz_city`.
+- the name is historical shorthand: it means source-location text, not durable user city data.
 
 Examples:
 
@@ -109,8 +114,8 @@ A message that the LLM classifies as requiring timezone conversion behavior.
 
 The exact detection is delegated to the LLM, but the runtime contract is binary:
 
-- `trigger=true`
-- `trigger=false`
+- `time_mentioned=true`
+- `time_mentioned=false`
 
 ## 3. Entity Model
 
@@ -172,12 +177,12 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> Received
-    Received --> HistoryOnly: trigger=false
-    Received --> Pending: trigger=true and sender not configured
-    Received --> Converting: trigger=true and sender configured
+    Received --> Dropped: time_mentioned=false
+    Received --> Pending: time_mentioned=true and sender not configured
+    Received --> Converting: time_mentioned=true and sender configured
     Pending --> Converting: onboarding success
-    Pending --> Converting: decline with valid event_location
-    Pending --> Dropped: decline without event_location
+    Pending --> Converting: decline with valid tz_city
+    Pending --> Dropped: decline without tz_city
     Pending --> Dropped: timeout or ignore
     Converting --> Replied
 ```
@@ -187,7 +192,7 @@ stateDiagram-v2
 - Only configured users may appear in conversion output.
 - Only members of the current chat may appear in conversion output.
 - Stored user timezone must be an IANA timezone name or `NULL`.
-- `event_location` may influence only the current message.
+- explicit source-location text may influence only the current message.
 - Decline status must not permanently block later voluntary onboarding.
 - Pending messages must expire; they are not retained indefinitely.
 - Private chat is an onboarding support channel, not an independent product mode.
@@ -198,8 +203,8 @@ The runtime must be able to distinguish these sender categories:
 
 | Category | Meaning | Can convert plain `12:00`? | Can convert `12:00 in London`? |
 |---|---|---|---|
-| Unknown / unconfigured | No stored timezone | No | Yes, if `event_location` resolves |
-| Declined | Explicitly refused timezone storage | No | Yes, if `event_location` resolves |
+| Unknown / unconfigured | No stored timezone | No | Yes, if explicit source-location text resolves |
+| Declined | Explicitly refused timezone storage | No | Yes, if explicit source-location text resolves |
 | Configured | Stored IANA timezone exists | Yes | Yes |
 
 ## 8. Responsibilities by Entity
@@ -208,6 +213,6 @@ The runtime must be able to distinguish these sender categories:
 |---|---|
 | User, Member | [05_storage.md](/Users/johnwunderbellen/Timezone_bot/journal/05_storage.md) |
 | Pending Message | [15_onboarding_capture.md](/Users/johnwunderbellen/Timezone_bot/journal/15_onboarding_capture.md) |
-| Event Location | [06_city_to_timezone.md](/Users/johnwunderbellen/Timezone_bot/journal/06_city_to_timezone.md) |
+| Explicit Source Location | [06_city_to_timezone.md](/Users/johnwunderbellen/Timezone_bot/journal/06_city_to_timezone.md) |
 | Time Coordination Event | [14_llm_module.md](/Users/johnwunderbellen/Timezone_bot/journal/14_llm_module.md) |
 | Runtime decision rules | [04_bot_logic.md](/Users/johnwunderbellen/Timezone_bot/journal/04_bot_logic.md) |

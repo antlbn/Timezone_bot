@@ -29,7 +29,7 @@ When someone mentions a time coordination event, the bot detects it, interprets 
 - Passive member discovery from incoming messages.
 - Per-user timezone storage.
 - LLM-based detection of time coordination events from ordinary messages.
-- Extraction of one or more time points and optional `event_location`.
+- Extraction of one or more time points and optional explicit source-location hints (`tz_city` in detector output).
 - Conversion and reply for known members of the current chat only.
 - Private onboarding flow for unknown authors who trigger a time event.
 - Auto-cleanup of short-lived system messages in shared chats.
@@ -40,7 +40,7 @@ When someone mentions a time coordination event, the bot detects it, interprets 
 - Calendar integrations.
 - Extraction of a subset of participants from message text.
 - Full private-chat product mode.
-- Persistent conversation history for the LLM.
+- Multi-message conversation history for the LLM in this branch.
 - Numeric UTC offsets as durable user settings.
 - Regex fallback when LLM is unavailable.
 
@@ -57,11 +57,11 @@ Private chat is not a standalone use mode. It exists only to complete onboarding
 
 1. Users discuss a meeting in a group chat or server.
 2. A participant writes a message containing a time coordination event.
-3. The bot sends the message context to the LLM.
-4. If the LLM returns `trigger=false`, the bot stays silent.
-5. If the LLM returns `trigger=true`, the bot determines the source timezone:
+3. The bot sends the current message plus anchor timestamp to the LLM.
+4. If the LLM returns `time_mentioned=false`, the bot stays silent.
+5. If the LLM returns `time_mentioned=true`, the bot determines the source timezone:
    - sender timezone from DB, or
-   - `event_location` resolved to a timezone.
+   - explicit source-location text (`tz_city`) resolved to a timezone.
 6. The bot converts the time for known members of that chat.
 7. The bot replies with a compact, readable list grouped by timezone/location.
 
@@ -87,12 +87,12 @@ If the author does not have a stored timezone and the LLM detects a coordination
 | Outcome | DB effect | Pending message result |
 |---|---|---|
 | Onboarding completed | Save user's IANA timezone | Release and process the frozen message |
-| Onboarding declined | Save a decline flag | Release the frozen message only if `event_location` allows conversion without sender TZ; otherwise discard |
+| Onboarding declined | Save a decline flag | Release the frozen message only if explicit source-location text (`tz_city`) allows conversion without sender TZ; otherwise discard |
 | Onboarding ignored / timeout | No timezone saved; cooldown still applies | Pending lock expires and the frozen message is discarded |
 
-### 7.4 Event Location Override
+### 7.4 Explicit Source-Location Override
 
-`event_location` is a one-time source-time override for the current message.
+An explicit source-location hint (`tz_city` in detector output) is a one-time source-time override for the current message.
 
 Rules:
 - It never updates the sender's stored timezone.
@@ -150,7 +150,7 @@ The project is considered complete for MVP when all conditions below are true.
 - Unknown users who trigger a time event are invited to onboarding without polluting the shared chat.
 - Successful onboarding releases the frozen message and posts the delayed conversion.
 - Declined or ignored onboarding does not create broken or stale replies.
-- Explicit `event_location` works as a source-time override.
+- Explicit source-location hints work as a source-time override.
 
 ### 11.2 Specification Done
 

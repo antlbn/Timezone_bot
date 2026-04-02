@@ -4,7 +4,7 @@ version: 0.1.0
 
 # Logging Configuration
 logging:
-  # Levels: DEBUG, INFO, WARNING, ERROR
+  # Levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
   level: DEBUG
   # Format: json or text (default: text)
   format: text
@@ -27,13 +27,13 @@ llm:
   model: gemini-2.0-flash-lite
   temperature: 0.1
   base_url: https://generativelanguage.googleapis.com/v1beta/openai
-  api_key_env: GEMINI_API_KEY
+  api_key_env: LLM_API_KEY
   fallback:
     enabled: true
     model: llama-3.1-8b-instant
     temperature: 0.1
     base_url: https://api.groq.com/openai/v1
-    api_key_env: GROQ_API_KEY
+    api_key_env: LLM_FALLBACK_API_KEY
 
 # Event Detection (LLM Layer)
 # See: journal/14_llm_module.md

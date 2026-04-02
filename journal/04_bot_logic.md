@@ -18,17 +18,17 @@ This document defines the runtime decision logic of the bot after a message arri
 flowchart TD
     A[Incoming shared-chat message] --> B[Normalize message]
     B --> C[Load sender snapshot from DB]
-    C --> D[Send current message plus history to LLM]
-    D --> E{trigger?}
-    E -- no --> F[Append to history and stop]
+    C --> D[Send current message to LLM]
+    D --> E{time_mentioned?}
+    E -- no --> F[Stop]
     E -- yes --> G{sender has stored timezone?}
     G -- yes --> H[Resolve source timezone]
     G -- no --> I[Freeze message and start onboarding]
     I --> J{onboarding outcome}
     J -- success --> K[Save sender timezone and release message]
-    J -- decline --> L{event_location present?}
+    J -- decline --> L{tz_city present?}
     J -- ignore or timeout --> M[Discard frozen message]
-    L -- yes --> N[Release message using event_location as source]
+    L -- yes --> N[Release message using tz_city as source]
     L -- no --> O[Discard frozen message]
     K --> H
     N --> H
@@ -42,23 +42,23 @@ flowchart TD
 
 ### 4.1 No Event
 
-If the LLM returns `trigger=false`:
+If the LLM returns `time_mentioned=false`:
 
 - no conversion is attempted,
 - no onboarding is triggered,
-- the message is kept only as in-memory conversation history.
+- stop.
 
 ### 4.2 Registered Sender
 
-If `trigger=true` and the sender has a stored timezone:
+If `time_mentioned=true` and the sender has a stored timezone:
 
 - use sender timezone as the default source timezone,
-- override it with `event_location` if present and resolvable,
+- override it per point with `tz_city` if present and resolvable,
 - convert the extracted time points for known members of the current chat.
 
 ### 4.3 Unknown Sender
 
-If `trigger=true` and the sender has no stored timezone:
+If `time_mentioned=true` and the sender has no stored timezone:
 
 1. freeze the message in the pending queue,
 2. start onboarding asynchronously,
@@ -70,14 +70,14 @@ If `trigger=true` and the sender has no stored timezone:
 | Outcome | Behavior |
 |---|---|
 | Success | Save timezone, release pending message, continue normal conversion |
-| Decline | Save decline flag; convert only if `event_location` makes the source timezone explicit |
+| Decline | Save decline flag; convert only if point `tz_city` makes the source timezone explicit |
 | Ignore / timeout | Expire lock and discard pending message |
 
 ### 4.5 Declined Sender Rule
 
 A sender who declined onboarding can still trigger conversion later if the message itself contains explicit source-location context, for example:
 
-- `"12:00 in London"` -> convertible
+- `"12:00 London time"` -> convertible
 - `"12:00"` -> not convertible
 
 The decline flag prevents repeated immediate prompting, but does not permanently block later voluntary onboarding.
@@ -86,11 +86,11 @@ The decline flag prevents repeated immediate prompting, but does not permanently
 
 Source timezone is determined in this order:
 
-1. resolved `event_location`, if present,
+1. resolved point `tz_city`, if present,
 2. sender stored timezone, if present,
 3. otherwise no conversion.
 
-`event_location` is a one-message override only. It must never overwrite the sender's stored timezone.
+`tz_city` is a one-message override only. It must never overwrite the sender's stored timezone.
 
 ## 6. Chat Membership Rule
 
@@ -104,7 +104,6 @@ Implications:
 
 ## 7. Concurrency and Locks
 
-- Processing is serialized per chat for the LLM stage.
 - A pending message from an unknown sender is locked until onboarding resolves or expires.
 - Onboarding completion releases only the frozen messages that belong to that sender and chat context according to pending queue rules.
 
@@ -129,4 +128,4 @@ Implications:
 - recurring schedule interpretation,
 - regex fallback for event detection,
 - durable private-chat mode,
-- updating stored sender timezone from `event_location`.
+- updating stored sender timezone from `tz_city`.

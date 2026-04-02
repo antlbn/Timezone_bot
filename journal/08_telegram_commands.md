@@ -60,7 +60,7 @@ Private chat is used only for:
 | Outcome | Result |
 |---|---|
 | Setup completed | User timezone is saved and pending message is released |
-| Setup declined | Decline flag is saved; pending message is released only if `event_location` is sufficient |
+| Setup declined | Decline flag is saved; pending message is released only if explicit source-location text (`tz_city`) is sufficient |
 | Setup ignored | Pending message expires and is discarded |
 
 ## 6. Command Behavior

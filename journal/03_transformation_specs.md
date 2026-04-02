@@ -16,7 +16,7 @@ Its goal is to make the data flow reconstructable without reading code.
 ```mermaid
 flowchart TD
     A[Incoming message] --> B[LLM output]
-    B --> C{trigger?}
+    B --> C{time_mentioned?}
     C -- no --> X[Stop without reply]
     C -- yes --> D[Resolve sender state]
     D --> E[Resolve source timezone]
@@ -38,27 +38,31 @@ flowchart TD
 Input origin:
 
 - normalized current message,
-- bounded chat history,
-- sender metadata,
-- sender timezone if already stored.
+- anchor timestamp.
 
 Required output:
 
 ```json
 {
-  "trigger": true,
-  "times": [],
-  "event_location": null,
-  "event_title": null
+  "time_mentioned": true,
+  "points": [
+    {
+      "time": "12:00",
+      "tz_city": "London",
+      "event_title": "Deadline",
+      "am_pm_clear": true
+    }
+  ]
 }
 ```
 
 Semantics:
 
-- `trigger=false` means the runtime must stop without conversion.
-- `times` contains one or more extracted time points when `trigger=true`.
-- `event_location` is optional and applies only to the current message.
+- `time_mentioned=false` means the runtime must stop without conversion.
+- `points` contains zero or more extracted time points.
+- `tz_city` is an optional per-point source-time override for the current message only.
 - `event_title` is optional presentation metadata and must not change conversion logic.
+- `am_pm_clear` controls ambiguity annotation and does not change the underlying time value.
 
 ## 4. Canonical Runtime Inputs
 
@@ -76,14 +80,15 @@ After LLM and sender lookup, the runtime should be able to assemble this concept
     "timezone": "Europe/Berlin"
   },
   "detection": {
-    "trigger": true,
-    "times": [
+    "time_mentioned": true,
+    "points": [
       {
-        "time_text": "12:00",
-        "event_title": "Deadline"
+        "time": "12:00",
+        "tz_city": "London",
+        "event_title": "Deadline",
+        "am_pm_clear": true
       }
-    ],
-    "event_location": "London"
+    ]
   }
 }
 ```
@@ -96,16 +101,16 @@ Not every field must exist literally in code, but this is the semantic contract 
 
 For each message, source timezone is resolved in this order:
 
-1. resolved timezone from `event_location`,
+1. resolved timezone from point `tz_city`,
 2. sender's stored timezone,
 3. otherwise no source timezone.
 
 ### 5.2 Resolution Rules
 
-- `event_location` is a message-level override only.
-- `event_location` must never update stored sender timezone.
-- If sender is declined or unconfigured, `event_location` may still enable conversion.
-- If neither `event_location` nor sender timezone is available, plain local times must not be converted.
+- `tz_city` is a per-point override only.
+- `tz_city` must never update stored sender timezone.
+- If sender is declined or unconfigured, `tz_city` may still enable conversion.
+- If neither `tz_city` nor sender timezone is available, plain local times must not be converted.
 
 ### 5.3 Geo Resolver Output Contract
 
@@ -142,8 +147,10 @@ Conceptual input:
 ```json
 {
   "point": {
-    "time_text": "12:00",
-    "event_title": "Deadline"
+    "time": "12:00",
+    "tz_city": "London",
+    "event_title": "Deadline",
+    "am_pm_clear": true
   },
   "source_timezone": "Europe/London",
   "anchor_timestamp_utc": "2026-03-29T10:00:00Z",
@@ -227,10 +234,10 @@ The runtime must stop without sending a conversion reply in these cases:
 
 ### 8.1 Stop Before Transform
 
-- LLM returned `trigger=false`,
-- `trigger=true` but `times` is empty or unusable,
+- LLM returned `time_mentioned=false`,
+- `time_mentioned=true` but `points` is empty or unusable,
 - sender is unconfigured and onboarding is still pending,
-- sender is declined or unconfigured and no valid `event_location` can define source timezone,
+- sender is declined or unconfigured and no valid `tz_city` can define source timezone,
 - source timezone resolution failed and sender has no stored timezone.
 
 ### 8.2 Stop After Target Lookup
@@ -240,7 +247,7 @@ The runtime must stop without sending a conversion reply in these cases:
 
 ## 9. Outcome Matrix
 
-| Sender state | `event_location` | Source timezone available? | Action |
+| Sender state | Explicit source location (`tz_city`) | Source timezone available? | Action |
 |---|---|---|---|
 | Configured | No | Yes | Convert |
 | Configured | Yes and resolvable | Yes | Convert using override |

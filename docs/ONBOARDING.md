@@ -1,6 +1,6 @@
 # Onboarding: How to Run the Bot
 
-This guide will help you get the Timezone Bot up and running.
+This guide covers the current MVP local setup.
 
 ## Clone Repository
 
@@ -32,17 +32,34 @@ cd Timezone_bot
 3.  **Environment**:
     ```bash
     cp env.example .env
-    # Edit .env and paste:
-    # 1. TELEGRAM_TOKEN and/or DISCORD_TOKEN
-    # 2. GEMINI_API_KEY (Required for the LLM to detect events)
     ```
+
+    Add these values to `.env`:
+
+    - `TELEGRAM_TOKEN` for Telegram runtime
+    - `DISCORD_TOKEN` for Discord runtime
+    - `LLM_API_KEY` for the primary LLM provider
+    - `LLM_FALLBACK_API_KEY` for the optional fallback provider
+
+    Current default LLM runtime:
+
+    - primary model: Gemini 2.0 Flash-Lite via its OpenAI-compatible endpoint
+    - fallback model: Groq via its OpenAI-compatible endpoint
+    - the current prompt contract also works well with Nemotron and smaller models in the Llama 8B class
+
+    Notes:
+
+    - the env names are intentionally provider-agnostic,
+    - Gemini is treated as an OpenAI-compatible backend here,
+    - `LLM_API_KEY` and `LLM_FALLBACK_API_KEY` are the preferred names,
+    - older aliases such as `GEMINI_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY` are still accepted for backward compatibility.
 
 > [!TIP]
 > **Startup Logic**: Each bot checks its own token. If `TELEGRAM_TOKEN` is set — Telegram bot starts. If `DISCORD_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
 
 ---
 
-## Manual Execution (Standard)
+## Manual Execution
 
 Requires Python 3.12+.
 
@@ -51,7 +68,7 @@ Requires Python 3.12+.
     uv sync
     ```
 
-2.  **Run** (both Telegram and Discord bots together):
+2.  **Run**:
     ```bash
     ./run.sh
     ```
@@ -65,30 +82,38 @@ uv run pytest tests/ -v
 
 ---
 
-## plug-and-play Usage
-
+## Runtime Behavior
 
 Once the bot is running:
-1.  **Add the bot** to any Telegram group or Discord channel.
-2.  **No setup required**: You don't need to send `/start` or any configuration commands.
-3.  **Zero-Friction Onboarding**: When an unregistered user sends **any** time mentioned message to the chat, the bot immediately triggers the onboarding flow and **saves (buffers)** that message. Once the user sets their city, the bot automatically processes the buffered message and replies to it.
-4.  **LLM-Powered Detection**: The bot uses an LLM to understand natural language time mentions and extracted events, ensuring high accuracy without complex regex configuration.
+
+1.  Add it to a Telegram group or Discord server.
+2.  No global setup command is required for normal conversion flow.
+3.  Detection is LLM-only in the canonical MVP flow.
+4.  Onboarding is lazy:
+    - if a configured user mentions a time, the bot converts immediately,
+    - if an unconfigured user mentions a time, the bot starts onboarding and freezes that message,
+    - after successful setup, the frozen message is replayed.
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
-The bot is configurable via `configuration.yaml`.
+Runtime behavior is configured via `configuration.yaml`.
 
 | Setting | Type | Description |
 | :--- | :--- | :--- |
-| `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
-| `bot.display_limit_per_chat` | Integer | Max timezones to show (0 = no limit). |
-| `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
+| `logging.level` | `DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL` | Verbosity threshold for runtime logs. |
 | `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
-| `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
-| `bot.max_message_age_seconds` | Integer | Max age (seconds) for messages in queue before they are considered stale (default 20). |
-| `llm.model` | String | Model used for event detection (e.g., `gpt-4o`, `llama-3`). |
+| `bot.show_event_title` | Boolean | Show `event_title` when the detector returns it. |
+| `bot.reply_to_original_message` | Boolean | Send conversion as a direct reply to the source message. |
+| `bot.settings_cleanup_timeout_seconds` | Integer | Auto-delete short-lived setup/help noise in shared chats. |
+| `llm.model` | String | Primary detection model. |
+| `llm.base_url` | String | OpenAI-compatible endpoint for the primary provider. |
+| `llm.api_key_env` | String | Env var name for the primary provider key. |
+| `llm.fallback.*` | Section | Optional fallback provider/model settings. |
+| `event_detection.onboarding_timeout_seconds` | Integer | How long frozen messages wait during onboarding. |
+| `event_detection.dm_onboarding_cooldown_seconds` | Integer | Cooldown before re-inviting ignored users. |
+| `event_detection.max_message_age_seconds` | Integer | Skip stale messages after downtime/restart. |
+| `event_detection.max_message_hard_skip_chars` | Integer | Hard length guard for oversized messages. |
 
-
-
+Canonical config details live in [journal/13_configuration.md](../journal/13_configuration.md).

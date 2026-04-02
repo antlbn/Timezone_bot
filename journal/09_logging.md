@@ -13,7 +13,7 @@ Minimalistic strategy:
 `configuration.yaml`:
 ```yaml
 logging:
-  level: INFO   # DEBUG — for development, INFO — for production
+  level: INFO   # DEBUG | INFO | WARNING | ERROR | CRITICAL
 ```
 
 ---
@@ -22,10 +22,11 @@ logging:
 
 | Level | Usage |
 |-------|-------|
-| `DEBUG` | Raw Telegram updates (JSON) |
+| `DEBUG` | Development-level diagnostics: prompt/debug context, detailed runtime flow, low-level troubleshooting |
 | `INFO` | Main events: "Bot started", "Converted time for user X" |
 | `WARNING` | Non-standard situations (API timeout, DB lock), operation continues |
-| `ERROR` | Critical errors (Traceback) |
+| `ERROR` | Operation failed for a concrete action or request; traceback/log context should be preserved |
+| `CRITICAL` | Process-level or unrecoverable failure requiring immediate operator attention |
 
 ---
 

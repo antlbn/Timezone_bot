@@ -1,169 +1,174 @@
-# Handover: Architecture & Design Decisions
+# Handover: Intentional Decisions
 
-Technical "brain" of the project for future maintainers. For usage instructions see [ONBOARDING.md](ONBOARDING.md).
+This document is the short reasoning layer above the specs. The canonical source of truth is `journal/`. `HANDOVER.md` should explain what was chosen, why it was chosen, and which trade-offs were accepted for MVP.
 
----
+For setup and local run instructions, see [ONBOARDING.md](ONBOARDING.md).
 
-## 1. Core Concept: UTC-Pivot
+## 1. Source of Truth
 
-All time conversions go through UTC to avoid N-to-N timezone complexity:
+- `journal/*.md` is canonical for product and runtime behavior.
+- `HANDOVER.md` is intentionally shorter and more opinionated.
+- If this file and `journal` ever disagree, `journal` wins.
 
-```
-User time → Sender's TZ → UTC (pivot) → Each member's TZ
-```
+Practical rule:
+- short architectural intent belongs here,
+- exact runtime rules and edge cases belong in `journal`.
 
-**Why:** Direct Local→Local conversions are error-prone and don't scale. Single pivot point simplifies DST handling.
+## 2. Core Architecture
 
-### LLM Parallelism & Concurrency
+The system is built as thin platform adapters around one shared core:
 
-The bot uses a **per-chat queuing system** to handle high-frequency messages without losing context or wasting tokens:
-- **Individual Locks**: Every chat (`chat_id`) has its own `asyncio.Lock`. Messages within one chat are processed sequentially.
-- **Cross-Chat Parallelism**: Different chats (e.g., Telegram Chat A and Discord Server B) are processed in parallel.
-- **Singleton Client**: A single `AsyncOpenAI` client handles all requests, maximizing connection reuse.
-
----
-
-## 2. Platform Architecture
-
-```
-┌─────────────┐     ┌─────────────┐
-│  Telegram   │     │  Discord    │
-│  (aiogram)  │     │(discord.py) │
-└──────┬──────┘     └──────┬──────┘
-       │                   │
-       ▼                   ▼
-┌─────────────┐     ┌─────────────┐
-│src/commands/│     │src/discord/ │
-│  + FSM      │     │  + Modals   │
-└──────┬──────┘     └──────┬──────┘
-       │                   │
-       └─────────┬─────────┘
-                 ▼
-       ┌───────────────────┐
-       │    SHARED CORE    │
-       │ capture|transform │
-       │ storage|geo|format│
-       └───────────────────┘
+```text
+Telegram adapter ─┐
+                  ├─> shared core -> formatted reply
+Discord adapter ──┘
 ```
 
-**Principle:** Platform adapters are thin. All business logic lives in shared core.
+Shared core modules:
+- `event_detection`
+- `geo`
+- `transform`
+- `formatter`
+- `storage`
+- `pending onboarding`
 
-### Platform Differences
+The key boundary is intentional:
+- the LLM does not send replies,
+- the LLM returns structured detection only,
+- shared bot logic decides whether conversion is allowed,
+- Telegram and Discord are delivery and UX adapters.
 
-| Aspect | Telegram | Discord |
-|--------|----------|---------|
-| **Timezone Setup** | Text + ForceReply (FSM) | Button → Modal |
-| **State** | `MemoryStorage` (FSM) | Stateless (modals) |
-| **Stale Users** | Manual `/tb_remove` | Auto-cleanup on mention |
-| **Leave Detection** | Bot doesn't know | `on_member_remove` event |
+## 3. Main Decisions
 
----
+### 3.1 UTC Pivot for All Conversions
 
-## 3. Key Design Decisions
+All conversions go through UTC:
 
-### 3.1 Why LLM for Event Detection?
+```text
+source local time -> source timezone -> UTC -> target timezone
+```
 
-| Approach | Verdict | Reasoning |
-|----------|---------|-----------|
-| **Regex** | ❌ Replaced | Limited to predefined formats. Misses context and natural language ("noon", "next Friday"). |
-| **LLM** | ✅ Chosen | Handles ambiguity, multiple times, and natural language. Enforces schema via JSON output. |
+Why:
+- it avoids direct zone-to-zone arithmetic,
+- it keeps DST handling aligned with IANA timezone data,
+- it gives one canonical transformation path for every platform.
 
-### 3.2 Why Nominatim (OSM) Over Google Geocoding?
+### 3.2 One-Shot LLM Detection
 
-- **Free & unlimited** — no API key management
-- **Built-in fuzzy matching** — handles typos
-- **Understands disambiguations** — "Paris, Texas" → US timezone (not France)
+In this branch, event detection is intentionally `one-shot`: the LLM sees the current message plus anchor timestamp, not a rolling chat history.
 
+Why:
+- smaller and more predictable runtime contract,
+- easier validation of structured output,
+- lower prompt complexity and less hidden state,
+- easier to reason about failures and reproduce behavior.
 
-### 3.3 Why Passive Collection Over Chat Member List?
+Important context:
+- I did think about and experiment with passing several previous messages to the LLM.
+- That work evolved into an alternative LangGraph-based version in another branch.
+- For this branch, I intentionally kept the detector at the simpler `one-shot / one-message` level.
 
-Telegram bots can't list all chat members without admin rights. Instead:
-- Bot records users as they send messages
-- "Lurkers" won't appear in conversions — **expected behavior**
+### 3.3 LLM Over Regex
 
-**Discord:** Uses same approach for consistency + `on_member_remove` event for cleanup.
+The MVP uses LLM-only detection and does not keep a regex fallback in the canonical path.
 
-### 3.4 Why 4-Layer "Clean Memory" Over Redis?
+Why:
+- natural language time mentions are too varied for a clean regex-first design,
+- the LLM can return a strict JSON contract instead of raw text,
+- one structured detector is easier to keep platform-agnostic than parallel heuristic pipelines.
 
-The bot implements a custom in-memory architecture to handle state without external dependencies:
-1.  **Users Cache**: Read-through **LRU snapshots** (Limit: 10k users) of SQLite data.
-2.  **Chat Context**: Rolling history for LLM awareness.
-3.  **LLM Queue**: Async locks per chat with **20s aging** to prevent stale responses.
-4.  **Onboarding Buffer**: Deferral of messages from unregistered users (60s TTL).
+### 3.4 Lazy Onboarding Instead of Forced Setup
 
-| Factor | Decision |
-|--------|----------|
-| **Complexity** | Zero config — no Redis server required. |
-| **UX** | Zero-Friction — any message triggers onboarding and is processed later. |
-| **Safety** | Per-chat locks prevent data race and LLM token waste. |
+Timezone setup starts only when a user actually triggers a time-coordination event.
 
-### 3.5 Why SQLite Over PostgreSQL?
+Why:
+- lower chat pollution,
+- no need to force setup before first value,
+- original actionable messages can be frozen and replayed after setup,
+- this matches the product goal better than command-first onboarding.
 
-- **Zero setup** — comes with Python
-- **Async via aiosqlite** — fast enough for single-instance
-- **Persistent Connection** — Reuse single DB handle for the lifetime of the process.
-- **WAL (Write-Ahead Logging)** — Global PRAGMA for high concurrency.
-- **Multi-platform ready** — `platform` column separates Telegram/Discord users
+Related runtime choice:
+- pending messages are kept in short-lived in-memory storage,
+- if onboarding succeeds, the frozen message is replayed,
+- if the user declines or times out, the message is discarded unless explicit source location makes conversion possible.
 
----
+### 3.5 Passive Membership Collection
 
-## 4. Component Overview
+The bot knows only members it has actually observed in the chat.
 
-| Module | Purpose |
-|--------|---------|
-| `src/event_detection/` | LLM Orchestrator, History, and Locking |
-| `src/transform.py` | UTC-Pivot conversions, IANA timezone database |
-| `src/geo.py` | City → Coordinates → Timezone (Nominatim + TimezoneFinder) |
-| `src/storage/` | SQLite + **In-Memory Caches & Pending Storage** |
-| `src/formatter.py` | Response text generation, UTC offset sorting |
-| `src/commands/` | Telegram handlers + FSM + Middleware |
-| `src/discord/` | Discord handlers + UI (Views, Modals) |
+Why:
+- Telegram cannot reliably act as a full member directory without stronger permissions and extra coupling,
+- passive collection keeps the MVP deployable with less setup,
+- conversion output stays scoped to known members of the current chat.
 
----
+Accepted limitation:
+- lurkers do not appear in conversions by design.
 
-## 5. Known Limitations
+### 3.6 Chat Membership Is Separate from User Profile
 
-| Issue | Impact | Mitigation |
-|-------|--------|------------|
-| **Cold Start** | Caches empty on restart | Passively filled on first message/lookup. |
-| **Platform Limits** | Discord buttons vs Telegram ForceReply | Unified core logic handles both variants. |
+Membership deletion is chat-scoped. User profile data is not treated as disposable chat-local state.
 
----
+Why:
+- the same user may exist across chats and platforms,
+- removing someone from one chat should not destroy their saved timezone,
+- storage stays aligned with the domain split: `users` vs `chat_members`.
 
-## 6. Future Roadmap
+Practical consequence:
+- Telegram manual cleanup such as `/tb_remove` should remove the membership link for that group, not erase the whole user record.
+- When the bot is removed from a chat/server, it should clear membership for that chat/server only.
 
-| Priority | Enhancement |
-|----------|-------------|
-| **High** | **LRU Cache + Activity Tracking**: **Implemented** (2026-03-16). |
-| **Medium** | **Background Sync (Discord)**: **Implemented** (2026-03-15). |
-| **Medium** | Dockerization for easy deployment |
-| **Low** | WhatsApp support |
+### 3.7 SQLite Plus Small In-Memory State
 
----
+The MVP uses one SQLite database plus a few small runtime caches and buffers.
 
-## 7. Testing
+Current local runtime state:
+- user snapshot cache,
+- chat-members cache,
+- frozen onboarding messages.
 
-- **Zero config:** Tests use temporary SQLite DBs
-- **Run:** `uv run pytest` or `./run.sh test`
-- **Coverage:** Core modules (capture, transform, storage, geo)
+Why:
+- zero external infrastructure for review and local run,
+- good enough for a single-process MVP,
+- easier debugging and handover than introducing Redis or a larger state stack too early.
 
----
+### 3.8 Low-Friction Geocoding for MVP
 
-## 8. Configuration
+The current geo path is intentionally simple: geocoding plus timezone resolution to produce an IANA timezone.
 
-| File | Contents |
-|------|----------|
-| `.env` | Tokens: `TELEGRAM_TOKEN`, `DISCORD_TOKEN` (set one or both) |
-| `configuration.yaml` | Regex patterns, cooldown, display limits |
+Terminology note:
+- `tz_city` is the detector field for source-location text attached to a time point.
+- It does not mean "user city".
+- It means "the place that defines the source timezone for this specific message", for example `London` in `"12:00 in London"` or `Berlin` in `"7pm Berlin time"`.
 
-**Startup logic:** Token present → bot starts. Token missing → skip with warning.
+Why:
+- enough for onboarding and message-level source overrides,
+- keeps the durable profile value clean: only IANA timezone is stored,
+- avoids adding disambiguation UX and provider-specific complexity in MVP.
 
----
+Important constraint:
+- location text from a message is a one-message override only; it must not overwrite stored user timezone.
 
-## 9. Specs Reference
+## 4. Known Limits
 
-Detailed specifications in `journal/`:
-- [01_scope_and_MVP.md](../journal/01_scope_and_MVP.md) — Project scope, tech stack
-- [05_storage.md](../journal/05_storage.md) — DB schema, Clean Memory architecture
-- [14_llm_module.md](../journal/14_llm_module.md) — LLM Event Detection pipeline
-- [15_onboarding_capture.md](../journal/15_onboarding_capture.md) — Zero-Friction deferral logic
+- The bot is intentionally `known-members only`; it does not infer silent participants.
+- Frozen onboarding messages are in-memory only and do not survive process restart.
+- This branch does not use multi-message LLM context in the canonical flow.
+- Telegram and Discord use different UX surfaces, but they are expected to preserve the same core business rules.
+
+## 5. If I Had More Time
+
+- I would evaluate alternative geocoding strategies/providers instead of treating the current choice as final.
+- I would revisit richer multi-message detection, but only if it improved accuracy enough to justify the extra runtime complexity. That line of thinking already led to a separate LangGraph-based branch; it was intentionally not merged into this simpler MVP path.
+
+## 6. Canonical Specs
+
+Start here when changing behavior:
+- [01_scope_and_MVP.md](../journal/01_scope_and_MVP.md)
+- [00_c4.md](../journal/00_c4.md)
+- [03_transformation_specs.md](../journal/03_transformation_specs.md)
+- [04_bot_logic.md](../journal/04_bot_logic.md)
+- [05_storage.md](../journal/05_storage.md)
+- [06_city_to_timezone.md](../journal/06_city_to_timezone.md)
+- [13_configuration.md](../journal/13_configuration.md)
+- [14_llm_module.md](../journal/14_llm_module.md)
+- [15_onboarding_capture.md](../journal/15_onboarding_capture.md)
