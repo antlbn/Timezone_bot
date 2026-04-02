@@ -43,16 +43,14 @@ cd Timezone_bot
 
     Current default LLM runtime:
 
-    - primary model: Gemini 2.0 Flash-Lite via its OpenAI-compatible endpoint
-    - fallback model: Groq via its OpenAI-compatible endpoint
+    - primary model: Gemini 3.0 Flash-Lite via its OpenAI-compatible endpoint
+    - fallback model: llama 8b  via Groq its OpenAI-compatible endpoint
     - the current prompt contract also works well with Nemotron and smaller models in the Llama 8B class
 
     Notes:
 
     - the env names are intentionally provider-agnostic,
-    - Gemini is treated as an OpenAI-compatible backend here,
     - `LLM_API_KEY` and `LLM_FALLBACK_API_KEY` are the preferred names,
-    - older aliases such as `GEMINI_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY` are still accepted for backward compatibility.
 
 > [!TIP]
 > **Startup Logic**: Each bot checks its own token. If `TELEGRAM_TOKEN` is set — Telegram bot starts. If `DISCORD_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
@@ -102,7 +100,7 @@ Runtime behavior is configured via `configuration.yaml`.
 
 | Setting | Type | Description |
 | :--- | :--- | :--- |
-| `logging.level` | `DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL` | Verbosity threshold for runtime logs. |
+| `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
 | `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
 | `bot.show_event_title` | Boolean | Show `event_title` when the detector returns it. |
 | `bot.reply_to_original_message` | Boolean | Send conversion as a direct reply to the source message. |
