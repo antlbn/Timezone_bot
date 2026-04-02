@@ -23,6 +23,6 @@ The development followed a "Spec-Driven Development" approach:
 
 ## 4. The Core Feature: LLM for Event Detection
 
-The most significant AI component of this project isn't how the code was written, but the core feature itself: using an LLM (`gemini-2.0-flash-lite` / `llama-3.1-8b-instant`) strictly as an intelligence layer to replace brittle regex parsers for time detection. 
+The most significant AI component of this project isn't how the code was written, but the core feature itself: using an LLM (`gemini-3.1-flash-lite-preview` / `llama-3.1-8b-instant`) strictly as an intelligence layer to replace brittle regex parsers for time detection. 
 
 By enforcing a strict JSON output schema and evaluating it via `promptfoo`, the LLM turned a traditionally difficult NLP problem (extracting intent and relative times from natural chat) into a reliable API endpoint.

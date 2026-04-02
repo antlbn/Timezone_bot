@@ -220,6 +220,37 @@ class TestFormatConversionReply:
 
         assert reply == "Standup\n10:30 Amsterdam"
 
+    def test_inline_sentence_style_multiple_titles_have_no_blank_line_between_points(self):
+        conversions = [
+            {
+                "original_time": "10:30",
+                "source_city": "London",
+                "source_tz": "Europe/London",
+                "source_flag": "🇬🇧",
+                "event_title": "Standup",
+                "am_pm_clear": True,
+            },
+            {
+                "original_time": "15:00",
+                "source_city": "London",
+                "source_tz": "Europe/London",
+                "source_flag": "🇬🇧",
+                "event_title": "Retro",
+                "am_pm_clear": True,
+            },
+        ]
+        members = [
+            {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "bob"},
+        ]
+
+        with (
+            patch("src.formatter.get_response_style", return_value="inline_sentence"),
+            patch("src.formatter.get_show_event_title", return_value=True),
+        ):
+            reply = format_multi_conversion(conversions, members)
+
+        assert reply == "Standup\n10:30 London, 11:30 Berlin\nRetro\n15:00 London, 16:00 Berlin"
+
     def test_inline_sentence_style_keeps_ambiguous_prefix(self):
         conversions = [
             {

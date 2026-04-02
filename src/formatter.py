@@ -243,7 +243,7 @@ def format_multi_conversion(conversions: list[dict], members: list[dict], sender
     show_titles = get_show_event_title()
     has_titles = show_titles and any(conversion.get("event_title") for conversion in conversions)
     if has_titles:
-        return "\n\n".join(point_lines)
+        return "\n".join(point_lines)
 
     if len(point_lines) == 1:
         return f"It is {point_lines[0]}"

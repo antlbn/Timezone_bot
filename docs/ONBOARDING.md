@@ -144,7 +144,6 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 
 🤖 standup
    10:30 London, 11:30 Berlin
-
    retro
    15:00 London, 16:00 Berlin
 ```
@@ -165,7 +164,7 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 
 | Key | Default | Description |
 | :--- | :--- | :--- |
-| `llm.model` | `gemini-2.0-flash-lite` | Primary model identifier. |
+| `llm.model` | `gemini-3.1-flash-lite-preview` | Primary model identifier. |
 | `llm.temperature` | `0.1` | Low temperature keeps detection deterministic. |
 | `llm.base_url` | Gemini OpenAI-compat endpoint | Default primary endpoint. Override it via `.env` with `LLM_BASE_URL`. |
 | `llm.fallback.enabled` | `true` | Enable automatic retry on the fallback model when the primary fails. |

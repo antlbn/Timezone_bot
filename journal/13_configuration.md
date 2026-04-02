@@ -59,7 +59,7 @@ Meaning:
 
 ```yaml
 llm:
-  model: gemini-2.0-flash-lite
+  model: gemini-3.1-flash-lite-preview
   temperature: 0.1
   base_url: https://generativelanguage.googleapis.com/v1beta/openai
   fallback:
