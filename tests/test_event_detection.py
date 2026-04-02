@@ -115,7 +115,8 @@ def test_strip_json_fences_handles_language_and_trailing_fence():
 async def test_llm_fallback_attempt_used(monkeypatch):
     from src.event_detection.detector import clear_runtime_caches, detect_event
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_API_KEY", "test-primary-key")
+    monkeypatch.setenv("LLM_FALLBACK_API_KEY", "test-fallback-key")
     clear_runtime_caches()
 
     mock_response = MagicMock()
@@ -138,7 +139,7 @@ async def test_llm_fallback_attempt_used(monkeypatch):
                 "llm": {
                     "model": "primary-model",
                     "temperature": 0.1,
-                    "base_url": None,
+                    "base_url": "https://primary.example/v1",
                     "fallback": {"enabled": True, "model": "fallback-model"},
                 }
             },
@@ -158,12 +159,12 @@ async def test_llm_fallback_attempt_used(monkeypatch):
     assert result["time_mentioned"] is True
     assert result["event_title"] == ["созвон"]
     assert shared_client.chat.completions.create.await_count == 2
-    assert mock_client_cls.call_count == 1
+    assert mock_client_cls.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_process_message_builds_reply_text(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_API_KEY", "test-primary-key")
 
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
@@ -183,7 +184,7 @@ async def test_process_message_builds_reply_text(monkeypatch):
                 "llm": {
                     "model": "primary-model",
                     "temperature": 0.1,
-                    "base_url": None,
+                    "base_url": "https://primary.example/v1",
                     "fallback": {"enabled": True, "model": "fallback-model"},
                 }
             },
@@ -369,3 +370,33 @@ def test_runtime_prompt_mentions_v5_fields():
     assert "time_mentioned" in prompt
     assert "tz_city" in prompt
     assert "am_pm_clear" in prompt
+
+
+def test_fallback_attempt_does_not_reuse_primary_key_for_different_provider(monkeypatch):
+    from src.event_detection.detector import _build_llm_attempts, clear_runtime_caches
+
+    monkeypatch.setenv("LLM_API_KEY", "primary-key")
+    monkeypatch.delenv("LLM_FALLBACK_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    clear_runtime_caches()
+
+    with patch(
+        "src.event_detection.detector.get_config",
+        return_value={
+            "llm": {
+                "model": "primary-model",
+                "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+                "api_key_env": "LLM_API_KEY",
+                "fallback": {
+                    "enabled": True,
+                    "model": "fallback-model",
+                    "base_url": "https://api.groq.com/openai/v1",
+                    "api_key_env": "LLM_FALLBACK_API_KEY",
+                },
+            }
+        },
+    ):
+        attempts = _build_llm_attempts()
+
+    assert len(attempts) == 1
+    assert attempts[0]["name"] == "primary"

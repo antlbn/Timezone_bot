@@ -14,22 +14,23 @@ You can configure the bot to display times in a compact sentence or as a detaile
 ```text
 👤 Maria: Let's sync at 3pm tomorrow
 
-🤖 It is 15:00 Berlin 🇩🇪, 09:00 New York 🇺🇸, 23:00 Tokyo 🇯🇵
+🤖 It is 15:00 Berlin, 09:00 New York, 23:00 Tokyo
 ```
 
 *(Handles multiple data points seamlessly:)*
 ```text
 👤 Jane: Standup at 10:30, then the retro is at 15:00.
 
-🤖 It is 10:30 London 🇬🇧, 11:30 Berlin 🇩🇪
-   It is 15:00 London 🇬🇧, 16:00 Berlin 🇩🇪
+🤖 It is
+   10:30 London, 11:30 Berlin
+   15:00 London, 16:00 Berlin
 ```
 
 **Extended Mode (`block`)**: Great for larger teams or detailed coordination. Includes flags, usernames, and extracted event titles.
 ```text
 👤 Anton: Due to the holiday, the final release review is postponed to tomorrow 5pm.
 
-🤖 📝 final release review
+🤖 final release review
    17:00 Berlin 🇩🇪 @anton, @maria
    16:00 London 🇬🇧 @john
 ```

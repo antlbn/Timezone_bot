@@ -186,7 +186,7 @@ def format_single_point_sentence(
     event_title: str = "",
     ambiguous_prefix: str = "",
 ) -> str:
-    """Format one conversion block as a single compact sentence without flags."""
+    """Format one conversion block as a compact inline row without flags."""
     rows = _build_conversion_rows(
         original_time=original_time,
         sender_city=sender_city,
@@ -197,17 +197,12 @@ def format_single_point_sentence(
     if not rows:
         return ""
 
-    lines = []
-    if event_title and get_show_event_title():
-        lines.append(event_title)
-
-    sentence = "It is " + ", ".join(
-        f"{row['displayed_time']} {row['label']}" for row in rows
-    )
+    row_text = ", ".join(f"{row['displayed_time']} {row['label']}" for row in rows)
     if ambiguous_prefix:
-        sentence = f"{ambiguous_prefix} {sentence}"
-    lines.append(sentence)
-    return "\n".join(lines)
+        row_text = f"{ambiguous_prefix} {row_text}"
+    if event_title and get_show_event_title():
+        return f"{event_title}\n{row_text}"
+    return row_text
 
 
 def format_multi_conversion(conversions: list[dict], members: list[dict], sender_name: str = "") -> str:
@@ -238,7 +233,22 @@ def format_multi_conversion(conversions: list[dict], members: list[dict], sender
             )
         if line:
             point_lines.append(line)
-    return "\n\n".join(point_lines)
+
+    if response_style != "inline_sentence":
+        return "\n\n".join(point_lines)
+
+    if not point_lines:
+        return ""
+
+    show_titles = get_show_event_title()
+    has_titles = show_titles and any(conversion.get("event_title") for conversion in conversions)
+    if has_titles:
+        return "\n\n".join(point_lines)
+
+    if len(point_lines) == 1:
+        return f"It is {point_lines[0]}"
+
+    return "It is\n" + "\n".join(point_lines)
 
 
 def format_conversion_reply(

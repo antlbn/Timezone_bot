@@ -20,8 +20,8 @@ from src.event_detection.prompts import get_system_prompt
 from src.config import (
     get_config,
     get_log_llm_prompts,
-    get_llm_api_key_env,
     get_llm_base_url,
+    get_llm_fallback_base_url,
     get_llm_model,
     get_llm_temperature,
 )
@@ -97,33 +97,10 @@ def _parse_detection_payload(raw: str) -> tuple[bool, list[dict[str, Any]]]:
     return time_mentioned and bool(normalized_points), normalized_points
 
 
-def _resolve_api_key(preferred_env: str | None) -> str | None:
-    """
-    Resolve an API key from config-driven env names, while keeping backward-
-    compatible fallbacks for existing local setups.
-    """
-    candidate_names: list[str] = []
-    if preferred_env:
-        candidate_names.append(preferred_env)
-    candidate_names.extend(
-        [
-            "LLM_API_KEY",
-            "LLM_FALLBACK_API_KEY",
-            "GEMINI_API_KEY",
-            "GROQ_API_KEY",
-            "OPENAI_API_KEY",
-        ]
-    )
-
-    seen = set()
-    for env_name in candidate_names:
-        if not env_name or env_name in seen:
-            continue
-        seen.add(env_name)
-        value = os.getenv(env_name)
-        if value:
-            return value
-    return None
+def _resolve_api_key(role: str) -> str | None:
+    """Resolve the canonical LLM API key for the given role."""
+    env_name = "LLM_FALLBACK_API_KEY" if role == "fallback" else "LLM_API_KEY"
+    return os.getenv(env_name) or None
 
 
 @lru_cache(maxsize=1)
@@ -131,25 +108,36 @@ def _build_llm_attempts() -> tuple[dict, ...]:
     """Build primary and optional fallback LLM configurations."""
     cfg = get_config()
     llm_cfg = cfg.get("llm", {})
+    primary_api_key = _resolve_api_key("primary")
     attempts = [
         {
             "name": "primary",
             "model": llm_cfg.get("model") or get_llm_model(),
-            "base_url": llm_cfg.get("base_url") or get_llm_base_url(),
+            "base_url": get_llm_base_url(),
             "temperature": float(llm_cfg.get("temperature", get_llm_temperature())),
-            "api_key": _resolve_api_key(llm_cfg.get("api_key_env") or get_llm_api_key_env()),
+            "api_key": primary_api_key,
         }
     ]
 
     fallback = llm_cfg.get("fallback")
     if fallback and fallback.get("enabled", True) and fallback.get("model"):
+        fallback_base_url = get_llm_fallback_base_url()
+        fallback_api_key = _resolve_api_key("fallback")
+
+        if not fallback_api_key:
+            logger.warning(
+                "Fallback LLM is configured but no fallback API key was resolved; "
+                "skipping fallback attempt."
+            )
+            return tuple(attempts)
+
         attempts.append(
             {
                 "name": "fallback",
                 "model": fallback["model"],
-                "base_url": fallback.get("base_url") or attempts[0]["base_url"],
+                "base_url": fallback_base_url,
                 "temperature": float(fallback.get("temperature", attempts[0]["temperature"])),
-                "api_key": _resolve_api_key(fallback.get("api_key_env")) or attempts[0]["api_key"],
+                "api_key": fallback_api_key,
             }
         )
 

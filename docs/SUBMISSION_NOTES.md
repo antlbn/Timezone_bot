@@ -11,7 +11,7 @@ Answers to the eight evaluation criteria listed in the assignment brief.
 ```bash
 git clone https://github.com/antlbn/Timezone_bot.git
 cd Timezone_bot
-cp env.example .env          # paste TELEGRAM_TOKEN and/or DISCORD_TOKEN + GEMINI_API_KEY
+cp env.example .env          # paste TELEGRAM_TOKEN / DISCORD_TOKEN + LLM_BASE_URL / LLM_API_KEY
 uv sync
 ./run.sh
 ```

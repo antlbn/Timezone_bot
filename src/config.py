@@ -141,8 +141,14 @@ def get_llm_temperature() -> float:
 
 
 def get_llm_base_url() -> str | None:
-    """Get optional LLM base URL from config or environment."""
-    return get_llm_settings().get("base_url") or os.getenv("LLM_BASE_URL")
+    """Get primary LLM base URL, preferring the canonical env var."""
+    return os.getenv("LLM_BASE_URL") or get_llm_settings().get("base_url")
+
+
+def get_llm_fallback_base_url() -> str | None:
+    """Get fallback LLM base URL, preferring the canonical env var."""
+    fallback_cfg = get_llm_settings().get("fallback", {})
+    return os.getenv("LLM_FALLBACK_BASE_URL") or fallback_cfg.get("base_url") or get_llm_base_url()
 
 
 def get_llm_api_key_env() -> str | None:

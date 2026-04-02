@@ -38,7 +38,9 @@ cd Timezone_bot
 
     - `TELEGRAM_TOKEN` for Telegram runtime
     - `DISCORD_TOKEN` for Discord runtime
+    - `LLM_BASE_URL` for the primary LLM endpoint
     - `LLM_API_KEY` for the primary LLM provider
+    - `LLM_FALLBACK_BASE_URL` for the fallback LLM endpoint
     - `LLM_FALLBACK_API_KEY` for the optional fallback provider
 
     Current default LLM runtime:
@@ -49,8 +51,8 @@ cd Timezone_bot
 
     Notes:
 
-    - the env names are intentionally provider-agnostic,
-    - `LLM_API_KEY` and `LLM_FALLBACK_API_KEY` are the preferred names,
+    - the LLM env names are intentionally provider-agnostic,
+    - the canonical LLM contract is exactly two endpoints and two keys: primary + fallback,
 
 > [!TIP]
 > **Startup Logic**: Each bot checks its own token. If `TELEGRAM_TOKEN` is set — Telegram bot starts. If `DISCORD_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
@@ -115,12 +117,13 @@ Runtime behavior is configured via `configuration.yaml`. All sections and their 
 | :--- | :--- | :--- |
 | `bot.show_usernames` | `false` | Append names to each timezone row: `13:00 Berlin 🇩🇪 @alice, Bob`. |
 | `bot.show_event_title` | `true` | Show `event_title` above a block when the LLM explicitly extracted it. If `false`, titles are always suppressed. |
-| `bot.response_style` | `inline_sentence` | Reply layout. `block` — one timezone per line; `inline_sentence` — compact single-line format. |
+| `bot.response_style` | `inline_sentence` | Reply layout. `block` — one timezone per line with flags and optional names; `inline_sentence` — compact flag-free inline rows. |
 | `bot.reply_to_original_message` | `false` | Post the conversion as a thread reply to the triggering message. |
 | `bot.settings_cleanup_timeout_seconds` | `30` | Auto-delete TTL (in seconds) for short-lived bot messages (`/tb_help`, timezone prompts, etc.) in shared chats. Set `0` to disable. |
 
 > [!TIP]
 > `show_event_title` reads what the LLM returned — it never invents a title. Turning it `off` suppresses all titles regardless of LLM output.
+> `show_usernames` affects `block` replies only. `inline_sentence` stays compact and does not show flags or member names.
 
 #### 🎨 Formatting Showcase
 
@@ -131,7 +134,19 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 ```text
 👤 Maria: Let's sync tomorrow at 3pm
 
-🤖 It is 15:00 Berlin 🇩🇪, 09:00 New York 🇺🇸
+🤖 It is 15:00 Berlin, 09:00 New York
+```
+
+**Option A2: Compact with Event Titles**
+*(Settings: `response_style: inline_sentence`, `show_event_title: true`)*
+```text
+👤 Jane: Standup at 10:30, then retro at 15:00.
+
+🤖 standup
+   10:30 London, 11:30 Berlin
+
+   retro
+   15:00 London, 16:00 Berlin
 ```
 
 **Option B: Detailed Block with Usernames and Context**
@@ -139,7 +154,7 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 ```text
 👤 Anton: The final release review is postponed to tomorrow 5pm due to testing updates.
 
-🤖 📝 final release review
+🤖 final release review
    17:00 Berlin 🇩🇪 @anton, @maria
    09:00 New York 🇺🇸 @jane
 ```
@@ -152,12 +167,10 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 | :--- | :--- | :--- |
 | `llm.model` | `gemini-2.0-flash-lite` | Primary model identifier. |
 | `llm.temperature` | `0.1` | Low temperature keeps detection deterministic. |
-| `llm.base_url` | Gemini OpenAI-compat endpoint | Any OpenAI-compatible endpoint. Swap to use a different provider. |
-| `llm.api_key_env` | `LLM_API_KEY` | Name of the env var holding the primary provider key. |
+| `llm.base_url` | Gemini OpenAI-compat endpoint | Default primary endpoint. Override it via `.env` with `LLM_BASE_URL`. |
 | `llm.fallback.enabled` | `true` | Enable automatic retry on the fallback model when the primary fails. |
 | `llm.fallback.model` | `llama-3.1-8b-instant` | Fallback model identifier. |
-| `llm.fallback.base_url` | Groq OpenAI-compat endpoint | Fallback provider endpoint. |
-| `llm.fallback.api_key_env` | `LLM_FALLBACK_API_KEY` | Name of the env var holding the fallback provider key. |
+| `llm.fallback.base_url` | Groq OpenAI-compat endpoint | Default fallback endpoint. Override it via `.env` with `LLM_FALLBACK_BASE_URL`. |
 
 ---
 

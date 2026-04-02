@@ -16,20 +16,20 @@ Expected keys:
 ```text
 TELEGRAM_TOKEN=
 DISCORD_TOKEN=
+LLM_BASE_URL=
 LLM_API_KEY=
+LLM_FALLBACK_BASE_URL=
 LLM_FALLBACK_API_KEY=
-OPENAI_API_KEY=
-GEMINI_API_KEY=
-GROQ_API_KEY=
 ```
 
 If a platform token is absent, that platform may be skipped at startup.
 
 Notes:
 
-- `LLM_API_KEY` is the canonical primary provider key for the current MVP config.
-- `LLM_FALLBACK_API_KEY` is the canonical fallback-provider key.
-- `GEMINI_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY` remain accepted as backward-compatible aliases for older local setups or provider switches.
+- `LLM_BASE_URL` is the canonical primary provider endpoint.
+- `LLM_API_KEY` is the canonical primary provider key.
+- `LLM_FALLBACK_BASE_URL` is the canonical fallback provider endpoint.
+- `LLM_FALLBACK_API_KEY` is the canonical fallback provider key.
 
 ## 4. `configuration.yaml`
 
@@ -52,7 +52,7 @@ Meaning:
 - `show_usernames`: show grouped user names in formatted replies.
 - `reply_to_original_message`: deliver conversion reply as a reply to the triggering message.
 - `show_event_title`: render `event_title` only when explicitly returned by the LLM.
-- `response_style`: reply rendering mode; `block` renders one row per timezone, `inline_sentence` renders one compact sentence per point.
+- `response_style`: reply rendering mode; `block` renders one row per timezone, `inline_sentence` renders compact flag-free rows and ignores username lists.
 - `settings_cleanup_timeout_seconds`: TTL for short-lived bot messages in shared chats.
 
 ### 4.2 LLM
@@ -62,26 +62,22 @@ llm:
   model: gemini-2.0-flash-lite
   temperature: 0.1
   base_url: https://generativelanguage.googleapis.com/v1beta/openai
-  api_key_env: LLM_API_KEY
   fallback:
     enabled: true
     model: llama-3.1-8b-instant
     temperature: 0.1
     base_url: https://api.groq.com/openai/v1
-    api_key_env: LLM_FALLBACK_API_KEY
 ```
 
 Meaning:
 
 - `model`: selected model identifier.
 - `temperature`: generation strictness / creativity balance.
-- `base_url`: optional custom endpoint for compatible providers.
-- `api_key_env`: environment variable name for the primary LLM API key.
+- `base_url`: default primary endpoint; canonical runtime override comes from `.env` via `LLM_BASE_URL`.
 - `fallback.enabled`: allow automatic retry on a secondary LLM.
 - `fallback.model`: fallback model identifier.
 - `fallback.temperature`: fallback generation setting.
-- `fallback.base_url`: optional custom endpoint for fallback model.
-- `fallback.api_key_env`: environment variable name for fallback API key.
+- `fallback.base_url`: default fallback endpoint; canonical runtime override comes from `.env` via `LLM_FALLBACK_BASE_URL`.
 
 ### 4.3 Event Detection
 
