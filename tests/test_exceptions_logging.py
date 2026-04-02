@@ -14,7 +14,7 @@ from aiogram.types import Message, Chat, User
 
 
 def test_geo_timeout_logging(caplog):
-    """Test that GeocoderTimedOut is caught and logged as warning."""
+    """Test that GeocoderTimedOut is caught, logged, and collapsed to None."""
     mock_geolocator = MagicMock()
     mock_geolocator.geocode.side_effect = GeocoderTimedOut("Connection lost")
 
@@ -22,10 +22,7 @@ def test_geo_timeout_logging(caplog):
         with caplog.at_level(logging.ERROR):
             result = get_timezone_by_city("Lost City")
 
-            # Should return error dict
-            assert isinstance(result, dict)
-            assert "error" in result
-            assert "Geocoding service unavailable" in result["error"]
+            assert result is None
 
             # Should capture error log
             assert "Geocoding error for 'Lost City'" in caplog.text
@@ -33,15 +30,14 @@ def test_geo_timeout_logging(caplog):
 
 
 def test_geo_service_error_logging(caplog):
-    """Test that GeocoderServiceError (500/503) is caught and logged."""
+    """Test that GeocoderServiceError (500/503) is caught, logged, and collapsed to None."""
     mock_geolocator = MagicMock()
     mock_geolocator.geocode.side_effect = GeocoderServiceError("Service unavailable")
 
     with patch("src.geo._create_geolocator", return_value=mock_geolocator):
         with caplog.at_level(logging.ERROR):
             result = get_timezone_by_city("Berlin")
-            assert isinstance(result, dict)
-            assert "error" in result
+            assert result is None
             assert "Geocoding error for 'Berlin'" in caplog.text
 
 

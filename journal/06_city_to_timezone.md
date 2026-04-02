@@ -53,6 +53,7 @@ MVP rule:
 
 - no durable UTC-offset fallback is used for account setup,
 - no numeric offset is stored as a user timezone.
+- the temporary UTC-offset resolver exists only to infer a best-effort timezone from manual "my local time is HH:MM" fallback input during onboarding.
 
 ## 7. Explicit Source-Location Behavior
 
@@ -77,6 +78,7 @@ Examples:
 Implementation note:
 
 - if the selected geocoding library is synchronous, the application must wrap it in an async-safe execution boundary before calling it from async handlers or detector flow.
+- transient geocoding failures should be logged internally and exposed to callers as a plain resolution failure (`None`), not as a second structured failure type.
 
 ## 9. Edge Cases
 

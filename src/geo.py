@@ -39,7 +39,11 @@ def get_timezone_by_city(city_name: str) -> dict | None:
         city_name: Name of city (e.g. "Berlin", "New York")
 
     Returns:
-        Dict with city, timezone, country, flag or None if not found
+        Dict with city, timezone, country, flag or None if unresolved.
+
+    Failure contract:
+        - return None for "not found"
+        - return None for transient geocoder failures after logging internally
     """
     try:
         geolocator = _create_geolocator()
@@ -63,12 +67,11 @@ def get_timezone_by_city(city_name: str) -> dict | None:
             "timezone": timezone,
             "country_code": country_code,
             "flag": get_country_flag(country_code),
-            "display_name": location.address.split(",")[0],  # Short name
         }
 
     except (GeocoderTimedOut, GeocoderServiceError) as e:
         logger.error(f"Geocoding error for '{city_name}': {e}")
-        return {"error": "Geocoding service unavailable", "details": str(e)}
+        return None
 
 
 async def async_get_timezone_by_city(city_name: str) -> dict | None:
@@ -76,7 +79,9 @@ async def async_get_timezone_by_city(city_name: str) -> dict | None:
     return await asyncio.to_thread(get_timezone_by_city, city_name)
 
 
-# Common timezones by UTC offset (for fallback)
+# Common timezones by UTC offset for onboarding fallback only.
+# This table is not part of the main conversion pipeline and must never be
+# persisted as the user's durable timezone choice.
 OFFSET_TO_TIMEZONE = {
     -12: "Etc/GMT+12",
     -11: "Pacific/Midway",
@@ -108,7 +113,11 @@ OFFSET_TO_TIMEZONE = {
 
 def get_timezone_by_offset(offset_hours: float) -> dict:
     """
-    Find IANA timezone matching given UTC offset.
+    Find an approximate IANA timezone matching a UTC offset.
+
+    This is an onboarding fallback helper for manual "my local time is HH:MM"
+    input. It is not used for normal conversion flow and its output must not be
+    stored as a durable user timezone.
 
     Args:
         offset_hours: UTC offset in hours (e.g. 3.0 for UTC+3)
@@ -154,7 +163,7 @@ def _extract_times_for_resolver(text: str) -> list[str]:
 
 def resolve_timezone_from_input(user_input: str) -> dict | None:
     """
-    Universal timezone resolver: checks TIME pattern first (via regex),
+    Universal onboarding resolver: checks TIME pattern first (via regex),
     then falls back to city geocoding.
 
     This order prevents false geo matches like '19:53' -> Jakarta.
@@ -201,11 +210,7 @@ def resolve_timezone_from_input(user_input: str) -> dict | None:
             # Fall through to city lookup
 
     # 2. Not a time pattern — try city geocoding
-    location = get_timezone_by_city(user_input)
-    if location and "error" not in location:
-        return location
-
-    return None
+    return get_timezone_by_city(user_input)
 
 
 async def async_resolve_timezone_from_input(user_input: str) -> dict | None:

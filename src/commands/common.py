@@ -110,9 +110,7 @@ async def cmd_settz(message: Message, state: FSMContext):
         # We simulate a /start call but without arguments
         return await dm_onboarding_start(message, None, state)
 
-    # In Group: Show JIT invite (or trigger the flow if we want, but JIT is preferred)
-    # Actually, JIT invite is exactly what handle_time_mention does.
-    # We can just manually trigger a fake time mention behavior or just send the link.
+    # In group chats, `/tb_settz` sends the user into the DM onboarding flow.
     link = await create_start_link(
         message.bot, f"onboard_{message.from_user.id}_{message.chat.id}"
     )
@@ -141,9 +139,7 @@ async def handle_time_mention(
 
     # 1. Check registration status
     sender = await get_user_cached(user_id, platform="telegram")
-    is_configured = bool(
-        sender and sender.get("timezone") and not sender.get("onboarding_declined")
-    )
+    is_configured = bool(sender and sender.get("timezone"))
     is_declined = bool(sender and sender.get("onboarding_declined"))
 
     # 2. Update activity timestamp (for all active users)

@@ -247,7 +247,6 @@ async def detect_event(
         "sender_name": sender_name,
         "time": [p.get("time", "") for p in result_points],
         "tz_city": [p.get("tz_city") for p in result_points],
-        "city": [p.get("tz_city") for p in result_points],
         "event_title": [p.get("event_title") for p in result_points],
         "am_pm_clear": [p.get("am_pm_clear") for p in result_points],
         "points": result_points,

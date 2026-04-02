@@ -14,7 +14,7 @@ def mock_message():
     message.from_user.id = 12345
     message.chat = MagicMock(spec=Chat)
     message.chat.id = 12345
-    message.chat.type = "group"
+    message.chat.type = "private"
     message.answer = AsyncMock()
     return message
 
@@ -22,7 +22,11 @@ def mock_message():
 @pytest.fixture
 def mock_state():
     state = AsyncMock(spec=FSMContext)
-    state.get_data.return_value = {"user_id": 12345, "member_ids": [111, 222, 333]}
+    state.get_data.return_value = {
+        "user_id": 12345,
+        "member_ids": [111, 222, 333],
+        "source_chat_id": 0,
+    }
     return state
 
 
@@ -33,6 +37,7 @@ async def test_process_remove_cancel_on_text(mock_message, mock_state, monkeypat
     cancels the state and forwards the message to the default handler.
     """
     mock_message.text = "Just a normal chat message 15:00"
+    mock_message.chat.type = "group"
 
     # Mock handle_time_mention so we can verify it was called
     mock_handle_time = AsyncMock()
@@ -57,6 +62,7 @@ async def test_process_remove_invalid_number(mock_message, mock_state):
     forward to standard message processing (as it was clearly meant for the bot).
     """
     mock_message.text = "99"
+    mock_message.chat.type = "group"
 
     await process_remove(mock_message, mock_state)
 

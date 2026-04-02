@@ -122,6 +122,28 @@ Runtime behavior is configured via `configuration.yaml`. All sections and their 
 > [!TIP]
 > `show_event_title` reads what the LLM returned — it never invents a title. Turning it `off` suppresses all titles regardless of LLM output.
 
+#### 🎨 Formatting Showcase
+
+By tweaking `configuration.yaml`, you can radically change how the bot looks in chat.
+
+**Option A: Clean and Compact (Default)**
+*(Settings: `response_style: inline_sentence`)*
+```text
+👤 Maria: Let's sync tomorrow at 3pm
+
+🤖 It is 15:00 Berlin 🇩🇪, 09:00 New York 🇺🇸
+```
+
+**Option B: Detailed Block with Usernames and Context**
+*(Settings: `response_style: block`, `show_usernames: true`, `show_event_title: true`)*
+```text
+👤 Anton: The final release review is postponed to tomorrow 5pm due to testing updates.
+
+🤖 📝 final release review
+   17:00 Berlin 🇩🇪 @anton, @maria
+   09:00 New York 🇺🇸 @jane
+```
+
 ---
 
 ### `llm` — Detection Model
@@ -143,7 +165,7 @@ Runtime behavior is configured via `configuration.yaml`. All sections and their 
 
 | Key | Default | Description |
 | :--- | :--- | :--- |
-| `event_detection.onboarding_timeout_seconds` | `120` | How long a frozen message waits for onboarding to complete before being discarded. |
+| `event_detection.onboarding_timeout_seconds` | `120` | How long a frozen message waits for onboarding to complete before being discarded. Cleanup runs on a 60-second loop, so the effective discard point may lag by up to about 60 seconds. |
 | `event_detection.dm_onboarding_cooldown_seconds` | `600` | Minimum gap before re-prompting a user who ignored or abandoned the onboarding DM. |
 | `event_detection.max_message_age_seconds` | `30` | Messages older than this are skipped — prevents stale replies after restart or downtime. |
 | `event_detection.max_message_hard_skip_chars` | `2000` | Hard safety ceiling: messages longer than this are never sent to the LLM. |

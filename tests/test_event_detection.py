@@ -17,7 +17,6 @@ async def test_process_message_event():
         "sender_name": "John",
         "time": ["15:00"],
         "tz_city": [None],
-        "city": [None],
         "event_title": [None],
         "am_pm_clear": [True],
         "points": [{"time": "15:00", "tz_city": None, "event_title": None, "am_pm_clear": True}],

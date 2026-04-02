@@ -104,6 +104,15 @@ For each time block, the formatter conceptually receives:
 16:00 Berlin 🇩🇪
 ```
 
+### 6.4 Inline Sentence Mode
+
+When `response_style=inline_sentence`, the formatter renders one compact sentence per time block.
+This mode does not render flags or username lists.
+
+```text
+It is 12:00 London, 13:00 Berlin, 14:00 Helsinki
+```
+
 ## 7. Event Title Rules
 
 If `show_event_title=true` and the LLM explicitly returned `event_title`, the formatter may render it above the corresponding time block.

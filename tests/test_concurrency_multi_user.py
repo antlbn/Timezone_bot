@@ -6,7 +6,7 @@ import time as time_mod
 
 # Import targets
 from src.commands.common import handle_time_mention
-from src.commands.settings import _process_pending_queue_dm
+from src.commands.settings import _process_pending_queue_for_user
 from src.storage.pending import _frozen_messages
 
 
@@ -110,8 +110,8 @@ async def test_concurrency_multi_user_flow():
         }
 
         # Drain Alice's queue (from DM)
-        await _process_pending_queue_dm(
-            bot, user_id=1, source_chat_id=chat_id
+        await _process_pending_queue_for_user(
+            bot, user_id=1, log_chat_id=chat_id
         )
 
         # VERIFY Alice processed

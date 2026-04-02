@@ -116,9 +116,10 @@ async def test_process_city_success(
 
     # Setup message text
     mock_message.text = "Paris"
+    mock_message.chat.type = "private"
 
     # Setup state data (user_id check)
-    mock_state.get_data.return_value = {"user_id": 12345}
+    mock_state.get_data.return_value = {"user_id": 12345, "source_chat_id": 0}
 
     # Setup reply_to_message (must be present and from bot)
     mock_reply = MagicMock(spec=Message)
@@ -136,9 +137,10 @@ async def test_process_city_success(
     assert saved_args["timezone"] == "Europe/Paris"
     assert saved_args["platform"] == "telegram"
 
-    # Verify success reply
+    # Verify success reply / settings menu
     mock_message.answer.assert_called_once()
-    assert "Set Test: Paris 🇫🇷 (Europe/Paris)" in mock_message.answer.call_args[0][0]
+    assert "Your timezone is set to" in mock_message.answer.call_args[0][0]
+    assert "Paris 🇫🇷" in mock_message.answer.call_args[0][0]
 
 
 @pytest.mark.asyncio

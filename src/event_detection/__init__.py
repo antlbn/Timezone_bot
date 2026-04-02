@@ -32,7 +32,7 @@ async def _build_reply(
         tz_city_override = point.get("tz_city")
         if tz_city_override:
             geo_result = await async_get_timezone_by_city(tz_city_override)
-            if geo_result and not geo_result.get("error"):
+            if geo_result:
                 source_city = geo_result["city"]
                 source_tz = geo_result["timezone"]
                 source_flag = geo_result["flag"]
@@ -104,7 +104,6 @@ async def process_message(
             "sender_name": author_name,
             "time": [],
             "tz_city": [],
-            "city": [],
             "am_pm_clear": [],
             "reason": f"Message exceeded hard limit of {hard_limit} chars",
         }
@@ -141,7 +140,6 @@ async def process_message(
                     "sender_name": author_name,
                     "time": [],
                     "tz_city": [],
-                    "city": [],
                     "am_pm_clear": [],
                     "reason": "Message stale before processing",
                 }
@@ -161,7 +159,7 @@ async def process_message(
 
     tz_city = result.get("tz_city")
     if tz_city is None:
-        tz_city = result.get("city", [])
+        tz_city = []
 
     reply_text = None
     points = result.get("points", [])
@@ -179,7 +177,6 @@ async def process_message(
     result["time_mentioned"] = time_mentioned
     result["event"] = time_mentioned
     result["tz_city"] = tz_city
-    result["city"] = tz_city
 
     return result
 

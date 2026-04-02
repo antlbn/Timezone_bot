@@ -40,9 +40,7 @@ async def on_message(message: discord.Message):
         await storage.update_activity(message.author.id, PLATFORM)
 
     # 2. Check registration status
-    is_configured = bool(
-        sender and sender.get("timezone") and not sender.get("onboarding_declined")
-    )
+    is_configured = bool(sender and sender.get("timezone"))
     is_declined = bool(sender and sender.get("onboarding_declined"))
 
     try:
@@ -79,6 +77,20 @@ async def on_message(message: discord.Message):
 
     # 4. Lazy Onboarding Trigger
     if not is_configured and not is_declined and time_mentioned:
+        # Freeze the actionable message before showing onboarding UI so an
+        # immediate button click can always drain a populated queue.
+        msg_data = {
+            "platform": PLATFORM,
+            "chat_id": chat_id,
+            "channel_id": str(message.channel.id),
+            "author_id": str(message.author.id),
+            "author_name": user_name,
+            "text": message.content,
+            "timestamp_utc": timestamp_utc,
+            "message_id": message.id,
+        }
+        await save_pending_message(message.author.id, PLATFORM, msg_data)
+
         from src.discord.ui import SetTimezoneView
         from src.config import get_settings_cleanup_timeout
 
@@ -97,19 +109,6 @@ async def on_message(message: discord.Message):
             mention_author=True,
             delete_after=get_settings_cleanup_timeout() or 60,
         )
-
-        # 5.1 Save to In-Memory storage for later processing (Frozen)
-        msg_data = {
-            "platform": PLATFORM,
-            "chat_id": chat_id,
-            "channel_id": str(message.channel.id),
-            "author_id": str(message.author.id),
-            "author_name": user_name,
-            "text": message.content,
-            "timestamp_utc": timestamp_utc,
-            "message_id": message.id,
-        }
-        await save_pending_message(message.author.id, PLATFORM, msg_data)
 
 
 @bot.event

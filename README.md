@@ -6,20 +6,32 @@ A bot that helps distributed teams coordinate time in group chats — on **Teleg
 
 Timezone Bot watches normal conversation in group chats. When someone mentions a time coordination event, it detects it and replies with local times for every known member of that chat — no commands needed.
 
-```text
-Maria:  Let's sync at 3pm tomorrow
+### 🌟 Flexible & Beautiful Formatting
 
-Bot:    15:00 Berlin 🇩🇪
-        09:00 New York 🇺🇸
-        23:00 Tokyo 🇯🇵
+You can configure the bot to display times in a compact sentence or as a detailed block with member names and event titles.
+
+**Compact Mode (`inline_sentence`)**: Perfect for quick updates and preserving screen space.
+```text
+👤 Maria: Let's sync at 3pm tomorrow
+
+🤖 It is 15:00 Berlin 🇩🇪, 09:00 New York 🇺🇸, 23:00 Tokyo 🇯🇵
 ```
 
+*(Handles multiple data points seamlessly:)*
 ```text
-User:   Deadline is 12:00 in London
+👤 Jane: Standup at 10:30, then the retro is at 15:00.
 
-Bot:    12:00 London 🇬🇧
-        13:00 Berlin 🇩🇪
-        08:00 New York 🇺🇸
+🤖 It is 10:30 London 🇬🇧, 11:30 Berlin 🇩🇪
+   It is 15:00 London 🇬🇧, 16:00 Berlin 🇩🇪
+```
+
+**Extended Mode (`block`)**: Great for larger teams or detailed coordination. Includes flags, usernames, and extracted event titles.
+```text
+👤 Anton: Due to the holiday, the final release review is postponed to tomorrow 5pm.
+
+🤖 📝 final release review
+   17:00 Berlin 🇩🇪 @anton, @maria
+   16:00 London 🇬🇧 @john
 ```
 
 > **Note:** The current MVP uses `one-shot / one-message` LLM detection intentionally — no multi-message history in this branch.

@@ -76,7 +76,7 @@ async def handle_settz(interaction: discord.Interaction, city: str, origin_inter
 
     location = await geo.async_get_timezone_by_city(city)
 
-    if not location or "error" in location:
+    if not location:
         # Show fallback UI with buttons
         embed = discord.Embed(
             title="📍 City Not Found",

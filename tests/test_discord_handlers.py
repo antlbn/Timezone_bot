@@ -105,9 +105,9 @@ class TestHandleSettz:
         """Test that geocoder error shows FallbackView."""
         from src.discord.commands import handle_settz
 
-        # Mock geo to return error dict
+        # Geocoder failures collapse into None for callers.
         mock_geo = MagicMock()
-        mock_geo.async_get_timezone_by_city = AsyncMock(return_value={"error": "Service unavailable"})
+        mock_geo.async_get_timezone_by_city = AsyncMock(return_value=None)
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_settz(mock_interaction, "Berlin")

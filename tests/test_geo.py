@@ -53,8 +53,8 @@ class TestGetTimezoneByCity:
 
         assert result["city"] == "Paris"
 
-    def test_geocoder_timeout_returns_error_dict(self):
-        """Test that geocoder timeout returns error dict, not exception."""
+    def test_geocoder_timeout_returns_none(self):
+        """Transient geocoder failures should collapse into a plain None result."""
         from src.geo import get_timezone_by_city
         from geopy.exc import GeocoderTimedOut
 
@@ -62,8 +62,7 @@ class TestGetTimezoneByCity:
             mock_factory.return_value.geocode.side_effect = GeocoderTimedOut("Timeout")
             result = get_timezone_by_city("Berlin")
 
-            assert result is not None
-            assert "error" in result
+            assert result is None
 
 
 class TestGetTimezoneByOffset:

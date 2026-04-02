@@ -1,7 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import (
     Message,
-    ForceReply,
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -168,9 +167,6 @@ async def dm_privacy_callback(callback: CallbackQuery):
         text=f"Data is stored locally and auto-deleted after {retention_days} days of inactivity.",
         show_alert=True,
     )
-    # Alternatively, send as a message if alert is too small
-    # but the user said "сделаем кнопкой (там просто будет текст о том как дата храниться)"
-    # A pop-up alert is usually best for this.
 
 
 @router.callback_query(DMSettingsCallback.filter(F.action == "decline"))
@@ -212,7 +208,11 @@ async def dm_decline_callback(
 
     # Release pending messages through the normal pipeline. Only messages with
     # explicit source location will produce a reply for declined users.
-    await _process_pending_queue_dm(callback.message.bot, user_id, chat_id)
+    await _process_pending_queue_for_user(
+        callback.message.bot,
+        user_id,
+        log_chat_id=chat_id or None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -429,34 +429,20 @@ async def process_city(message: Message, state: FSMContext):
     if data.get("user_id") != message.from_user.id:
         return
 
-    is_dm = message.chat.type == "private"
-
-    # In group chat (e.g. /tb_settz flow), clean up messages
-    if not is_dm:
-        await _cleanup_group_prompts(message, data.get("prompt_message_id"))
+    if message.chat.type != "private":
+        logger.warning("Ignoring non-DM city input in DM onboarding state.")
+        return
 
     city_name = message.text.strip()
     location = await geo.async_get_timezone_by_city(city_name)
 
-    if not location or "error" in location:
-        if location and "error" in location:
-            logger.warning(f"Geo error: {location['error']}")
-
+    if not location:
         # Trigger fallback: ask for time or city retry
         await state.set_state(SetTimezone.waiting_for_time)
-
-        if is_dm:
-            prompt_msg = await message.answer(
-                f"Could not find '{city_name}' (or service error).\n"
-                "Enter your current time (e.g. 14:30) or try another city:"
-            )
-        else:
-            prompt_msg = await message.answer(
-                f"Could not find '{city_name}' (or service error).\n"
-                "Enter your current time (e.g. 14:30) or try another city:",
-                reply_markup=ForceReply(selective=True),
-            )
-        await state.update_data(prompt_message_id=prompt_msg.message_id)
+        await message.answer(
+            f"Could not find '{city_name}' (or service error).\n"
+            "Enter your current time (e.g. 14:30) or try another city:"
+        )
         return
 
     await _save_and_finish(message, state, location)
@@ -470,11 +456,9 @@ async def process_fallback_input(message: Message, state: FSMContext):
     if data.get("user_id") != message.from_user.id:
         return
 
-    is_dm = message.chat.type == "private"
-
-    # In group chat, clean up messages
-    if not is_dm:
-        await _cleanup_group_prompts(message, data.get("prompt_message_id"))
+    if message.chat.type != "private":
+        logger.warning("Ignoring non-DM fallback input in DM onboarding state.")
+        return
 
     user_input = (message.text or "").strip()
 
@@ -486,18 +470,10 @@ async def process_fallback_input(message: Message, state: FSMContext):
         return
 
     # Neither city nor time - ask again
-    if is_dm:
-        prompt_msg = await message.answer(
-            f"Could not find '{user_input}'.\n"
-            "Enter your current time (e.g. 14:30) or try another city:"
-        )
-    else:
-        prompt_msg = await message.answer(
-            f"Could not find '{user_input}'.\n"
-            "Enter your current time (e.g. 14:30) or try another city:",
-            reply_markup=ForceReply(selective=True),
-        )
-    await state.update_data(prompt_message_id=prompt_msg.message_id)
+    await message.answer(
+        f"Could not find '{user_input}'.\n"
+        "Enter your current time (e.g. 14:30) or try another city:"
+    )
     # Stay in waiting_for_time state for retry
 
 
@@ -507,10 +483,12 @@ async def _save_and_finish(
     """Helper to save user data, update state, and send confirmation."""
     data = await state.get_data()
     username = message.from_user.username or ""
-    user_name = message.from_user.first_name or "User"
     user_id = message.from_user.id
-    is_dm = message.chat.type == "private"
     source_chat_id = data.get("source_chat_id")
+
+    if message.chat.type != "private":
+        logger.warning("Ignoring non-DM completion path in DM onboarding flow.")
+        return
 
     await storage.set_user(
         user_id=user_id,
@@ -523,56 +501,30 @@ async def _save_and_finish(
     invalidate_user_cache(user_id, platform="telegram")
 
     # Add to chat members for the source group chat
-    target_chat = source_chat_id if (is_dm and source_chat_id) else message.chat.id
+    target_chat = source_chat_id if source_chat_id else message.chat.id
     if target_chat != user_id:
         await storage.add_chat_member(target_chat, user_id, platform="telegram")
 
     await state.clear()
 
-    # Confirm and show management menu in DM
-    if is_dm:
-        # If we have a prompt message (Welcome message), we can edit it or just send a new one
-        # To avoid confusion, let's send a new "Success" message that acts as the menu
-        await show_dm_settings_menu(message, location, user_id, source_chat_id)
-    else:
-        # Group chat confirm (standard /tb_settz flow)
-        await message.answer(
-            f"✅ Set {user_name}: {location['city']} {location['flag']} ({location['timezone']})"
-        )
+    # Send a fresh success message that doubles as the settings menu.
+    await show_dm_settings_menu(message, location, user_id, source_chat_id)
 
     # Clear the DM invite cooldown
     await clear_dm_invite(user_id, "telegram")
 
     # Process all pending messages — send results to the source group chat
-    if is_dm and source_chat_id:
-        await _process_pending_queue_dm(message.bot, user_id, source_chat_id)
-    else:
-        await _process_pending_queue(message, user_id, user_name)
+    await _process_pending_queue_for_user(
+        message.bot,
+        user_id,
+        log_chat_id=source_chat_id or None,
+    )
 
     log_suffix = " (retry)" if is_retry else ""
-    log_chat = source_chat_id if (is_dm and source_chat_id) else message.chat.id
+    log_chat = source_chat_id if source_chat_id else message.chat.id
     logger.info(
         f"[chat:{log_chat}] User {user_id} -> {location['timezone']}{log_suffix}"
     )
-
-
-async def _cleanup_group_prompts(message: Message, prompt_message_id: int | None):
-    """Delete the user's group reply and the previous bot prompt when possible."""
-    try:
-        await message.delete()
-    except Exception as e:
-        logger.warning(f"Failed to delete user's message: {e}")
-
-    if not prompt_message_id:
-        return
-
-    try:
-        await message.bot.delete_message(
-            chat_id=message.chat.id,
-            message_id=prompt_message_id,
-        )
-    except Exception as e:
-        logger.warning(f"Failed to delete bot's prompt: {e}")
 
 
 async def _process_pending_queue_for_user(
@@ -591,16 +543,6 @@ async def _process_pending_queue_for_user(
         logger.info(f"Draining {len(pending_list)} pending messages for user {user_id}")
 
     await _drain_pending_messages(bot, user_id, pending_list)
-
-
-async def _process_pending_queue(message: Message, user_id: int, _user_name: str):
-    """Backward-compatible wrapper for group-chat pending draining."""
-    await _process_pending_queue_for_user(message.bot, user_id, log_chat_id=message.chat.id)
-
-
-async def _process_pending_queue_dm(bot, user_id: int, source_chat_id: int):
-    """Backward-compatible wrapper for DM pending draining."""
-    await _process_pending_queue_for_user(bot, user_id)
 
 
 async def _handle_expired_messages(
