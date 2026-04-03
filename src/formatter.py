@@ -210,7 +210,7 @@ def format_multi_conversion(conversions: list[dict], members: list[dict], sender
     response_style = get_response_style()
     point_lines = []
     for conversion in conversions:
-        ambiguous_prefix = "" if conversion.get("am_pm_clear", True) else "AM/PM?"
+        ambiguous_prefix = "" if conversion.get("am_pm_clear", True) else "[AM/PM?]"
         if response_style == "inline_sentence":
             line = format_single_point_sentence(
                 conversion["original_time"],
