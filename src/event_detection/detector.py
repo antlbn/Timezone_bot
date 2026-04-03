@@ -136,7 +136,9 @@ def _build_llm_attempts() -> tuple[dict, ...]:
                 "name": "fallback",
                 "model": fallback["model"],
                 "base_url": fallback_base_url,
-                "temperature": float(fallback.get("temperature", attempts[0]["temperature"])),
+                "temperature": float(
+                    fallback.get("temperature", attempts[0]["temperature"])
+                ),
                 "api_key": fallback_api_key,
             }
         )
@@ -168,12 +170,12 @@ def clear_runtime_caches() -> None:
 # Prompt builder
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _build_user_content(current_msg: dict) -> str:
     """Compose the plain-text user-turn block that goes to the LLM."""
     anchor = current_msg.get("timestamp_utc", "")
     return (
-        f"CURRENT TIME (UTC): {anchor}\n"
-        f"CURRENT MESSAGE:\n{current_msg.get('text', '')}"
+        f"CURRENT TIME (UTC): {anchor}\nCURRENT MESSAGE:\n{current_msg.get('text', '')}"
     )
 
 
@@ -226,7 +228,9 @@ async def detect_event(
             continue
     else:
         if last_error:
-            ctx_logger.error(f"[chat:{chat_id}] All LLM attempts failed. last_error={last_error}")
+            ctx_logger.error(
+                f"[chat:{chat_id}] All LLM attempts failed. last_error={last_error}"
+            )
 
     return {
         "time_mentioned": time_mentioned,

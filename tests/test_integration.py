@@ -33,21 +33,37 @@ async def test_full_pipeline_integration():
     ]
 
     points_payload = [
-        {"time": "10:30", "tz_city": None, "event_title": "event 1", "am_pm_clear": True},
-        {"time": "15:00", "tz_city": None, "event_title": "event 2", "am_pm_clear": True},
+        {
+            "time": "10:30",
+            "tz_city": None,
+            "event_title": "event 1",
+            "am_pm_clear": True,
+        },
+        {
+            "time": "15:00",
+            "tz_city": None,
+            "event_title": "event 2",
+            "am_pm_clear": True,
+        },
     ]
 
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
-        {"time_mentioned": True, "points": points_payload}
-    )))]
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps({"time_mentioned": True, "points": points_payload})
+            )
+        )
+    ]
 
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with (
         patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client),
-        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
+        patch(
+            "src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)
+        ),
     ):
         result = await process_message(
             message_text=text,
@@ -83,21 +99,39 @@ async def test_ambiguous_points_render_with_prefix():
     ]
 
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
-        {
-            "time_mentioned": True,
-            "points": [
-                {"time": "08:00", "tz_city": None, "event_title": None, "am_pm_clear": False},
-                {"time": "15:00", "tz_city": None, "event_title": None, "am_pm_clear": True},
-            ],
-        }
-    )))]
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {
+                        "time_mentioned": True,
+                        "points": [
+                            {
+                                "time": "08:00",
+                                "tz_city": None,
+                                "event_title": None,
+                                "am_pm_clear": False,
+                            },
+                            {
+                                "time": "15:00",
+                                "tz_city": None,
+                                "event_title": None,
+                                "am_pm_clear": True,
+                            },
+                        ],
+                    }
+                )
+            )
+        )
+    ]
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with (
         patch("src.event_detection.detector.AsyncOpenAI", return_value=mock_client),
-        patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
+        patch(
+            "src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)
+        ),
     ):
         result = await process_message(
             message_text="tomorrow at 8 and 15:00",
@@ -121,12 +155,25 @@ async def test_invalid_points_only_produce_no_reply():
     sender_db = {"timezone": "Europe/Sarajevo", "city": "Sarajevo", "flag": "🇧🇦"}
 
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(
-        {
-            "time_mentioned": True,
-            "points": [{"time": "99:99", "tz_city": None, "event_title": None, "am_pm_clear": True}],
-        }
-    )))]
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {
+                        "time_mentioned": True,
+                        "points": [
+                            {
+                                "time": "99:99",
+                                "tz_city": None,
+                                "event_title": None,
+                                "am_pm_clear": True,
+                            }
+                        ],
+                    }
+                )
+            )
+        )
+    ]
     mock_client = MagicMock()
     mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 

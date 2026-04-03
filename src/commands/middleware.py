@@ -25,7 +25,9 @@ class PassiveCollectionMiddleware(BaseMiddleware):
             # Skip private chats
             if event.chat.id != event.from_user.id:
                 try:
-                    user = await get_user_cached(event.from_user.id, platform="telegram")
+                    user = await get_user_cached(
+                        event.from_user.id, platform="telegram"
+                    )
                     if user:
                         await storage.add_chat_member(
                             event.chat.id, event.from_user.id, platform="telegram"

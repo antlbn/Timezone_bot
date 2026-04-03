@@ -11,11 +11,11 @@ class TimePoint(BaseModel):
     time: str = Field(description="Time in exact HH:MM format (24 hour clock).")
     city: Optional[str] = Field(
         default=None,
-        description="City or timezone name mentioned for THIS specific time. Use null if not specified."
+        description="City or timezone name mentioned for THIS specific time. Use null if not specified.",
     )
     event_title: Optional[str] = Field(
         default=None,
-        description="Optional short event label for this specific time point."
+        description="Optional short event label for this specific time point.",
     )
 
 

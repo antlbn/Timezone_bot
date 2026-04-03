@@ -61,7 +61,10 @@ async def test_message_aging_skips_before_detector_call():
 
 @pytest.mark.asyncio
 async def test_pending_storage_clears_inherited_state_on_pid_change(caplog):
-    _frozen_messages[(101, "test")] = {"messages": [{"text": "stale"}], "expires": 9999999999}
+    _frozen_messages[(101, "test")] = {
+        "messages": [{"text": "stale"}],
+        "expires": 9999999999,
+    }
     _dm_invite_timestamps[(101, "test")] = 123.0
 
     with (

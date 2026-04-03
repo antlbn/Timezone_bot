@@ -29,7 +29,9 @@ class TimezoneModal(ui.Modal, title="Set Your Timezone"):
         # Local import to avoid circular dependency
         from src.discord.commands import handle_settz
 
-        await handle_settz(interaction, self.city.value, origin_interaction=self.origin_interaction)
+        await handle_settz(
+            interaction, self.city.value, origin_interaction=self.origin_interaction
+        )
 
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
@@ -65,7 +67,9 @@ class TimeInputModal(ui.Modal, title="Enter Time Manually"):
         # Local import to avoid circular dependency
         from src.discord.commands import handle_manual_time
 
-        await handle_manual_time(interaction, self.time_str.value, origin_interaction=self.origin_interaction)
+        await handle_manual_time(
+            interaction, self.time_str.value, origin_interaction=self.origin_interaction
+        )
 
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
@@ -124,13 +128,13 @@ class SetTimezoneView(ui.View):
         # Respond with the ephemeral menu
         user_name = interaction.user.display_name
         embed = get_welcome_embed(user_name)
-        
+
         await interaction.response.send_message(
             embed=embed,
             view=OnboardingMenuView(self.target_user_id, interaction.guild_id),
-            ephemeral=True
+            ephemeral=True,
         )
-        
+
         # Try to delete the public invite message to reduce clutter
         try:
             if interaction.message:
@@ -159,22 +163,29 @@ class OnboardingMenuView(ui.View):
 
     @ui.button(label="📍 Set City", style=discord.ButtonStyle.primary)
     async def set_city(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(TimezoneModal(origin_interaction=interaction))
+        await interaction.response.send_modal(
+            TimezoneModal(origin_interaction=interaction)
+        )
 
     @ui.button(label="👥 Members", style=discord.ButtonStyle.secondary)
     async def show_members(self, interaction: discord.Interaction, button: ui.Button):
         from src.services.user_service import get_sorted_chat_members
+
         if not self.guild_id:
-            return await interaction.response.send_message("This command only works in servers.", ephemeral=True)
+            return await interaction.response.send_message(
+                "This command only works in servers.", ephemeral=True
+            )
 
         members = await get_sorted_chat_members(self.guild_id, platform="discord")
         if not members:
             description = "No members are currently being tracked in this server."
         else:
-            description = "\n".join([
-                f"• **{m.get('username') or 'User'}**: {m.get('city')} {m.get('flag', '')} (`{m.get('timezone')}`)"
-                for m in members
-            ])
+            description = "\n".join(
+                [
+                    f"• **{m.get('username') or 'User'}**: {m.get('city')} {m.get('flag', '')} (`{m.get('timezone')}`)"
+                    for m in members
+                ]
+            )
 
         embed = discord.Embed(
             title="👥 Tracked Members",
@@ -195,7 +206,7 @@ class OnboardingMenuView(ui.View):
             platform="discord",
             city=None,
             timezone=None,
-            onboarding_declined=True
+            onboarding_declined=True,
         )
         invalidate_user_cache(interaction.user.id, platform="discord")
 
@@ -227,8 +238,7 @@ class OnboardingMenuView(ui.View):
             color=discord.Color.dark_grey(),
         )
         await interaction.response.edit_message(
-            embed=embed, 
-            view=PrivacyBackView(self.target_user_id, self.guild_id)
+            embed=embed, view=PrivacyBackView(self.target_user_id, self.guild_id)
         )
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -255,8 +265,7 @@ class PrivacyBackView(ui.View):
         user_name = interaction.user.display_name
         embed = get_welcome_embed(user_name)
         await interaction.response.edit_message(
-            embed=embed, 
-            view=OnboardingMenuView(self.target_user_id, self.guild_id)
+            embed=embed, view=OnboardingMenuView(self.target_user_id, self.guild_id)
         )
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -279,11 +288,15 @@ class FallbackView(ui.View):
 
     @ui.button(label="Try Again", style=discord.ButtonStyle.primary)
     async def try_again(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(TimezoneModal(origin_interaction=interaction))
+        await interaction.response.send_modal(
+            TimezoneModal(origin_interaction=interaction)
+        )
 
     @ui.button(label="Enter Time", style=discord.ButtonStyle.secondary)
     async def manual_time(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(TimeInputModal(origin_interaction=interaction))
+        await interaction.response.send_modal(
+            TimeInputModal(origin_interaction=interaction)
+        )
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user_id:

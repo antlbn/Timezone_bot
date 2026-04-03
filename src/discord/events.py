@@ -17,7 +17,6 @@ logger = get_logger()
 PLATFORM = "discord"
 
 
-
 @bot.event
 async def on_message(message: discord.Message):
     """Handle messages — onboard new users, run LLM detection for registered ones."""

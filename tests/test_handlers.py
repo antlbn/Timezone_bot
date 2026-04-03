@@ -107,11 +107,13 @@ async def test_process_city_success(
     # Mock geo logic
     # We need to mock 'src.commands.settings.geo'
     mock_geo = MagicMock()
-    mock_geo.async_get_timezone_by_city = AsyncMock(return_value={
-        "city": "Paris",
-        "timezone": "Europe/Paris",
-        "flag": "🇫🇷",
-    })
+    mock_geo.async_get_timezone_by_city = AsyncMock(
+        return_value={
+            "city": "Paris",
+            "timezone": "Europe/Paris",
+            "flag": "🇫🇷",
+        }
+    )
     monkeypatch.setattr("src.commands.settings.geo", mock_geo)
 
     # Setup message text
@@ -167,7 +169,9 @@ async def test_handle_time_mention_success(
     }
     monkeypatch.setattr("src.commands.common.process_message", mock_process)
 
-    monkeypatch.setattr("src.commands.common.get_reply_to_original_message", lambda: True)
+    monkeypatch.setattr(
+        "src.commands.common.get_reply_to_original_message", lambda: True
+    )
 
     # Input message
     mock_message.text = "Let's meet at 15:00"

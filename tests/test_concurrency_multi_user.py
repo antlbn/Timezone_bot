@@ -110,9 +110,7 @@ async def test_concurrency_multi_user_flow():
         }
 
         # Drain Alice's queue (from DM)
-        await _process_pending_queue_for_user(
-            bot, user_id=1, log_chat_id=chat_id
-        )
+        await _process_pending_queue_for_user(bot, user_id=1, log_chat_id=chat_id)
 
         # VERIFY Alice processed
         # Alice should be the 5th call to process_message (4 initial + 1 release)

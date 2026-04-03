@@ -19,7 +19,6 @@ logger = get_logger()
 PLATFORM = "discord"
 
 
-
 # =============================================================================
 # Slash Commands
 # =============================================================================
@@ -55,7 +54,11 @@ async def cmd_me(interaction: discord.Interaction):
     )
 
 
-async def handle_settz(interaction: discord.Interaction, city: str, origin_interaction: discord.Interaction = None):
+async def handle_settz(
+    interaction: discord.Interaction,
+    city: str,
+    origin_interaction: discord.Interaction = None,
+):
     """Shared logic for setting timezone via command or modal."""
     # Check if interaction was already deferred (slash command) or not (modal)
     if not interaction.response.is_done():
@@ -196,7 +199,11 @@ async def cmd_settz(interaction: discord.Interaction, city: str):
     await handle_settz(interaction, city)
 
 
-async def handle_manual_time(interaction: discord.Interaction, time_str: str, origin_interaction: discord.Interaction = None):
+async def handle_manual_time(
+    interaction: discord.Interaction,
+    time_str: str,
+    origin_interaction: discord.Interaction = None,
+):
     """Handle manual time input from modal."""
     # Defer since this might take a moment (though usually fast)
     if not interaction.response.is_done():

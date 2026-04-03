@@ -109,7 +109,9 @@ def _build_conversion_rows(
             other_groups.append((timezone, group))
 
     source_label = _join_city_labels(source_group, sender_city or sender_tz)
-    source_flag = source_group[0].get("flag", sender_flag) if source_group else sender_flag
+    source_flag = (
+        source_group[0].get("flag", sender_flag) if source_group else sender_flag
+    )
 
     rows = [
         {
@@ -205,7 +207,9 @@ def format_single_point_sentence(
     return row_text
 
 
-def format_multi_conversion(conversions: list[dict], members: list[dict], sender_name: str = "") -> str:
+def format_multi_conversion(
+    conversions: list[dict], members: list[dict], sender_name: str = ""
+) -> str:
     """Format one atomic reply containing one or more time blocks."""
     response_style = get_response_style()
     point_lines = []
@@ -241,7 +245,9 @@ def format_multi_conversion(conversions: list[dict], members: list[dict], sender
         return ""
 
     show_titles = get_show_event_title()
-    has_titles = show_titles and any(conversion.get("event_title") for conversion in conversions)
+    has_titles = show_titles and any(
+        conversion.get("event_title") for conversion in conversions
+    )
     if has_titles:
         return "\n".join(point_lines)
 

@@ -4,7 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
-from src.formatter import format_conversion_reply, format_multi_conversion, normalize_time
+from src.formatter import (
+    format_conversion_reply,
+    format_multi_conversion,
+    normalize_time,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -57,8 +61,18 @@ class TestFormatConversionReply:
 
     def test_multiple_timezones_source_first(self):
         members = [
-            {"city": "New York", "timezone": "America/New_York", "flag": "🇺🇸", "username": "bob"},
-            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"},
+            {
+                "city": "New York",
+                "timezone": "America/New_York",
+                "flag": "🇺🇸",
+                "username": "bob",
+            },
+            {
+                "city": "Tokyo",
+                "timezone": "Asia/Tokyo",
+                "flag": "🇯🇵",
+                "username": "charlie",
+            },
         ]
 
         reply = format_conversion_reply(
@@ -79,7 +93,12 @@ class TestFormatConversionReply:
 
     def test_day_offset(self):
         members = [
-            {"city": "Tokyo", "timezone": "Asia/Tokyo", "flag": "🇯🇵", "username": "charlie"}
+            {
+                "city": "Tokyo",
+                "timezone": "Asia/Tokyo",
+                "flag": "🇯🇵",
+                "username": "charlie",
+            }
         ]
 
         reply = format_conversion_reply(
@@ -94,8 +113,18 @@ class TestFormatConversionReply:
 
     def test_grouping_by_timezone_joins_city_labels(self):
         members = [
-            {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "alice"},
-            {"city": "Munich", "timezone": "Europe/Berlin", "flag": "🇩🇪", "display_name": "Bob Smith"},
+            {
+                "city": "Berlin",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "username": "alice",
+            },
+            {
+                "city": "Munich",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "display_name": "Bob Smith",
+            },
         ]
 
         with patch("src.formatter.get_show_usernames", return_value=True):
@@ -121,7 +150,12 @@ class TestFormatConversionReply:
             }
         ]
         members = [
-            {"city": "London", "timezone": "Europe/London", "flag": "🇬🇧", "username": "jane"}
+            {
+                "city": "London",
+                "timezone": "Europe/London",
+                "flag": "🇬🇧",
+                "username": "jane",
+            }
         ]
 
         with patch("src.formatter.get_show_event_title", return_value=True):
@@ -158,8 +192,18 @@ class TestFormatConversionReply:
             }
         ]
         members = [
-            {"city": "Cyprus", "timezone": "Asia/Nicosia", "flag": "🇨🇾", "username": "bob"},
-            {"city": "Yerevan", "timezone": "Asia/Yerevan", "flag": "🇦🇲", "username": "charlie"},
+            {
+                "city": "Cyprus",
+                "timezone": "Asia/Nicosia",
+                "flag": "🇨🇾",
+                "username": "bob",
+            },
+            {
+                "city": "Yerevan",
+                "timezone": "Asia/Yerevan",
+                "flag": "🇦🇲",
+                "username": "charlie",
+            },
         ]
 
         with (
@@ -188,7 +232,12 @@ class TestFormatConversionReply:
             },
         ]
         members = [
-            {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "bob"},
+            {
+                "city": "Berlin",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "username": "bob",
+            },
         ]
 
         with (
@@ -220,7 +269,9 @@ class TestFormatConversionReply:
 
         assert reply == "Standup\n10:30 Amsterdam"
 
-    def test_inline_sentence_style_multiple_titles_have_no_blank_line_between_points(self):
+    def test_inline_sentence_style_multiple_titles_have_no_blank_line_between_points(
+        self,
+    ):
         conversions = [
             {
                 "original_time": "10:30",
@@ -240,7 +291,12 @@ class TestFormatConversionReply:
             },
         ]
         members = [
-            {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "bob"},
+            {
+                "city": "Berlin",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "username": "bob",
+            },
         ]
 
         with (
@@ -249,7 +305,10 @@ class TestFormatConversionReply:
         ):
             reply = format_multi_conversion(conversions, members)
 
-        assert reply == "Standup\n10:30 London, 11:30 Berlin\nRetro\n15:00 London, 16:00 Berlin"
+        assert (
+            reply
+            == "Standup\n10:30 London, 11:30 Berlin\nRetro\n15:00 London, 16:00 Berlin"
+        )
 
     def test_inline_sentence_style_keeps_ambiguous_prefix(self):
         conversions = [
@@ -272,10 +331,30 @@ class TestFormatConversionReply:
 
     def test_name_list_truncation(self):
         members = [
-            {"city": "Berlin", "timezone": "Europe/Berlin", "flag": "🇩🇪", "username": "alice"},
-            {"city": "Munich", "timezone": "Europe/Berlin", "flag": "🇩🇪", "display_name": "Bob Smith"},
-            {"city": "Hamburg", "timezone": "Europe/Berlin", "flag": "🇩🇪", "display_name": "Carol"},
-            {"city": "Cologne", "timezone": "Europe/Berlin", "flag": "🇩🇪", "display_name": "Dave"},
+            {
+                "city": "Berlin",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "username": "alice",
+            },
+            {
+                "city": "Munich",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "display_name": "Bob Smith",
+            },
+            {
+                "city": "Hamburg",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "display_name": "Carol",
+            },
+            {
+                "city": "Cologne",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+                "display_name": "Dave",
+            },
         ]
 
         with patch("src.formatter.get_show_usernames", return_value=True):

@@ -73,7 +73,9 @@ class TestOnMessageBotFilter:
     """Guard conditions: bots and DMs are always ignored."""
 
     @pytest.mark.asyncio
-    async def test_ignores_bot_messages(self, mock_message, mock_storage, mock_process_message):
+    async def test_ignores_bot_messages(
+        self, mock_message, mock_storage, mock_process_message
+    ):
         """Bot messages must be silently dropped — no processing at all."""
         from src.discord.events import on_message
 
@@ -84,7 +86,9 @@ class TestOnMessageBotFilter:
         mock_storage.update_activity.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_ignores_dm_messages(self, mock_message, mock_storage, mock_process_message):
+    async def test_ignores_dm_messages(
+        self, mock_message, mock_storage, mock_process_message
+    ):
         """Messages outside a guild (DMs) must be silently dropped."""
         from src.discord.events import on_message
 
@@ -173,8 +177,12 @@ class TestOnMessageLazyOnboarding:
         monkeypatch.setattr(events_module, "save_pending_message", save_mock)
 
         # Mock the lazy-imported symbols inside on_message's if-block
-        monkeypatch.setattr(ui_module, "SetTimezoneView", MagicMock(return_value=MagicMock()))
-        monkeypatch.setattr(config_module, "get_settings_cleanup_timeout", MagicMock(return_value=60))
+        monkeypatch.setattr(
+            ui_module, "SetTimezoneView", MagicMock(return_value=MagicMock())
+        )
+        monkeypatch.setattr(
+            config_module, "get_settings_cleanup_timeout", MagicMock(return_value=60)
+        )
 
         await on_message(mock_message)
 

@@ -110,7 +110,9 @@ async def test_middleware_uses_user_cache_before_tracking_membership():
     event.from_user = User(id=123, is_bot=False, first_name="Test")
 
     with (
-        patch("src.commands.middleware.get_user_cached", return_value={"user_id": 123}) as mock_cache,
+        patch(
+            "src.commands.middleware.get_user_cached", return_value={"user_id": 123}
+        ) as mock_cache,
         patch("src.commands.middleware.storage.add_chat_member") as mock_add_member,
     ):
         result = await middleware(dummy_handler, event, {})

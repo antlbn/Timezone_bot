@@ -32,6 +32,7 @@ class DMSettingsCallback(CallbackData, prefix="dm"):
     user_id: int
     chat_id: int = 0
 
+
 # ---------------------------------------------------------------------------
 # DM Onboarding — Deep Link flow
 # ---------------------------------------------------------------------------

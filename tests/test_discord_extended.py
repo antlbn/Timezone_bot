@@ -59,11 +59,19 @@ class TestDiscordCommandBasics:
         assert "/tb_remove" not in text
 
     @pytest.mark.asyncio
-    async def test_cmd_me_without_timezone_shows_not_set(self, mock_interaction, monkeypatch):
+    async def test_cmd_me_without_timezone_shows_not_set(
+        self, mock_interaction, monkeypatch
+    ):
         """Users without a stored timezone should be treated as not configured."""
         monkeypatch.setattr(
             "src.discord.commands.get_user_cached",
-            AsyncMock(return_value={"city": None, "timezone": None, "onboarding_declined": True}),
+            AsyncMock(
+                return_value={
+                    "city": None,
+                    "timezone": None,
+                    "onboarding_declined": True,
+                }
+            ),
         )
 
         from src.discord.commands import cmd_me
@@ -101,7 +109,9 @@ class TestProcessDiscordPending:
         process_mock.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_single_pending_message_processed(self, mock_interaction, monkeypatch):
+    async def test_single_pending_message_processed(
+        self, mock_interaction, monkeypatch
+    ):
         """A single pending message is fully processed with the correct args."""
         pending = {
             "chat_id": "9999",
@@ -124,7 +134,9 @@ class TestProcessDiscordPending:
         monkeypatch.setattr("src.discord.commands.process_message", process_mock)
         # Bot.get_channel returns a working channel
         mock_channel = AsyncMock()
-        monkeypatch.setattr("src.discord.commands.bot.get_channel", MagicMock(return_value=mock_channel))
+        monkeypatch.setattr(
+            "src.discord.commands.bot.get_channel", MagicMock(return_value=mock_channel)
+        )
 
         from src.discord.commands import _process_discord_pending
 
@@ -136,13 +148,19 @@ class TestProcessDiscordPending:
         assert call_kwargs["skip_aging"] is True
 
     @pytest.mark.asyncio
-    async def test_multiple_pending_all_processed_independently(self, mock_interaction, monkeypatch):
+    async def test_multiple_pending_all_processed_independently(
+        self, mock_interaction, monkeypatch
+    ):
         """Multiple pending messages are each processed; one error doesn't skip the rest."""
         pending_list = [
             {
-                "chat_id": "9999", "channel_id": "111", "text": f"msg {i}",
-                "author_name": "Alice", "timestamp_utc": "2026-01-01T12:00:00Z",
-                "message_id": i, "snapshot": None,
+                "chat_id": "9999",
+                "channel_id": "111",
+                "text": f"msg {i}",
+                "author_name": "Alice",
+                "timestamp_utc": "2026-01-01T12:00:00Z",
+                "message_id": i,
+                "snapshot": None,
             }
             for i in range(3)
         ]
@@ -154,9 +172,12 @@ class TestProcessDiscordPending:
             "src.discord.commands.get_user_cached",
             AsyncMock(return_value={"timezone": "UTC"}),
         )
-        monkeypatch.setattr("src.discord.commands.bot.get_channel", MagicMock(return_value=AsyncMock()))
+        monkeypatch.setattr(
+            "src.discord.commands.bot.get_channel", MagicMock(return_value=AsyncMock())
+        )
 
         call_count = 0
+
         async def process_side_effect(**kwargs):
             nonlocal call_count
             call_count += 1
@@ -184,9 +205,13 @@ class TestProcessDiscordPending:
         """
         pending_list = [
             {
-                "chat_id": "9999", "channel_id": f"10{i}", "text": f"msg {i}",
-                "author_name": "Alice", "timestamp_utc": "2026-01-01T12:00:00Z",
-                "message_id": i, "snapshot": None,
+                "chat_id": "9999",
+                "channel_id": f"10{i}",
+                "text": f"msg {i}",
+                "author_name": "Alice",
+                "timestamp_utc": "2026-01-01T12:00:00Z",
+                "message_id": i,
+                "snapshot": None,
             }
             for i in range(2)
         ]
@@ -234,8 +259,18 @@ class TestCmdMembers:
     async def test_members_listed_in_response(self, mock_interaction, monkeypatch):
         """Non-empty member list is rendered and sent."""
         members = [
-            {"city": "Berlin", "flag": "🇩🇪", "username": "alice", "timezone": "Europe/Berlin"},
-            {"city": "Tokyo", "flag": "🇯🇵", "username": "bob", "timezone": "Asia/Tokyo"},
+            {
+                "city": "Berlin",
+                "flag": "🇩🇪",
+                "username": "alice",
+                "timezone": "Europe/Berlin",
+            },
+            {
+                "city": "Tokyo",
+                "flag": "🇯🇵",
+                "username": "bob",
+                "timezone": "Asia/Tokyo",
+            },
         ]
         monkeypatch.setattr(
             "src.discord.commands.get_sorted_chat_members",
@@ -302,7 +337,9 @@ class TestOnboardingDecline:
 
         monkeypatch.setattr(storage_module, "storage", storage_mock)
         monkeypatch.setattr(cache_module, "invalidate_user_cache", MagicMock())
-        monkeypatch.setattr(commands_module, "_process_discord_pending", pending_process_mock)
+        monkeypatch.setattr(
+            commands_module, "_process_discord_pending", pending_process_mock
+        )
         return storage_mock, pending_process_mock
 
     @pytest.mark.asyncio
@@ -322,7 +359,9 @@ class TestOnboardingDecline:
         assert call_kwargs.get("user_id") == 12345
 
     @pytest.mark.asyncio
-    async def test_decline_processes_pending_messages(self, mock_interaction, monkeypatch):
+    async def test_decline_processes_pending_messages(
+        self, mock_interaction, monkeypatch
+    ):
         """Decline replays pending messages through the shared pending processor."""
         _, pending_process_mock = self._get_mocks(monkeypatch)
 
@@ -334,7 +373,9 @@ class TestOnboardingDecline:
         pending_process_mock.assert_called_once_with(mock_interaction)
 
     @pytest.mark.asyncio
-    async def test_decline_edits_message_with_farewell_embed(self, mock_interaction, monkeypatch):
+    async def test_decline_edits_message_with_farewell_embed(
+        self, mock_interaction, monkeypatch
+    ):
         """After declining, the message is edited to show a farewell embed (view=None)."""
         self._get_mocks(monkeypatch)
 
@@ -372,7 +413,9 @@ class TestOnGuildRemove:
 
         await on_guild_remove(guild)
 
-        storage_mock.clear_chat_members.assert_called_once_with(9999, platform="discord")
+        storage_mock.clear_chat_members.assert_called_once_with(
+            9999, platform="discord"
+        )
 
     @pytest.mark.asyncio
     async def test_guild_remove_storage_error_is_logged(self, monkeypatch):

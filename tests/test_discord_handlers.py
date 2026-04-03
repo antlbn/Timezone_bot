@@ -52,11 +52,13 @@ class TestHandleSettz:
 
         # Mock geo
         mock_geo = MagicMock()
-        mock_geo.async_get_timezone_by_city = AsyncMock(return_value={
-            "city": "Berlin",
-            "timezone": "Europe/Berlin",
-            "flag": "🇩🇪",
-        })
+        mock_geo.async_get_timezone_by_city = AsyncMock(
+            return_value={
+                "city": "Berlin",
+                "timezone": "Europe/Berlin",
+                "flag": "🇩🇪",
+            }
+        )
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_settz(mock_interaction, "Berlin")
@@ -129,11 +131,13 @@ class TestHandleManualTime:
 
         # Mock geo
         mock_geo = MagicMock()
-        mock_geo.async_resolve_timezone_from_input = AsyncMock(return_value={
-            "city": "UTC+3",
-            "timezone": "Europe/Moscow",
-            "flag": "🌐",
-        })
+        mock_geo.async_resolve_timezone_from_input = AsyncMock(
+            return_value={
+                "city": "UTC+3",
+                "timezone": "Europe/Moscow",
+                "flag": "🌐",
+            }
+        )
         monkeypatch.setattr("src.discord.commands.geo", mock_geo)
 
         await handle_manual_time(mock_interaction, "15:30")
@@ -259,11 +263,19 @@ class TestUIComponents:
         storage_mock = AsyncMock()
         monkeypatch.setattr("src.storage.storage", storage_mock)
         invalidate_mock = MagicMock()
-        monkeypatch.setattr("src.storage.user_cache.invalidate_user_cache", invalidate_mock)
+        monkeypatch.setattr(
+            "src.storage.user_cache.invalidate_user_cache", invalidate_mock
+        )
         process_pending_mock = AsyncMock()
-        monkeypatch.setattr("src.discord.commands._process_discord_pending", process_pending_mock)
+        monkeypatch.setattr(
+            "src.discord.commands._process_discord_pending", process_pending_mock
+        )
 
-        decline_button = next(child for child in view.children if getattr(child, "label", "") == "❌ Decline")
+        decline_button = next(
+            child
+            for child in view.children
+            if getattr(child, "label", "") == "❌ Decline"
+        )
         await decline_button.callback(interaction)
 
         storage_mock.set_user.assert_called_once()

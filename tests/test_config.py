@@ -23,7 +23,10 @@ def test_reload_config_refreshes_cached_yaml():
 
 
 def test_get_data_retention_days_alias_reads_storage_setting():
-    with patch("src.config.load_config", return_value={"storage": {"inactive_user_retention_days": 45}}):
+    with patch(
+        "src.config.load_config",
+        return_value={"storage": {"inactive_user_retention_days": 45}},
+    ):
         reload_config()
 
     assert get_data_retention_days() == 45

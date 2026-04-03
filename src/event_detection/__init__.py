@@ -117,7 +117,7 @@ async def process_message(
         "timestamp_utc": timestamp_utc,
     }
 
-    # 1. Aging check 
+    # 1. Aging check
     if not skip_aging:
         max_age = get_max_message_age()
         try:
@@ -179,5 +179,6 @@ async def process_message(
     result["tz_city"] = tz_city
 
     return result
+
 
 __all__ = ["process_message"]
