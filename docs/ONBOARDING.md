@@ -1,6 +1,6 @@
-# Onboarding: How to Run the Bot
+# Onboarding
 
-This guide will help you get the Timezone Bot up and running.
+This guide explains how to run the bot locally and what must be present in `.env`.
 
 ## Clone Repository
 
@@ -11,79 +11,164 @@ cd Timezone_bot
 
 ## Prerequisites
 
-1.  **Telegram Bot Setup**:
-    1.  Open [@BotFather](https://t.me/botfather) in Telegram.
-    2.  Send `/newbot` and follow instructions to name your bot.
-    3.  **Copy the API Token** provided by BotFather.
-    4.  **Configure Privacy** (Critical):
-        *   Send `/mybots` -> Select Bot -> `Bot Settings` -> `Group Privacy` -> **Turn off**.
+- Python 3.12+
+- `uv`
+- at least one platform token: Telegram or Discord
+- one LLM provider reachable through an OpenAI-compatible API
 
-2.  **Discord Bot Setup** (optional):
-    1.  [Discord Developer Portal](https://discord.com/developers/applications) → New Application → Bot → Copy **Token**.
-    2.  **Privileged Gateway Intents** (scroll down in Bot section):
-        - ✅ Server Members Intent
-        - ✅ Message Content Intent
-        - Save Changes.
-    3.  **OAuth2 → URL Generator**:
-        - Scopes: `bot`, `applications.commands`
-        - Permissions: `Send Messages`, `Read Message History`, `Use Slash Commands`
-        - Copy Generated URL → open in browser → select server.
-    
-3.  **Environment**:
-    ```bash
-    cp env.example .env
-    # Edit .env and paste TELEGRAM_TOKEN and/or DISCORD_TOKEN
-    ```
+## Environment
 
-> [!TIP]
-> **Startup Logic**: Each bot checks its own token. If `TELEGRAM_TOKEN` is set — Telegram bot starts. If `DISCORD_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
-
----
-
-## Manual Execution (Standard)
-
-Requires Python 3.12+.
-
-1.  **Install dependencies**:
-    ```bash
-    uv sync
-    ```
-
-2.  **Run** (both Telegram and Discord bots together):
-    ```bash
-    ./run.sh
-    ```
-    
----
-
-## Running Tests
 ```bash
-uv run pytest tests/ -v
+cp env.example .env
 ```
 
----
+Then fill the fields you need.
 
-## plug-and-play Usage
+### Required platform fields
 
+Set one or both:
+
+```dotenv
+TELEGRAM_TOKEN=
+DISCORD_TOKEN=
+```
+
+Startup logic:
+- if `TELEGRAM_TOKEN` is set, the Telegram bot starts
+- if `DISCORD_TOKEN` is set, the Discord bot starts
+- if one token is missing, that platform is skipped without crashing
+
+### Required LLM fields
+
+Main configuration is model-agnostic:
+
+```dotenv
+LLM_MODEL=
+LLM_BASE_URL=
+LLM_API_KEY=
+```
+
+Meaning:
+- `LLM_MODEL`: model name passed into the client
+- `LLM_BASE_URL`: OpenAI-compatible endpoint
+- `LLM_API_KEY`: API key for that endpoint
+
+The code also supports provider-specific fallbacks:
+
+```dotenv
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+```
+
+These are optional and only used when `LLM_API_KEY` is not set.
+
+### Optional LangSmith fields
+
+Useful for tracing and evals:
+
+```dotenv
+LANGSMITH_API_KEY=
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=timezone-bot-tests
+LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com
+```
+
+If LangSmith is not needed, these can stay empty.
+
+## Platform Setup
+
+### Telegram Bot Setup
+
+1. Open [@BotFather](https://t.me/botfather).
+2. Create a bot and copy the token into `TELEGRAM_TOKEN`.
+3. Disable group privacy if the bot should read normal group messages in groups.
+
+### Discord Bot Setup
+
+1. Open the Discord Developer Portal and create an application.
+2. Create a bot and copy the token into `DISCORD_TOKEN`.
+3. Enable privileged intents:
+   - `Server Members Intent`
+   - `Message Content Intent`
+4. Invite the bot with scopes:
+   - `bot`
+   - `applications.commands`
+
+## Install Dependencies
+
+```bash
+uv sync
+```
+
+## Run
+
+Run both entrypoints together:
+
+```bash
+./run.sh
+```
+
+Or run platforms separately:
+
+```bash
+uv run python -m src.main
+uv run python -m src.discord_main
+```
+
+## Running Tests
+
+```bash
+uv run pytest
+```
+
+## Plug-and-Play Usage
 
 Once the bot is running:
-1.  **Add the bot** to any Telegram group or Discord channel.
-2.  **No setup required**: You don't need to send `/start` or any configuration commands.
-3.  **Zero-Friction Onboarding**: When an unregistered user sends **any** message to the chat, the bot immediately triggers the onboarding flow and **saves (buffers)** that message. Once the user sets their city, the bot automatically processes the buffered message and replies to it.
-4.  **LLM-Powered Detection**: The bot uses an LLM to understand natural language time mentions and extracted events, ensuring high accuracy without complex regex configuration.
 
----
+1. Add it to a Telegram group or Discord server/channel.
+2. Users chat normally, without a conversion command.
+3. If a user is not registered yet, the bot may offer onboarding when it sees an actionable message.
+4. After the user sets their city/timezone, future time mentions are converted automatically.
 
-## 🛠️ Configuration
+Important current behavior:
+- the first actionable message is not buffered
+- old actionable messages are not replayed after onboarding
 
-The bot is configurable via `configuration.yaml`.
+## Configuration
 
-| Setting | Type | Description |
-| :--- | :--- | :--- |
-| `logging.level` | `DEBUG`/`INFO` | Verbosity of logs. |
-| `bot.display_limit_per_chat` | Integer | Max timezones to show (0 = no limit). |
-| `bot.time_format` | String | Output format: `"24h"` (17:00) or `"12h"` (5:00 PM). |
-| `bot.show_usernames` | Boolean | If `true`, adds names: *"17:00 London" @AntonLubny*. |
-| `bot.cooldown_seconds` | Integer | Anti-spam delay. 0 = disabled. |
-| `bot.max_message_age_seconds` | Integer | Max age (seconds) for messages in queue before they are considered stale (default 20). |
-| `llm.model` | String | Model used for event detection (e.g., `gpt-4o`, `llama-3`). |
+Main runtime settings live in `configuration.yaml`.
+
+### Logging
+
+| Setting | Description |
+|---|---|
+| `logging.level` | Log verbosity |
+
+### Bot Output and UX
+
+| Setting | Description |
+|---|---|
+| `bot.display_limit_per_chat` | Max number of displayed timezones/users |
+| `bot.time_format` | `24h` or `12h` output |
+| `bot.show_usernames` | Whether to include usernames in replies |
+| `bot.cooldown_seconds` | Anti-spam cooldown |
+| `bot.settings_cleanup_timeout_seconds` | Auto-cleanup timeout for settings UI |
+
+### Event Detection Context and Limits
+
+| Setting | Description |
+|---|---|
+| `event_detection.context_messages` | Number of recent human messages passed into LLM context |
+| `event_detection.max_tokens` | Prompt token budget cap |
+| `event_detection.max_message_length_chars` | Soft truncation limit per message before prompt assembly |
+| `event_detection.max_message_age_seconds` | Stale-message protection |
+| `event_detection.max_message_hard_skip_chars` | Hard skip threshold for very long messages |
+
+### Event Detection Behavior
+
+| Setting | Description |
+|---|---|
+| `event_detection.temperature` | LLM temperature |
+| `event_detection.edit_in_place` | Whether edits update an existing bot reply instead of republishing |
+| `event_detection.republish_edited_message_after_distance` | Distance threshold for republishing instead of silent edit |
+| `event_detection.dm_onboarding_cooldown_seconds` | Delay before offering onboarding again in DM |

@@ -84,7 +84,7 @@ Telegram bots can't list all chat members without admin rights. Instead:
 
 **Discord:** Uses same approach for consistency + `on_member_remove` event for cleanup.
 
-### 3.4 Why Shared Runtime + Persisted Graph Memory Over Redis?
+### 3.4 Why Shared Runtime + Persisted Graph Memory?
 
 The bot keeps only lightweight runtime state in memory and stores agent reasoning memory in LangGraph checkpoints:
 1.  **Users Cache**: Read-through **LRU snapshots** (Limit: 10k users) of SQLite data.
@@ -94,7 +94,7 @@ The bot keeps only lightweight runtime state in memory and stores agent reasonin
 
 | Factor | Decision |
 |--------|----------|
-| **Complexity** | Zero config — no Redis server required. |
+| **Complexity** | Zero-config runtime with no extra infrastructure. |
 | **UX** | Lazy onboarding — actionable unregistered messages can trigger setup, but old messages are never replayed later. |
 | **Safety** | Per-chat locks prevent data race and LLM token waste. |
 
@@ -112,6 +112,16 @@ To ensure perfect alignment between production adapters and evaluation test case
 - **Format**: All internal timestamps (`timestamp_utc`) **MUST** use the ISO 8601 Zulu format: `YYYY-MM-DDTHH:MM:SSZ`.
 - **Generation**: Use `.strftime('%Y-%m-%dT%H:%M:%SZ')` in adapters. Avoid `isoformat()` which may include redundant offsets (e.g., `+00:00`).
 - **Parsing**: Use `dateutil.parser.isoparse()` for robust parsing in the event detection pipeline.
+
+### 3.7 Current Onboarding Boundary
+
+The current onboarding model is intentionally conservative:
+- actionable messages from unregistered users may trigger onboarding
+- publish/update side effects are blocked until the user is onboarded
+- the first actionable message is not buffered
+- old actionable messages are not replayed after onboarding
+
+This keeps the runtime simpler and avoids stale delayed replies.
 
 ---
 
@@ -145,6 +155,7 @@ To ensure perfect alignment between production adapters and evaluation test case
 | **High** | **LRU Cache + Activity Tracking**: **Implemented** (2026-03-16). |
 | **Medium** | **Background Sync (Discord)**: **Implemented** (2026-03-15). |
 | **Medium** | Dockerization for easy deployment |
+| **Medium** | Explore alternative message rendering strategies |
 | **Low** | WhatsApp support |
 
 ---
@@ -161,10 +172,16 @@ To ensure perfect alignment between production adapters and evaluation test case
 
 | File | Contents |
 |------|----------|
-| `.env` | Tokens: `TELEGRAM_TOKEN`, `DISCORD_TOKEN` (set one or both) |
+| `.env` | Tokens, LLM settings, and optional LangSmith configuration |
 | `configuration.yaml` | Regex patterns, cooldown, display limits |
 
 **Startup logic:** Token present → bot starts. Token missing → skip with warning.
+
+**Important `.env` fields:**
+- `TELEGRAM_TOKEN`, `DISCORD_TOKEN` — set one or both
+- `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` — model-agnostic LLM configuration
+- `OPENAI_API_KEY`, `GEMINI_API_KEY` — optional fallback provider keys
+- `LANGSMITH_API_KEY`, `LANGSMITH_TRACING`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` — optional tracing and evals
 
 ---
 

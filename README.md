@@ -1,62 +1,62 @@
 # Timezone Bot
 
-Passive timezone synchronization utility for distributed around globe teams.
+Passive timezone synchronization utility for distributed teams.
 
 ---
 
 ## Goal
 
-Eliminate manual timezone conversion in group chats. Bot detects time mentions and broadcasts equivalent times for all participants.
+Eliminate manual timezone conversion in group chats. The bot detects time mentions and replies with equivalent local times for registered participants.
 
 ```
-"Meet at 5pm"  ───>  Bot captures time  ───>  Reply with times for all members
-                                              
-                                              14:00 Berlin | 08:00 New York | 22:00 Tokyo
+"Meet at 5pm"  ───>  Bot detects time  ───>  Reply with times for all members
+
+                                            14:00 Berlin | 08:00 New York | 22:00 Tokyo
 ```
 
 When someone mentions a time in the chat, the bot automatically:
-- Detects the time pattern in the message
-- Looks up timezones of all registered chat members
-- Converts and broadcasts the time for everyone
+- detects the time mention in the message
+- resolves the sender's timezone context
+- converts the moment for all registered chat members
+- posts a compact reply back into the conversation
 
 ### Use Cases
 
 **1. Smart City Recognition**
-```
+```text
 Bot:  What city are you in?
 User: Paris, Texas
-Bot:  Set: Paris 🇺🇸 (America/Chicago)
+Bot:  Set: Paris, Texas -> America/Chicago
 ```
-The bot understands qualified toponyms — "Paris, Texas" vs "Paris".
+
+The bot understands qualified locations, not just bare city names.
 
 **2. Automatic Time Conversion**
-```
-👤 Maria: Let's sync at 3pm tomorrow
-
-🤖 Maria: 15:00 Berlin 🇩🇪 | 09:00 New York 🇺🇸 | 23:00 Tokyo 🇯🇵
-   /tb_help
+```text
+Maria: Let's sync at 3pm tomorrow
+Bot:   15:00 Berlin | 09:00 New York | 23:00 Tokyo
 ```
 
 ---
 
-## Design Principles
+## User Experience
 
 **Zero-friction approach:**
-- No commands needed for conversion — it happens automatically
-- Plug-and-play — adding bot to group is the only setup
-- Self-registration — user registers timezone once, remembered across all groups
-- Minimal interference — bot responds only when time is detected
+- no command is required for time conversion
+- users register their city/timezone once
+- after setup, conversion happens automatically
+- Telegram and Discord use different UI primitives, but the shared behavior is the same
 
 **Response format:**
-- Day transition markers when time crosses midnight (+1 / -1)
-- Grouping by timezone — users in same location shown together
+- day transition markers when time crosses midnight (`+1` / `-1`)
+- compact per-user or per-timezone output depending on the formatter
 
 ---
 
 ## Architecture
 
-```
-Telegram Group                     Discord server
+```text
+Telegram Group                     Discord Server
       |                                  |
       v                                  v
 +--------------------------------------------------+
@@ -64,55 +64,40 @@ Telegram Group                     Discord server
 |  +----------+   +-----------+   +-----------+    |
 |  | Event    |-->| Transform |-->| Formatter |    |
 |  | Detection|   | (UTC-Piv) |   | (Output)  |    |
-|  | (LLM)     |   |           |   |           |    |
+|  |  (LLM)   |   |           |   |           |    |
 |  +----------+   +-----------+   +-----------+    |
-|        |              |                          |
-|        +-------+------+                          |
-|                v                                 |
-|           +----------+                           |
-|           | Working  |                           |
-|           | Memory   |                           |
-|           | (In-Mem) |                           |
-|           +----------+                           |
+|        |                                             |
+|        v                                             |
+|   +-------------+   +----------+   +------------+   |
+|   |   Storage   |   |   Geo    |   | Runtime /  |   |
+|   |  (SQLite)   |   |  lookup  |   | chat queue |   |
+|   +-------------+   +----------+   +------------+   |
 +--------------------------------------------------+
 ```
 
 **Modules:**
-- **Event Detection** — LLM-powered time and event extraction (JSON schema enforced)
-- **Transform** — UTC-pivot conversion ensuring consistency with IANA timezone database
-- **Formatter** — output formatting with grouping and day markers
-- **Working Memory** — 4-layer in-memory architecture with LRU caching (Layer 1)
-- **Storage** — SQLite (WAL mode, persistent connection) for persistent state
-- **Geocoding** — city name to timezone resolution (geopy + timezonefinder)
-
----
-
-## Current Status
-
-**Stable Release** — Telegram + Discord supported.
-
-| Feature | Status | Note |
-|------------|------|------|
-| **Detection** | ✅ LLM-Powered | Handles natural language ("quarter past five", "at noon") |
-| **Queuing** | ✅ Per-chat Lock | Messages wait their turn, no concurrency loss |
-| **Memory** | ✅ 4-Layer + LRU| High performance, size-limited (O(1) lookups) |
-| **Storage** | ✅ SQLite | Persistent, high-concurrency (WAL mode) |
-
-**Roadmap:** Dockerization, WhatsApp support.
+- **Event Detection**: LLM-powered time and event extraction
+- **Transform**: UTC-pivot conversion with IANA timezone data
+- **Formatter**: response formatting for chat output
+- **Storage**: SQLite-backed persistent state
+- **Geocoding**: city name to timezone resolution
+- **Runtime**: per-chat sequencing to avoid stale concurrent replies
 
 ---
 
 ## Tech Stack
 
-Python 3.12+ · aiogram · discord.py · aiosqlite · zoneinfo · geopy · uv
+Python 3.12+ · aiogram · discord.py · aiosqlite · LangChain-compatible LLM client · geopy · uv
 
 ---
 
 ## Quick Start
 
-See [ONBOARDING.md](docs/ONBOARDING.md) for installation.
+See [docs/ONBOARDING.md](docs/ONBOARDING.md) for setup and local run instructions.
 
-For architecture details: [HANDOVER.md](docs/HANDOVER.md)
+For maintainer notes, see [docs/HANDOVER.md](docs/HANDOVER.md).
+
+Detailed specs and design notes live in [journal/](journal/).
 
 ---
 
