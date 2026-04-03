@@ -122,28 +122,28 @@ async def test_update_user_fields(storage):
 @pytest.mark.asyncio
 async def test_mixed_platform_members(storage):
     """Test that get_chat_members filters by platform correctly."""
-    CHAT_ID = 9000
+    chat_id = 9000
 
     # User 1 on Telegram
     await storage.set_user(1, "telegram", "T1", "UTC", "T")
-    await storage.add_chat_member(CHAT_ID, 1, platform="telegram")
+    await storage.add_chat_member(chat_id, 1, platform="telegram")
 
     # User 2 on Discord (Same Chat ID, conceptually)
     await storage.set_user(2, "discord", "D1", "UTC", "D")
-    await storage.add_chat_member(CHAT_ID, 2, platform="discord")
+    await storage.add_chat_member(chat_id, 2, platform="discord")
 
     # User 3 on Telegram
     await storage.set_user(3, "telegram", "T2", "UTC", "T")
-    await storage.add_chat_member(CHAT_ID, 3, platform="telegram")
+    await storage.add_chat_member(chat_id, 3, platform="telegram")
 
     # Get members for Telegram -> Should be [1, 3]
-    tg_members = await storage.get_chat_members(CHAT_ID, platform="telegram")
+    tg_members = await storage.get_chat_members(chat_id, platform="telegram")
     assert len(tg_members) == 2
     ids = {m["user_id"] for m in tg_members}
     assert ids == {1, 3}
 
     # Get members for Discord -> Should be [2]
-    dc_members = await storage.get_chat_members(CHAT_ID, platform="discord")
+    dc_members = await storage.get_chat_members(chat_id, platform="discord")
     assert len(dc_members) == 1
     assert dc_members[0]["user_id"] == 2
 
