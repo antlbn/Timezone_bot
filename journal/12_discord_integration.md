@@ -68,7 +68,6 @@ On success:
 If the user explicitly declines:
 
 - persist `onboarding_declined=True`,
-- suppress future automatic invites,
 - allow later manual recovery through `/tb_settz`.
 
 ### 4.5 Invalid city fallback
@@ -78,7 +77,7 @@ If city resolution fails, Discord uses native follow-up UI:
 - `Try Again`
 - `Enter Time`
 
-This keeps the user inside the onboarding flow without polluting the guild chat.
+This keeps the user inside the onboarding flow after the initial invite and avoids pushing the rest of the setup into DMs.
 
 ## 5. Commands
 

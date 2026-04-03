@@ -58,8 +58,8 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 - **Non-disruptive**: No intrusive dialogs in the group. All setup happens "behind the scenes" in DM.
 - **No Backlog Replay**: Messages written before the user finishes setup are not replayed later. Once onboarding completes, the bot starts from the next message.
 - **Clean Chats**: All system messages have a TTL.
-  - **Group Invites:** 10s (`settings_cleanup_timeout_seconds`)
-  - **Help / Me / Members:** 10s (both command and reply)
+  - **Group Invites:** 30s (`settings_cleanup_timeout_seconds`)
+  - **Help / Me / Members:** 30s (both command and reply)
   - **DM Context:** Important info (Welcome, City Prompt) **stays** for reference; transient commands (like `/tb_help` inputs) are cleaned up.
 
 #### 🛠️ Configurable Timers (`configuration.yaml`)
@@ -101,12 +101,12 @@ flowchart TD
 ---
 
 ### 2.2 Discord User Experience
-Discord offers native Ephemeral Messages and Modals, allowing for a strictly targeted UX without cluttering the chat history at all.
+Discord offers native Ephemeral Messages and Modals, so after the initial invite the onboarding flow can stay targeted to the user without moving to DMs.
 
 #### Onboarding Flow
 1. **Trigger:** A new user mentions a time in a guild.
 2. **App-logic gated pass:** The bot checks the message with the normal agent flow, but before registration it must not persist a fake publish result into the real chat thread.
-3. **Prompt:** If cooldown allows, the bot replies to the user, mentioning them directly:
+3. **Prompt:** The bot replies to the user, mentioning them directly:
    > "{Name}, set your timezone to convert times!"
    > **Button:** `[Set Timezone]`
 5. **Accept Path (Modals):**
@@ -121,6 +121,5 @@ Discord offers native Ephemeral Messages and Modals, allowing for a strictly tar
 
 ## 4. Future Directions
 - **Smart re-invite timing:** Instead of a fixed cooldown, track user activity patterns and invite at optimal times.
-- **Multi-chat awareness:** If a user has already set their timezone in one group, skip onboarding in other groups.
 
 ---

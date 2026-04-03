@@ -43,7 +43,7 @@ Current suite is organized roughly like this:
 |---|---|
 | `tests/test_event_detection.py` | detection pipeline, structured outputs, publish/update behavior |
 | `tests/test_lazy_onboarding.py` | Telegram onboarding trigger behavior |
-| `tests/test_soft_onboarding_new.py` | Telegram DM onboarding, decline, cooldown, settings flow |
+| `tests/test_soft_onboarding.py` | Telegram DM onboarding, decline, cooldown, settings flow |
 | `tests/test_handlers.py` | Telegram commands and handler behavior |
 | `tests/test_discord_on_message.py` | Discord message-path onboarding and detection behavior |
 | `tests/test_discord_handlers.py` | Discord commands and UI integration points |

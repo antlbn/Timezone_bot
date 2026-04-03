@@ -70,7 +70,7 @@ flowchart LR
         Core["Shared application core<br/>message processing + onboarding + formatting"]
         DB[("SQLite<br/>users + chat_members")]
         CP[("LangGraph checkpoints<br/>SQLite")]
-        Mem["In-memory runtime state<br/>chat history + locks + invite cooldown + LRU cache"]
+        Mem["In-memory runtime state<br/>locks + action context + invite cooldown + LRU cache"]
     end
 
     User --> Telegram
