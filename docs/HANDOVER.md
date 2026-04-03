@@ -181,16 +181,6 @@ Why:
 - the second zone is the user's explicit restatement in a more useful timezone; it is the intended source for conversion.
 - keeping both would create a redundant or contradictory output.
 
-### 3.11 Promptfoo Evaluation & Model Selection
-
-Model choices for event detection were deeply evaluated using `promptfoo` across edge cases, multilingual inputs, and ambiguous phrasing.
-
-Results and insights:
-- **Llama 4B**: Struggled significantly. Often hallucinated JSON structures, missed implicit `am_pm_clear` rules, and failed on complex relative time contexts.
-- **Llama 3.1 8B**: Performed much better. Reliable enough to serve as the default fallback option when primary APIs fail.
-- **Nemotron (e.g. 4 12B)**: Excellent accuracy, handling complex prompt contracts flawlessly.
-- **Gemini Flash Lite (3.1/2.0)**: Very fast, extraordinarily reliable, and perfectly aligned with the JSON extraction rules. Selected as the primary LLM for the MVP.
-
 ## 4. Known Limits
 
 - The bot is intentionally `known-members only`; it does not infer silent participants.
