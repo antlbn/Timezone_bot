@@ -1,5 +1,7 @@
 """Tests for formatter module."""
 
+from unittest.mock import patch
+
 from src.formatter import normalize_time, format_conversion_reply
 
 
@@ -65,15 +67,24 @@ class TestFormatConversionReply:
 
     def test_single_user_no_groups(self):
         """Test with no other members."""
-        reply = format_conversion_reply(
-            original_time="14:00",
-            sender_city="Berlin",
-            sender_tz="Europe/Berlin",
-            sender_flag="🇩🇪",
-            members=[],
-            sender_name="Alice",
-        )
-        assert "Alice:" in reply
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "vertical",
+                "show_sender_prefix": False,
+            },
+        ):
+            reply = format_conversion_reply(
+                original_time="14:00",
+                sender_city="Berlin",
+                sender_tz="Europe/Berlin",
+                sender_flag="🇩🇪",
+                members=[],
+                sender_name="Alice",
+            )
+        assert "Alice:" not in reply
         assert "14:00" in reply
         assert "/tb_help" not in reply
         assert "|" not in reply
@@ -95,21 +106,26 @@ class TestFormatConversionReply:
             },
         ]
 
-        reply = format_conversion_reply(
-            original_time="14:00",
-            sender_city="Berlin",
-            sender_tz="Europe/Berlin",
-            sender_flag="🇩🇪",
-            members=members,
-            sender_name="Alice",
-        )
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "vertical",
+                "show_sender_prefix": False,
+            },
+        ):
+            reply = format_conversion_reply(
+                original_time="14:00",
+                sender_city="Berlin",
+                sender_tz="Europe/Berlin",
+                sender_flag="🇩🇪",
+                members=members,
+                sender_name="Alice",
+            )
 
         # 14:00 Berlin -> 08:00 NY (or 09:00 depending on DST), 22:00 Tokyo
-        assert "Alice:" in reply
-        assert "14:00 Berlin 🇩🇪" in reply
-        assert "New York 🇺🇸" in reply
-        assert "Tokyo 🇯🇵" in reply
-        assert "Alice:" in reply
+        assert "Alice:" not in reply
         assert "14:00 Berlin 🇩🇪" in reply
         assert "New York 🇺🇸" in reply
         assert "Tokyo 🇯🇵" in reply
@@ -127,13 +143,22 @@ class TestFormatConversionReply:
             }
         ]
 
-        reply = format_conversion_reply(
-            original_time="23:00",
-            sender_city="Berlin",
-            sender_tz="Europe/Berlin",
-            sender_flag="🇩🇪",
-            members=members,
-        )
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "vertical",
+                "show_sender_prefix": False,
+            },
+        ):
+            reply = format_conversion_reply(
+                original_time="23:00",
+                sender_city="Berlin",
+                sender_tz="Europe/Berlin",
+                sender_flag="🇩🇪",
+                members=members,
+            )
 
         # The actual time depends on DST, so we just check for the correct format/location
         assert "⁺¹ Tokyo 🇯🇵" in reply
@@ -155,21 +180,135 @@ class TestFormatConversionReply:
             },
         ]
 
-        reply = format_conversion_reply(
-            original_time="14:00",
-            sender_city="Berlin",
-            sender_tz="Europe/Berlin",
-            sender_flag="🇩🇪",
-            members=members,
-            sender_name="Alice",
-        )
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "vertical",
+                "show_sender_prefix": False,
+            },
+        ):
+            reply = format_conversion_reply(
+                original_time="14:00",
+                sender_city="Berlin",
+                sender_tz="Europe/Berlin",
+                sender_flag="🇩🇪",
+                members=members,
+                sender_name="Alice",
+            )
 
         # Expected structure:
         # Alice:
         # 14:00 Berlin 🇩🇪 | 08:00 New York 🇺🇸
         # 22:00 Tokyo 🇯🇵
         lines = [line for line in reply.split("\n") if line.strip()]
-        assert "Alice: 14:00 Berlin 🇩🇪" in lines[0]
+        assert "14:00 Berlin 🇩🇪" in lines[0]
         assert "New York 🇺🇸" in lines[1]
         assert "Tokyo 🇯🇵" in lines[2]
         assert "|" not in "\n".join(lines)
+
+    def test_compact_inline_render_mode(self):
+        """Compact mode renders one point as a single inline sentence without flags."""
+        members = [
+            {
+                "city": "Vienna",
+                "timezone": "Europe/Vienna",
+                "flag": "🇦🇹",
+                "username": "bob",
+            }
+        ]
+
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "compact_inline",
+            },
+        ):
+            reply = format_conversion_reply(
+                original_time="10:00",
+                sender_city="Moscow",
+                sender_tz="Europe/Moscow",
+                sender_flag="🇷🇺",
+                members=members,
+                sender_name="Alice",
+            )
+
+        assert not reply.startswith("Alice: ")
+        assert "Moscow" in reply
+        assert "Vienna" in reply
+        assert "🇷🇺" not in reply
+        assert "🇦🇹" not in reply
+        assert "\n" not in reply
+
+    def test_sender_prefix_can_be_enabled_explicitly(self):
+        """Sender prefix is shown only when enabled in settings."""
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "vertical",
+                "show_sender_prefix": True,
+            },
+        ):
+            reply = format_conversion_reply(
+                original_time="14:00",
+                sender_city="Berlin",
+                sender_tz="Europe/Berlin",
+                sender_flag="🇩🇪",
+                members=[],
+                sender_name="Alice",
+            )
+
+        assert reply.startswith("Alice: ")
+
+    def test_compact_inline_multiple_points_and_footer(self):
+        """Compact mode keeps points on separate lines and footer at the end."""
+        from src.formatter import format_multi_conversion
+
+        members = [
+            {
+                "city": "Vienna",
+                "timezone": "Europe/Vienna",
+                "flag": "🇦🇹",
+                "username": "bob",
+            }
+        ]
+        conversions = [
+            {
+                "original_time": "10:00",
+                "source_city": "Moscow",
+                "source_tz": "Europe/Moscow",
+                "source_flag": "🇷🇺",
+                "event_type": "deadline",
+            },
+            {
+                "original_time": "15:00",
+                "source_city": "Moscow",
+                "source_tz": "Europe/Moscow",
+                "source_flag": "🇷🇺",
+                "event_type": "review",
+            },
+        ]
+
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "compact_inline",
+            },
+        ):
+            reply = format_multi_conversion(
+                conversions=conversions,
+                members=members,
+                footer="updated time",
+            )
+
+        lines = reply.split("\n")
+        assert lines[0].startswith("deadline at 10:00 Moscow")
+        assert lines[1].startswith("review at 15:00 Moscow")
+        assert lines[2] == "**updated time**"

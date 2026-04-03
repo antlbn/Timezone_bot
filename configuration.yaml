@@ -2,34 +2,35 @@
 app_name: timezone_bot
 version: 0.1.0
 
-# Logging Configuration
-logging:
-  # Levels: DEBUG, INFO, WARNING, ERROR
-  level: INFO
-  # Format: json or text (default: text)
-  format: text
-
-# Bot Settings
+# Interface & Reply Appearance
 bot:
-  # Maximum users to show in timezone conversion reply
+  # Reply rendering style:
+  # - vertical: one timezone per line with flags
+  # - compact_inline: "event at 10:00 Moscow, 09:00 Vienna"
+  render_mode: compact_inline
+  # Prefix replies with the author's display name, e.g. "Anton:"
+  show_sender_prefix: false
+  # Maximum users to show in timezone conversion reply (0 = show all)
   display_limit_per_chat: 0
   # Time format: "24h" or "12h"
   time_format: "24h"
-  # Show usernames next to timezone (default: false)
+  # Show usernames next to rendered timezone groups
   show_usernames: false
-  # Cooldown between bot replies in same chat (0 = disabled)
-  cooldown_seconds: 0
   # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.
   settings_cleanup_timeout_seconds: 30
+  # Cooldown between bot replies in same chat (0 = disabled)
+  cooldown_seconds: 0
+
+# Important Runtime Behavior
+storage:
+  # Delete users who haven't interacted with the bot for this many days (0 = disabled)
+  inactive_user_retention_days: 30
 
 # Event Detection (LLM Layer)
 # See: journal/14_llm_module.md
 event_detection:
   # Master switch for the LLM-based scheduling detector
   enabled: true
-
-  # Dedicated logging mode for LLM contexts (true = show full prompt in console)
-  log_prompts: false
 
   # LLM Temperature (0.0 = deterministic, 1.0 = creative)
   temperature: 0.1
@@ -64,7 +65,13 @@ event_detection:
   # If the distance is smaller, it's silently edited in-place.
   republish_edited_message_after_distance: 2
 
-# Data Management
-storage:
-  # Delete users who haven't interacted with the bot for this many days (0 = disabled)
-  inactive_user_retention_days: 30
+# Technical / Debugging
+logging:
+  # Levels: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+  # Format: json or text (default: text)
+  format: text
+
+event_detection_debug:
+  # Dedicated logging mode for LLM contexts (true = show full prompt in console)
+  log_prompts: false

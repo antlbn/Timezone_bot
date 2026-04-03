@@ -17,6 +17,13 @@ Replies must be:
 
 If a message contains multiple time points for the same event, the bot should publish one combined reply rather than several separate replies.
 
+### 2.1.1 Render modes
+
+The formatter supports two user-facing layouts controlled by `bot.render_mode`:
+
+- `vertical` - default vertical blocks with flags
+- `compact_inline` - inline sentences without flags, e.g. `deadline at 10:00 Moscow, 09:00 Vienna`
+
 ### 2.2 Vertical layout
 
 Each time point is formatted as a vertical block. Blocks are separated by a blank line.
@@ -77,6 +84,13 @@ An optional sender prefix may wrap the whole body:
 Alice: call
 10:30 Sarajevo 🇧🇦
 09:30 London 🇬🇧
+```
+
+In `compact_inline` mode the same idea becomes:
+
+```text
+deadline at 10:00 Moscow, 09:00 Vienna
+review at 15:00 Moscow, 14:00 Vienna
 ```
 
 ## 6. Display Limit

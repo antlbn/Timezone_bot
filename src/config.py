@@ -83,7 +83,11 @@ def get_dm_onboarding_cooldown() -> int:
 
 def get_log_llm_prompts() -> bool:
     """Whether to log the full LLM prompts (including history) for debugging."""
-    return get_config().get("event_detection", {}).get("log_prompts", False)
+    config = get_config()
+    return config.get("event_detection_debug", {}).get(
+        "log_prompts",
+        config.get("event_detection", {}).get("log_prompts", False),
+    )
 
 
 def get_edit_in_place_enabled() -> bool:
