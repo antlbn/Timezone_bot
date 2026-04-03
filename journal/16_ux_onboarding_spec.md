@@ -39,7 +39,7 @@ Telegram lacks native Ephemeral Messages and Modals for group chats. We use **DM
 4. **Invite:** If cooldown allows, the bot sends a minimal message to the group:
    > "Hi {Name}! Tap the button to quickly set up your timezone 👇"
    > **Button:** `[📍 Set up timezone]` ← URL button to `t.me/bot?start=onboard_{userId}_{chatId}`
-5. **Auto-Cleanup:** The invite message is automatically deleted from the group after `settings_cleanup_timeout_seconds` (default: 10s).
+5. **Auto-Cleanup:** The invite message is automatically deleted from the group after `settings_cleanup_timeout_seconds` (default: 30s).
 6. **DM — Welcome Step:**
    - User clicks the URL button → Bot opens private chat.
    - The bot sends a concise greeting: *"What am I"*, *"How to use me"*, and two buttons: `[📍 Set up timezone]` and `[🔒 Data Privacy]`.

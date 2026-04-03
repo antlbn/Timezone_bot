@@ -196,7 +196,7 @@ The bot also uses an in-memory LRU cache for hot user reads:
 
 The following are **not** part of the main SQLite schema:
 
-- short-term LLM chat history,
+- process-local runtime memory and transient execution context,
 - LangGraph checkpoint state,
 - invite cooldown state.
 
