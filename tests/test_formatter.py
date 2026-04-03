@@ -225,6 +225,7 @@ class TestFormatConversionReply:
                 "display_limit_per_chat": 0,
                 "show_usernames": False,
                 "render_mode": "compact_inline",
+                "compact_inline_monospace": False,
             },
         ):
             reply = format_conversion_reply(
@@ -300,6 +301,7 @@ class TestFormatConversionReply:
                 "display_limit_per_chat": 0,
                 "show_usernames": False,
                 "render_mode": "compact_inline",
+                "compact_inline_monospace": False,
             },
         ):
             reply = format_multi_conversion(
@@ -310,5 +312,82 @@ class TestFormatConversionReply:
 
         lines = reply.split("\n")
         assert lines[0].startswith("deadline at 10:00 Moscow")
-        assert lines[1].startswith("review at 15:00 Moscow")
+        assert lines[1].startswith("review")
+        assert "at 15:00 Moscow" in lines[1]
         assert lines[2] == "**updated time**"
+
+    def test_compact_inline_aligns_time_column_by_longest_event_name(self):
+        """Compact mode aligns the first time after the longest event label."""
+        from src.formatter import format_multi_conversion
+
+        conversions = [
+            {
+                "original_time": "10:00",
+                "source_city": "Moscow",
+                "source_tz": "Europe/Moscow",
+                "source_flag": "🇷🇺",
+                "event_type": "call",
+            },
+            {
+                "original_time": "12:30",
+                "source_city": "Moscow",
+                "source_tz": "Europe/Moscow",
+                "source_flag": "🇷🇺",
+                "event_type": "very long deadline",
+            },
+        ]
+
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "compact_inline",
+                "show_sender_prefix": False,
+                "compact_inline_monospace": False,
+            },
+        ):
+            reply = format_multi_conversion(conversions=conversions, members=[])
+
+        lines = reply.split("\n")
+        assert lines[0].index("at 10:00") == lines[1].index("at 12:30")
+
+    def test_compact_inline_can_be_wrapped_in_monospace_block(self):
+        """Compact inline mode can wrap the body in a code block for visual alignment."""
+        from src.formatter import format_multi_conversion
+
+        conversions = [
+            {
+                "original_time": "10:00",
+                "source_city": "Moscow",
+                "source_tz": "Europe/Moscow",
+                "source_flag": "🇷🇺",
+                "event_type": "call",
+            },
+            {
+                "original_time": "12:30",
+                "source_city": "Moscow",
+                "source_tz": "Europe/Moscow",
+                "source_flag": "🇷🇺",
+                "event_type": "very long deadline",
+            },
+        ]
+
+        with patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "compact_inline",
+                "show_sender_prefix": False,
+                "compact_inline_monospace": True,
+            },
+        ):
+            reply = format_multi_conversion(
+                conversions=conversions,
+                members=[],
+                footer="updated time",
+            )
+
+        assert reply.startswith("```\n")
+        assert "\n```\n**updated time**" in reply

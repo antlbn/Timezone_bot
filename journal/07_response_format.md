@@ -93,6 +93,9 @@ deadline at 10:00 Moscow, 09:00 Vienna
 review at 15:00 Moscow, 14:00 Vienna
 ```
 
+Optionally, `compact_inline` may be wrapped in a code block when
+`bot.compact_inline_monospace=true` so event labels align reliably in chat UIs.
+
 ## 6. Display Limit
 
 The formatter honors `bot.display_limit_per_chat`.

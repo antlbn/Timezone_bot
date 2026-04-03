@@ -213,6 +213,7 @@ def format_multi_conversion(
     settings = get_bot_settings()
     render_mode = settings.get("render_mode", "vertical")
     show_sender_prefix = settings.get("show_sender_prefix", False)
+    compact_monospace = settings.get("compact_inline_monospace", False)
     point_lines = []
     compact_label_width = 0
 
@@ -245,6 +246,9 @@ def format_multi_conversion(
 
     separator = "\n" if render_mode == "compact_inline" else "\n\n"
     body = separator.join(point_lines)
+
+    if render_mode == "compact_inline" and compact_monospace:
+        body = f"```\n{body}\n```"
     
     if footer:
         body += f"\n**{footer}**"
