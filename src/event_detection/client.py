@@ -19,12 +19,7 @@ def get_chat_llm() -> ChatOpenAI:
     temperature = get_event_detection_temperature()
     model_name = get_llm_model()
     base_url = os.getenv("LLM_BASE_URL") or None
-    api_key = (
-        os.getenv("LLM_API_KEY")
-        or os.getenv("GEMINI_API_KEY")
-        or os.getenv("OPENAI_API_KEY")
-        or "no-key"
-    )
+    api_key = os.getenv("LLM_API_KEY") or os.getenv("LLM_FALLBACK_API_KEY") or "no-key"
 
     logger.info(f"Initialized ChatOpenAI client with model={model_name}, base_url={base_url}")
     return ChatOpenAI(

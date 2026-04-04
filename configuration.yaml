@@ -6,10 +6,10 @@ version: 0.1.0
 bot:
   # Reply rendering style:
   # - vertical: one timezone per line with flags
-  # - compact_inline: "event at 10:00 Moscow, 09:00 Vienna"
+  # - compact_inline: "event | 10:00 Moscow, 09:00 Vienna"
   render_mode: compact_inline
   # Render compact_inline replies inside a code block for monospace alignment
-  compact_inline_monospace: true
+  compact_inline_monospace: false
   # Prefix replies with the author's display name, e.g. "Anton:"
   show_sender_prefix: false
   # Maximum users to show in timezone conversion reply (0 = show all)

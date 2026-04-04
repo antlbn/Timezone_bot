@@ -243,6 +243,7 @@ class TestFormatConversionReply:
         assert "🇷🇺" not in reply
         assert "🇦🇹" not in reply
         assert "\n" not in reply
+        assert "|" not in reply
 
     def test_sender_prefix_can_be_enabled_explicitly(self):
         """Sender prefix is shown only when enabled in settings."""
@@ -311,13 +312,12 @@ class TestFormatConversionReply:
             )
 
         lines = reply.split("\n")
-        assert lines[0].startswith("deadline at 10:00 Moscow")
-        assert lines[1].startswith("review")
-        assert "at 15:00 Moscow" in lines[1]
+        assert lines[0].startswith("deadline | 10:00 Moscow")
+        assert lines[1].startswith("review | 15:00 Moscow")
         assert lines[2] == "**updated time**"
 
-    def test_compact_inline_aligns_time_column_by_longest_event_name(self):
-        """Compact mode aligns the first time after the longest event label."""
+    def test_compact_inline_uses_visual_separator_instead_of_alignment(self):
+        """Compact mode uses a stable separator instead of padded alignment."""
         from src.formatter import format_multi_conversion
 
         conversions = [
@@ -350,7 +350,8 @@ class TestFormatConversionReply:
             reply = format_multi_conversion(conversions=conversions, members=[])
 
         lines = reply.split("\n")
-        assert lines[0].index("at 10:00") == lines[1].index("at 12:30")
+        assert lines[0].startswith("call | 10:00 Moscow")
+        assert lines[1].startswith("very long deadline | 12:30 Moscow")
 
     def test_compact_inline_can_be_wrapped_in_monospace_block(self):
         """Compact inline mode can wrap the body in a code block for visual alignment."""

@@ -170,7 +170,6 @@ def format_single_point_compact(
     sender_tz: str,
     members: list[dict],
     event_type: str = "",
-    event_label_width: int = 0,
 ) -> str:
     """Format one time point as a single compact line."""
     settings = get_bot_settings()
@@ -194,8 +193,7 @@ def format_single_point_compact(
     line = ", ".join(parts)
 
     if event_type:
-        padded_event_type = event_type.ljust(event_label_width or len(event_type))
-        line = f"{padded_event_type} at {line}"
+        line = f"{event_type} | {line}"
 
     if len(other_members) > display_limit:
         line += f", ... +{len(other_members) - display_limit} more"
@@ -215,13 +213,6 @@ def format_multi_conversion(
     show_sender_prefix = settings.get("show_sender_prefix", False)
     compact_monospace = settings.get("compact_inline_monospace", False)
     point_lines = []
-    compact_label_width = 0
-
-    if render_mode == "compact_inline":
-        compact_label_width = max(
-            (len(conv.get("event_type", "")) for conv in conversions if conv.get("event_type")),
-            default=0,
-        )
 
     for conv in conversions:
         if render_mode == "compact_inline":
@@ -231,7 +222,6 @@ def format_multi_conversion(
                 conv["source_tz"],
                 members,
                 event_type=conv.get("event_type", ""),
-                event_label_width=compact_label_width,
             )
         else:
             point_text = format_single_point_line(

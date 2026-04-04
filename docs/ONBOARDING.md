@@ -53,14 +53,13 @@ Meaning:
 - `LLM_BASE_URL`: OpenAI-compatible endpoint
 - `LLM_API_KEY`: API key for that endpoint
 
-The code also supports provider-specific fallbacks:
+The code also supports an optional model-agnostic fallback key:
 
 ```dotenv
-OPENAI_API_KEY=
-GEMINI_API_KEY=
+LLM_FALLBACK_API_KEY=
 ```
 
-These are optional and only used when `LLM_API_KEY` is not set.
+This is optional and only used when `LLM_API_KEY` is not set.
 
 ### Optional LangSmith fields
 

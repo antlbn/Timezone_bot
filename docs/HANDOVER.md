@@ -154,6 +154,7 @@ This keeps the runtime simpler and avoids stale delayed replies.
 |----------|-------------|
 | **High** | **LRU Cache + Activity Tracking**: **Implemented** (2026-03-16). |
 | **Medium** | **Background Sync (Discord)**: **Implemented** (2026-03-15). |
+| **Medium** | Add a provider-agnostic LLM runtime fallback chain (`model` / `base_url` / `api_key`) instead of only a fallback API key |
 | **Medium** | Dockerization for easy deployment |
 | **Medium** | Explore alternative message rendering strategies |
 | **Low** | WhatsApp support |
@@ -165,7 +166,7 @@ This keeps the runtime simpler and avoids stale delayed replies.
 - **Zero config:** Tests use temporary SQLite DBs
 - **Run:** `uv run pytest` or `./run.sh test`
 - **Coverage:** Core modules (capture, transform, storage, geo)
-
+- **LLM Eval** Langsmith test-cases 
 ---
 
 ## 8. Configuration
@@ -180,7 +181,7 @@ This keeps the runtime simpler and avoids stale delayed replies.
 **Important `.env` fields:**
 - `TELEGRAM_TOKEN`, `DISCORD_TOKEN` — set one or both
 - `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` — model-agnostic LLM configuration
-- `OPENAI_API_KEY`, `GEMINI_API_KEY` — optional fallback provider keys
+- `LLM_FALLBACK_API_KEY` — optional fallback API key
 - `LANGSMITH_API_KEY`, `LANGSMITH_TRACING`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` — optional tracing and evals
 
 ---

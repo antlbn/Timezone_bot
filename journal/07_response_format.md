@@ -22,7 +22,7 @@ If a message contains multiple time points for the same event, the bot should pu
 The formatter supports two user-facing layouts controlled by `bot.render_mode`:
 
 - `vertical` - default vertical blocks with flags
-- `compact_inline` - inline sentences without flags, e.g. `deadline at 10:00 Moscow, 09:00 Vienna`
+- `compact_inline` - inline sentences without flags, e.g. `deadline | 10:00 Moscow, 09:00 Vienna`
 
 ### 2.2 Vertical layout
 
@@ -89,8 +89,8 @@ Alice: call
 In `compact_inline` mode the same idea becomes:
 
 ```text
-deadline at 10:00 Moscow, 09:00 Vienna
-review at 15:00 Moscow, 14:00 Vienna
+deadline | 10:00 Moscow, 09:00 Vienna
+review | 15:00 Moscow, 14:00 Vienna
 ```
 
 Optionally, `compact_inline` may be wrapped in a code block when
