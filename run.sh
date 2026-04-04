@@ -20,10 +20,11 @@ trap cleanup SIGINT SIGTERM
 
 echo "Starting bots... (Ctrl+C to stop)"
 
-uv run python -m src.main &
+# Ignore any unrelated active virtualenv. `uv` should resolve this project from its own `.venv`.
+env -u VIRTUAL_ENV uv run python -m src.main &
 TG_PID=$!
 
-uv run python -m src.discord_main &
+env -u VIRTUAL_ENV uv run python -m src.discord_main &
 DISCORD_PID=$!
 
 wait

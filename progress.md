@@ -24,3 +24,22 @@
 
 ---
 *Статус: Готов к деплою. "Зеро-фрикшн" на новом уровне.* 🚀
+
+## Сессия: 4 апреля 2026
+
+### Ключевые достижения:
+1. **Убран provider-specific fallback в LLM env-конфиге**: рантайм больше не зависит от `OPENAI_API_KEY` / `GEMINI_API_KEY`, вместо этого используется агностичная схема `LLM_API_KEY` → `LLM_FALLBACK_API_KEY`.
+2. **Синхронизирована документация по онбордингу и конфигурации**:
+   * обновлен `env.example`,
+   * обновлен `docs/ONBOARDING.md`,
+   * обновлен `docs/HANDOVER.md`.
+3. **Зафиксирован следующий архитектурный шаг**: в `docs/HANDOVER.md` добавлен `To-do` про полноценный provider-agnostic fallback на уровне `model / base_url / api_key`, а не только fallback API key.
+4. **Исправлен шумный старт бота**: `run.sh` теперь очищает `VIRTUAL_ENV` перед `uv run`, чтобы обычный запуск не зависел от случайно активированного чужого virtualenv и не спамил warning-ами.
+
+### Технические детали:
+- Обновлен `src/event_detection/client.py` (агностичный fallback ключа).
+- Обновлен `env.example` (новая переменная `LLM_FALLBACK_API_KEY`).
+- Обновлен `docs/ONBOARDING.md` (убраны provider-specific fallback-описания).
+- Обновлен `docs/HANDOVER.md` (синхронизация `.env`-полей + roadmap item).
+- Обновлен `run.sh` (запуск через `env -u VIRTUAL_ENV uv run ...`).
+- Проверка: `uv run pytest tests/test_event_detection.py -q` → `8 passed`.
