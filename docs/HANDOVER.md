@@ -123,6 +123,16 @@ The current onboarding model is intentionally conservative:
 
 This keeps the runtime simpler and avoids stale delayed replies.
 
+### 3.8 Graceful Degradation When LLM Is Unavailable
+
+The current runtime fails closed when the LLM cannot produce a valid response:
+- if the LLM invocation raises an exception, `llm_node` logs a warning and returns an empty `AIMessage`
+- if the model returns neither content nor tool calls, the message is also treated as a skip
+- the graph then routes to `END` without executing publish/update side effects
+- the bot does not send an explicit fallback reply to the chat in this case
+
+This is intentional. The preferred failure mode is a silent skip rather than publishing a wrong conversion or crashing the chat flow.
+
 ---
 
 ## 4. Component Overview
@@ -145,6 +155,7 @@ This keeps the runtime simpler and avoids stale delayed replies.
 |-------|--------|------------|
 | **Cold Start** | Caches empty on restart | Passively filled on first message/lookup. |
 | **Platform Limits** | Discord buttons vs Telegram ForceReply | Unified core logic handles both variants. |
+| **LLM Unavailable** | Actionable message may be silently skipped | `llm_node` logs the failure and exits without side effects. |
 
 ---
 
@@ -152,8 +163,6 @@ This keeps the runtime simpler and avoids stale delayed replies.
 
 | Priority | Enhancement |
 |----------|-------------|
-| **High** | **LRU Cache + Activity Tracking**: **Implemented** (2026-03-16). |
-| **Medium** | **Background Sync (Discord)**: **Implemented** (2026-03-15). |
 | **Medium** | Add a provider-agnostic LLM runtime fallback chain (`model` / `base_url` / `api_key`) instead of only a fallback API key |
 | **Medium** | Decide the future of the legacy JSON-content LLM fallback in `detect_event`: remove it from production or keep it only as an explicit compatibility path for non-tool-calling models |
 | **Medium** | Dockerization for easy deployment |
