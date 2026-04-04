@@ -123,8 +123,10 @@ uv run pytest
 Run tests with coverage:
 
 ```bash
-uv run pytest --cov=src --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing --cov-report=html
 ```
+
+HTML report is generated in `htmlcov/`.
 
 ## Plug-and-Play Usage
 

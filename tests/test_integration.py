@@ -73,6 +73,16 @@ async def test_full_pipeline_integration():
     with (
         patch("src.event_detection.client.ChatOpenAI", mock_llm_cls),
         patch("src.storage.storage.get_chat_members", AsyncMock(return_value=mock_members)),
+        patch(
+            "src.formatter.get_bot_settings",
+            return_value={
+                "display_limit_per_chat": 0,
+                "show_usernames": False,
+                "render_mode": "compact_inline",
+                "compact_inline_code_block": False,
+                "show_sender_prefix": False,
+            },
+        ),
     ):
         await process_message(
             message_text=text,
@@ -92,14 +102,12 @@ async def test_full_pipeline_integration():
     reply = sent_messages[0]
     print(f"\nCaptured Integrated Reply:\n{reply}")
 
-    # Check that both times are present in the single message
-    assert "10:30 Sarajevo 🇧🇦" in reply
-    assert "15:00 Sarajevo 🇧🇦" in reply
-    # Check formatting
+    # Check that both time points are aggregated into one compact reply
+    assert "event 1 | 10:30 Sarajevo, 09:30 London" in reply
+    assert "event 2 | 15:00 Sarajevo, 14:00 London" in reply
+
     lines = [line for line in reply.split("\n") if line.strip()]
-    assert lines[0] == "Anton: event 1"
-    assert "10:30 Sarajevo 🇧🇦" in lines[1]
-    assert "09:30 London 🇬🇧" in lines[2]
-    assert lines[3] == "event 2"
-    assert "15:00 Sarajevo 🇧🇦" in lines[4]
-    assert "14:00 London 🇬🇧" in lines[5]
+    assert lines == [
+        "event 1 | 10:30 Sarajevo, 09:30 London",
+        "event 2 | 15:00 Sarajevo, 14:00 London",
+    ]

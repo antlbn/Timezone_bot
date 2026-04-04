@@ -166,6 +166,7 @@ This keeps the runtime simpler and avoids stale delayed replies.
 
 - **Zero config:** Tests use temporary SQLite DBs
 - **Run:** `uv run pytest` or `./run.sh test`
+- **Coverage:** `uv run pytest --cov=src --cov-report=term-missing --cov-report=html`
 - **Coverage:** Core modules (capture, transform, storage, geo)
 - **LLM Eval** Langsmith test-cases 
 ---
