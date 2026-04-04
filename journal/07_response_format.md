@@ -94,7 +94,7 @@ review | 15:00 Moscow, 14:00 Vienna
 ```
 
 Optionally, `compact_inline` may be wrapped in a code block when
-`bot.compact_inline_monospace=true` so event labels align reliably in chat UIs.
+`bot.compact_inline_code_block=true` so compact inline replies are wrapped in a code block.
 
 ## 6. Display Limit
 

@@ -120,6 +120,12 @@ uv run python -m src.discord_main
 uv run pytest
 ```
 
+Run tests with coverage:
+
+```bash
+uv run pytest --cov=src --cov-report=term-missing
+```
+
 ## Plug-and-Play Usage
 
 Once the bot is running:
@@ -147,11 +153,48 @@ Main runtime settings live in `configuration.yaml`.
 
 | Setting | Description |
 |---|---|
+| `bot.render_mode` | Reply layout: `compact_inline` or `vertical` |
+| `bot.compact_inline_code_block` | Wrap `compact_inline` replies in a code block |
+| `bot.show_sender_prefix` | Prefix the reply with the sender display name |
 | `bot.display_limit_per_chat` | Max number of displayed timezones/users |
 | `bot.time_format` | `24h` or `12h` output |
 | `bot.show_usernames` | Whether to include usernames in replies |
 | `bot.cooldown_seconds` | Anti-spam cooldown |
 | `bot.settings_cleanup_timeout_seconds` | Auto-cleanup timeout for settings UI |
+
+### Reply Layout Examples
+
+Basic inline layout:
+
+```yaml
+bot:
+  render_mode: compact_inline
+  compact_inline_code_block: false
+  show_sender_prefix: false
+```
+
+Example output:
+
+```text
+deadline | 08:00 London, 09:00 Vienna, 03:00 New York
+```
+
+Vertical layout:
+
+```yaml
+bot:
+  render_mode: vertical
+  show_sender_prefix: false
+```
+
+Example output:
+
+```text
+deadline
+8:00 London 🇬🇧
+09:00 Vienna 🇦🇹
+03:00 New York 🇺🇸
+```
 
 ### Event Detection Context and Limits
 

@@ -168,9 +168,13 @@ async def detect_event(
 ) -> dict:
     """
     LangChain tool-calling agent for event detection.
-    
-    Now uses LangGraph (StateGraph) with AsyncSqliteSaver. Memory is preserved in sqlite!
-    We use One-Shot routing natively handled by 'action_node' in graph.py.
+
+    Production path is tool-calling via LangGraph `action_node`.
+    A legacy JSON-content fallback is still kept for compatibility with models or
+    adapters that return structured JSON in `AIMessage.content` without tool calls.
+
+    Now uses LangGraph (StateGraph) with AsyncSqliteSaver. Memory is preserved in sqlite.
+    We use one-shot routing natively handled by `action_node` in graph.py.
     """
     if ctx_logger is None:
         ctx_logger = logger
@@ -281,7 +285,10 @@ async def detect_event(
 
             message_id = last_msg.additional_kwargs.get("message_id")
         elif last_msg and isinstance(last_msg, AIMessage) and last_msg.content:
-            # LLM outputted JSON string instead of calling tool (fallback scenario)
+            # Legacy compatibility path:
+            # some models / OpenAI-compatible adapters may return plain JSON content
+            # instead of native tool calls. Production should prefer the ToolMessage
+            # branch above; keep this branch only as an explicit fallback.
             raw = last_msg.content
             # Use regex or simple check to see if there's text before JSON
             json_start = raw.find("{")

@@ -225,7 +225,7 @@ class TestFormatConversionReply:
                 "display_limit_per_chat": 0,
                 "show_usernames": False,
                 "render_mode": "compact_inline",
-                "compact_inline_monospace": False,
+                "compact_inline_code_block": False,
             },
         ):
             reply = format_conversion_reply(
@@ -302,7 +302,7 @@ class TestFormatConversionReply:
                 "display_limit_per_chat": 0,
                 "show_usernames": False,
                 "render_mode": "compact_inline",
-                "compact_inline_monospace": False,
+                "compact_inline_code_block": False,
             },
         ):
             reply = format_multi_conversion(
@@ -344,7 +344,7 @@ class TestFormatConversionReply:
                 "show_usernames": False,
                 "render_mode": "compact_inline",
                 "show_sender_prefix": False,
-                "compact_inline_monospace": False,
+                "compact_inline_code_block": False,
             },
         ):
             reply = format_multi_conversion(conversions=conversions, members=[])
@@ -353,8 +353,8 @@ class TestFormatConversionReply:
         assert lines[0].startswith("call | 10:00 Moscow")
         assert lines[1].startswith("very long deadline | 12:30 Moscow")
 
-    def test_compact_inline_can_be_wrapped_in_monospace_block(self):
-        """Compact inline mode can wrap the body in a code block for visual alignment."""
+    def test_compact_inline_can_be_wrapped_in_code_block(self):
+        """Compact inline mode can wrap the body in a code block."""
         from src.formatter import format_multi_conversion
 
         conversions = [
@@ -381,7 +381,7 @@ class TestFormatConversionReply:
                 "show_usernames": False,
                 "render_mode": "compact_inline",
                 "show_sender_prefix": False,
-                "compact_inline_monospace": True,
+                "compact_inline_code_block": True,
             },
         ):
             reply = format_multi_conversion(

@@ -155,6 +155,7 @@ This keeps the runtime simpler and avoids stale delayed replies.
 | **High** | **LRU Cache + Activity Tracking**: **Implemented** (2026-03-16). |
 | **Medium** | **Background Sync (Discord)**: **Implemented** (2026-03-15). |
 | **Medium** | Add a provider-agnostic LLM runtime fallback chain (`model` / `base_url` / `api_key`) instead of only a fallback API key |
+| **Medium** | Decide the future of the legacy JSON-content LLM fallback in `detect_event`: remove it from production or keep it only as an explicit compatibility path for non-tool-calling models |
 | **Medium** | Dockerization for easy deployment |
 | **Medium** | Explore alternative message rendering strategies |
 | **Low** | WhatsApp support |

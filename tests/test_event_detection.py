@@ -132,7 +132,7 @@ async def test_chat_lock_concurrency():
 
 @pytest.mark.asyncio
 async def test_llm_json_dispatch(monkeypatch):
-    """Test that detect_event correctly handles a JSON fallback response from the LLM."""
+    """Legacy compatibility: detect_event accepts JSON content when a model returns no tool calls."""
     from src.event_detection.detector import detect_event
     from unittest.mock import MagicMock, patch
     import json
