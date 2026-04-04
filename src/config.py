@@ -4,6 +4,7 @@ Loads configuration.yaml and .env file.
 """
 
 import os
+from functools import lru_cache
 from pathlib import Path
 from dotenv import load_dotenv
 import yaml
@@ -22,16 +23,15 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-# Singleton config
-_config = None
-
-
+@lru_cache(maxsize=1)
 def get_config() -> dict:
     """Get cached configuration."""
-    global _config
-    if _config is None:
-        _config = load_config()
-    return _config
+    return load_config()
+
+
+def reset_config_cache() -> None:
+    """Clear cached configuration. Intended for tests or controlled reloads."""
+    get_config.cache_clear()
 
 
 # Quick access
