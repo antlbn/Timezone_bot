@@ -1,5 +1,9 @@
+import logging
 from src.core.domain.value_objects import MessageContext
+from src.core.domain.commands import NoOp
 from src.core.pipeline.contracts import Stage
+
+logger = logging.getLogger(__name__)
 
 class Pipeline:
     def __init__(self, stages: list[Stage]):
@@ -7,7 +11,12 @@ class Pipeline:
 
     async def run(self, ctx: MessageContext) -> MessageContext:
         for stage in self.stages:
-            ctx = await stage.process(ctx)
-            if ctx._stopped:
+            try:
+                ctx = await stage.process(ctx)
+                if ctx._stopped:
+                    return ctx
+            except Exception as e:
+                logger.error(f"Pipeline stage {stage.__class__.__name__} failed: {e}")
+                ctx.commands = [NoOp()]
                 return ctx
         return ctx

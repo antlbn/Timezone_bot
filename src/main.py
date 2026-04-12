@@ -17,20 +17,15 @@ from src.adapters.outbound.memory_pending import MemoryPending
 from src.adapters.executors.telegram_executor import TelegramCommandExecutor
 from src.adapters.executors.discord_executor import DiscordCommandExecutor
 from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage
+from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
 from src.adapters.inbound.telegram.handlers import on_message as tg_on_message
 from src.adapters.inbound.discord.events import on_message as dc_on_message
 from src.adapters.inbound.discord.slash_commands import setup_slash_commands
+from src.core.container import AppContainer
 
 logger = logging.getLogger(__name__)
 
-class AppContainer:
-    def __init__(self, storage, pipeline, tg_executor, dc_executor, geocoder):
-        self.storage = storage
-        self.pipeline = pipeline
-        self.tg_executor = tg_executor
-        self.dc_executor = dc_executor
-        self.geocoder = geocoder
+
 
 async def main():
     load_dotenv()
@@ -59,7 +54,8 @@ async def main():
         AgingStage(max_age_seconds=120),
         DetectionStage(detector),
         ResolveStage(storage),
-        FormatStage(storage)
+        FormatStage(storage),
+        CommandFactoryStage()
     ])
 
     tg_executor = TelegramCommandExecutor(pending_port=pending)

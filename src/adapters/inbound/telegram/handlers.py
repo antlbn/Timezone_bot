@@ -1,12 +1,15 @@
 from aiogram.types import Message
 from src.core.domain.value_objects import InputData, MessageContext
 from src.core.domain.enums import Platform
-from src.core.pipeline.command_factory import create_commands
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.container import AppContainer
 
 logger = logging.getLogger(__name__)
 
-async def on_message(message: Message, container) -> None:
+async def on_message(message: Message, container: 'AppContainer') -> None:
     sender = await container.storage.get_user(message.from_user.id, Platform.TELEGRAM)
     
     ctx = MessageContext(input=InputData(
@@ -21,7 +24,7 @@ async def on_message(message: Message, container) -> None:
     ))
     
     ctx = await container.pipeline.run(ctx)
-    commands = create_commands(ctx)
+    commands = ctx.commands
     
     # Needs TelegramCtx from telegram_executor
     from src.adapters.executors.telegram_executor import TelegramCtx

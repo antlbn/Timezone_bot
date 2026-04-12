@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from src.core.domain.value_objects import MessageContext
+from src.core.domain.value_objects import MessageContext, PendingMessage
+from src.core.domain.commands import SendReply, SavePending, ShowOnboarding, NoOp
 from src.ports.detection import DetectionPort, DetectionRequest
 from src.ports.storage import StoragePort
 from src.core.services.formatting import format_multi_conversion
@@ -50,15 +51,19 @@ class ResolveStage:
         self.storage_port = storage_port
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        # Resolve members needed for conversion formatting
-        # Here we only need members from storage, GeoPort not strictly needed yet for members
-        # as they have timezones already, but let's just make it a pass through for now or fetch members
+        if ctx.input.sender and ctx.input.chat_id:
+            await self.storage_port.add_chat_member(
+                chat_id=ctx.input.chat_id,
+                user_id=ctx.input.user_id,
+                platform=ctx.input.platform
+            )
         return ctx
 
 
 class FormatStage:
-    def __init__(self, storage_port: StoragePort):
+    def __init__(self, storage_port: StoragePort, response_style: ResponseStyle = ResponseStyle.BLOCK):
         self.storage_port = storage_port
+        self.response_style = response_style
 
     async def process(self, ctx: MessageContext) -> MessageContext:
         if not ctx.detection or not ctx.detection.points:
@@ -72,8 +77,38 @@ class FormatStage:
             points=ctx.detection.points,
             sender=ctx.input.sender,
             members=members,
-            response_style=ResponseStyle.BLOCK, # config could inject this
+            response_style=self.response_style,
             show_usernames=False,
             show_event_title=False
         )
+        return ctx
+
+
+class CommandFactoryStage:
+    async def process(self, ctx: MessageContext) -> MessageContext:
+        if not ctx.detection or not ctx.detection.time_mentioned:
+            ctx.commands = [NoOp()]
+            return ctx
+
+        if ctx.input.sender is not None and ctx.input.sender.timezone:
+            if ctx.reply_text:
+                ctx.commands = [SendReply(text=ctx.reply_text)]
+            else:
+                ctx.commands = [NoOp()]
+            return ctx
+
+        if ctx.input.sender is None or not ctx.input.sender.onboarding_declined:
+            pending = PendingMessage(
+                text=ctx.input.text,
+                author_name=ctx.input.author_name,
+                chat_id=ctx.input.chat_id,
+                timestamp_utc=ctx.input.timestamp_utc,
+            )
+            ctx.commands = [
+                SavePending(user_id=ctx.input.user_id, platform=ctx.input.platform, message=pending),
+                ShowOnboarding(user_id=ctx.input.user_id, author_name=ctx.input.author_name, chat_id=ctx.input.chat_id)
+            ]
+            return ctx
+
+        ctx.commands = [NoOp()]
         return ctx

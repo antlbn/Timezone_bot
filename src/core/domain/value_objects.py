@@ -1,9 +1,14 @@
+from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from src.core.domain.enums import Platform
+
+if TYPE_CHECKING:
+    from src.ports.detection import DetectionResult
+    from src.core.domain.commands import Command
 
 @dataclass(frozen=True)
 class TimePoint:
@@ -48,7 +53,7 @@ class InputData:
 @dataclass
 class MessageContext:
     input: InputData
-    detection: Any | None = None  # Will be DetectionResult
+    detection: DetectionResult | None = None
     reply_text: str | None = None
-    commands: list[Any] = field(default_factory=list)  # Will be list[Command]
+    commands: list[Command] = field(default_factory=list)
     _stopped: bool = False

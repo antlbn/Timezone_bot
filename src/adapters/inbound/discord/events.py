@@ -1,10 +1,13 @@
 import discord
 from src.core.domain.value_objects import InputData, MessageContext
 from src.core.domain.enums import Platform
-from src.core.pipeline.command_factory import create_commands
 from src.adapters.executors.discord_executor import DiscordCtx
+from typing import TYPE_CHECKING
 
-async def on_message(message: discord.Message, container) -> None:
+if TYPE_CHECKING:
+    from src.core.container import AppContainer
+
+async def on_message(message: discord.Message, container: 'AppContainer') -> None:
     if message.author.bot or not message.guild:
         return
 
@@ -22,7 +25,7 @@ async def on_message(message: discord.Message, container) -> None:
     ))
     
     ctx = await container.pipeline.run(ctx)
-    commands = create_commands(ctx)
+    commands = ctx.commands
     
     dc_ctx = DiscordCtx(message)
     await container.dc_executor.execute(commands, dc_ctx)

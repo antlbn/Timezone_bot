@@ -4,8 +4,7 @@ from src.core.domain.enums import Platform
 from src.core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile
 from src.core.domain.commands import SendReply, ShowOnboarding, SavePending, NoOp
 from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage
-from src.core.pipeline.command_factory import create_commands
+from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
 from tests.fakes.ports import FakeDetectionPort, FakeStoragePort
 
 @pytest.mark.asyncio
@@ -18,7 +17,8 @@ async def test_pipeline_no_time_noop():
         AgingStage(max_age_seconds=120),
         DetectionStage(detection),
         ResolveStage(storage),
-        FormatStage(storage)
+        FormatStage(storage),
+        CommandFactoryStage()
     ])
 
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
@@ -34,7 +34,7 @@ async def test_pipeline_no_time_noop():
     ))
 
     ctx = await pipeline.run(ctx)
-    commands = create_commands(ctx)
+    commands = ctx.commands
     
     assert ctx._stopped is True
     assert len(commands) == 1
@@ -55,7 +55,8 @@ async def test_pipeline_time_found_configured_user_sends_reply():
         AgingStage(max_age_seconds=120),
         DetectionStage(detection),
         ResolveStage(storage),
-        FormatStage(storage)
+        FormatStage(storage),
+        CommandFactoryStage()
     ])
 
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
@@ -71,7 +72,7 @@ async def test_pipeline_time_found_configured_user_sends_reply():
     ))
 
     ctx = await pipeline.run(ctx)
-    commands = create_commands(ctx)
+    commands = ctx.commands
     
     assert ctx._stopped is False
     assert ctx.reply_text is not None
@@ -93,7 +94,8 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
         AgingStage(max_age_seconds=120),
         DetectionStage(detection),
         ResolveStage(storage),
-        FormatStage(storage)
+        FormatStage(storage),
+        CommandFactoryStage()
     ])
 
     # User is unconfigured
@@ -110,7 +112,7 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
     ))
 
     ctx = await pipeline.run(ctx)
-    commands = create_commands(ctx)
+    commands = ctx.commands
     
     assert ctx._stopped is False
     assert len(commands) == 2
