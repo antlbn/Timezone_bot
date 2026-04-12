@@ -1,11 +1,12 @@
 from aiogram.types import Message
 from src.core.domain.value_objects import InputData, MessageContext
 from src.core.domain.enums import Platform
+from src.adapters.executors.telegram_executor import TelegramCtx
 import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.core.container import AppContainer
+    from src.main import AppContainer
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,9 @@ async def on_message(message: Message, container: 'AppContainer') -> None:
     
     ctx = await container.pipeline.run(ctx)
     commands = ctx.commands
+    if not commands:
+        return
     
     # Needs TelegramCtx from telegram_executor
-    from src.adapters.executors.telegram_executor import TelegramCtx
     tg_ctx = TelegramCtx(message)
     await container.tg_executor.execute(commands, tg_ctx)

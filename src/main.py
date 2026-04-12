@@ -2,11 +2,13 @@ import asyncio
 import os
 import signal
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from aiogram import Bot as TgBot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 import discord
+import yaml
 from discord import app_commands
 from dotenv import load_dotenv
 
@@ -17,17 +19,30 @@ from src.adapters.outbound.memory_pending import MemoryPending
 from src.adapters.executors.telegram_executor import TelegramCommandExecutor
 from src.adapters.executors.discord_executor import DiscordCommandExecutor
 from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
-from src.adapters.inbound.telegram.handlers import on_message as tg_on_message
-from src.adapters.inbound.discord.events import on_message as dc_on_message
-from src.adapters.inbound.discord.slash_commands import setup_slash_commands
-from src.core.container import AppContainer
+from src.core.domain.value_objects import BotSettings
+from src.core.domain.enums import ResponseStyle
+from src.ports.storage import StoragePort
+from src.ports.geocoding import GeoPort
+
+@dataclass
+class AppContainer:
+    storage: StoragePort
+    pipeline: Pipeline
+    tg_executor: TelegramCommandExecutor
+    dc_executor: DiscordCommandExecutor
+    geocoder: GeoPort
 
 logger = logging.getLogger(__name__)
 
 
 
 async def main():
+    # Deferred imports to avoid circular dependency since AppContainer is now in main.py
+    from src.adapters.inbound.telegram.handlers import on_message as tg_on_message
+    from src.adapters.inbound.discord.events import on_message as dc_on_message
+    from src.adapters.inbound.discord.slash_commands import setup_slash_commands
+    from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
+
     load_dotenv()
     logging.basicConfig(level=logging.INFO)
     logger.info("Starting Timezone Bot with new Hexagonal Architecture (M2.5)")
@@ -49,12 +64,32 @@ async def main():
     geocoder = NominatimGeo()
     pending = MemoryPending()
 
+    # Load configuration
+    config_path = Path("configuration.yaml")
+    with open(config_path, "r") as f:
+        config_data = yaml.safe_load(f)
+
+    bot_config = config_data.get("bot", {})
+    response_style_str = bot_config.get("response_style", "block")
+    
+    # Map string to Enum
+    if response_style_str.lower() == "inline_sentence":
+        style = ResponseStyle.INLINE
+    else:
+        style = ResponseStyle.BLOCK
+
+    settings = BotSettings(
+        show_usernames=bot_config.get("show_usernames", False),
+        show_event_title=bot_config.get("show_event_title", True),
+        response_style=style
+    )
+
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=120),
+        AgingStage(max_age_seconds=config_data.get("event_detection", {}).get("max_message_age_seconds", 120)),
         DetectionStage(detector),
         ResolveStage(storage),
-        FormatStage(storage),
+        FormatStage(settings),
         CommandFactoryStage()
     ])
 

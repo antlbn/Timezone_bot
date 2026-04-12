@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timezone
 from src.core.domain.enums import Platform
-from src.core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile
+from src.core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile, BotSettings
 from src.core.domain.commands import SendReply, ShowOnboarding, SavePending, NoOp
 from src.core.pipeline.pipeline import Pipeline
 from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
@@ -12,12 +12,13 @@ async def test_pipeline_no_time_noop():
     storage = FakeStoragePort()
     detection = FakeDetectionPort(time_mentioned=False)
     
+    settings = BotSettings()
     pipeline = Pipeline([
         GuardStage(),
         AgingStage(max_age_seconds=120),
         DetectionStage(detection),
         ResolveStage(storage),
-        FormatStage(storage),
+        FormatStage(settings),
         CommandFactoryStage()
     ])
 
@@ -37,8 +38,7 @@ async def test_pipeline_no_time_noop():
     commands = ctx.commands
     
     assert ctx._stopped is True
-    assert len(commands) == 1
-    assert isinstance(commands[0], NoOp)
+    assert len(commands) == 0
 
 @pytest.mark.asyncio
 async def test_pipeline_time_found_configured_user_sends_reply():
@@ -50,12 +50,13 @@ async def test_pipeline_time_found_configured_user_sends_reply():
     tp = TimePoint(time="15:00", tz_city=None)
     detection = FakeDetectionPort(time_mentioned=True, points=[tp])
     
+    settings = BotSettings()
     pipeline = Pipeline([
         GuardStage(),
         AgingStage(max_age_seconds=120),
         DetectionStage(detection),
         ResolveStage(storage),
-        FormatStage(storage),
+        FormatStage(settings),
         CommandFactoryStage()
     ])
 
@@ -89,12 +90,13 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
     tp = TimePoint(time="15:00", tz_city=None)
     detection = FakeDetectionPort(time_mentioned=True, points=[tp])
     
+    settings = BotSettings()
     pipeline = Pipeline([
         GuardStage(),
         AgingStage(max_age_seconds=120),
         DetectionStage(detection),
         ResolveStage(storage),
-        FormatStage(storage),
+        FormatStage(settings),
         CommandFactoryStage()
     ])
 

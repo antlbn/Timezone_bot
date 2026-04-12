@@ -5,7 +5,7 @@ from src.adapters.executors.discord_executor import DiscordCtx
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.core.container import AppContainer
+    from src.main import AppContainer
 
 async def on_message(message: discord.Message, container: 'AppContainer') -> None:
     if message.author.bot or not message.guild:
@@ -26,6 +26,8 @@ async def on_message(message: discord.Message, container: 'AppContainer') -> Non
     
     ctx = await container.pipeline.run(ctx)
     commands = ctx.commands
+    if not commands:
+        return
     
     dc_ctx = DiscordCtx(message)
     await container.dc_executor.execute(commands, dc_ctx)

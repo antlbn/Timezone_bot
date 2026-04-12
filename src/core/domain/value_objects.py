@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, TYPE_CHECKING
 
-from src.core.domain.enums import Platform
+from src.core.domain.enums import Platform, ResponseStyle
 
 if TYPE_CHECKING:
     from src.ports.detection import DetectionResult
@@ -50,10 +50,17 @@ class InputData:
     sender: UserProfile | None = None
     is_bot: bool = False
 
+@dataclass(frozen=True)
+class BotSettings:
+    show_usernames: bool = False
+    show_event_title: bool = True
+    response_style: ResponseStyle = ResponseStyle.BLOCK
+
 @dataclass
 class MessageContext:
     input: InputData
     detection: DetectionResult | None = None
     reply_text: str | None = None
     commands: list[Command] = field(default_factory=list)
+    members: list[UserProfile] = field(default_factory=list)
     _stopped: bool = False

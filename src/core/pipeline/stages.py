@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from src.core.domain.value_objects import MessageContext, PendingMessage
+from src.core.domain.value_objects import MessageContext, PendingMessage, BotSettings
 from src.core.domain.commands import SendReply, SavePending, ShowOnboarding, NoOp
 from src.ports.detection import DetectionPort, DetectionRequest
 from src.ports.storage import StoragePort
@@ -51,19 +51,26 @@ class ResolveStage:
         self.storage_port = storage_port
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        if ctx.input.sender and ctx.input.chat_id:
-            await self.storage_port.add_chat_member(
+        if ctx.input.chat_id:
+            # First, ensure sender is in the chat member list (registration)
+            if ctx.input.sender:
+                await self.storage_port.add_chat_member(
+                    chat_id=ctx.input.chat_id,
+                    user_id=ctx.input.user_id,
+                    platform=ctx.input.platform
+                )
+            
+            # Second, hydrate members list for the entire chat
+            ctx.members = await self.storage_port.get_chat_members(
                 chat_id=ctx.input.chat_id,
-                user_id=ctx.input.user_id,
                 platform=ctx.input.platform
             )
         return ctx
 
 
 class FormatStage:
-    def __init__(self, storage_port: StoragePort, response_style: ResponseStyle = ResponseStyle.BLOCK):
-        self.storage_port = storage_port
-        self.response_style = response_style
+    def __init__(self, settings: BotSettings):
+        self.settings = settings
 
     async def process(self, ctx: MessageContext) -> MessageContext:
         if not ctx.detection or not ctx.detection.points:
@@ -71,15 +78,14 @@ class FormatStage:
         if not ctx.input.sender or not ctx.input.sender.timezone:
             return ctx
 
-        members = await self.storage_port.get_chat_members(ctx.input.chat_id, ctx.input.platform)
-        
+        # All IO was handled in ResolveStage, now this is pure logic.
         ctx.reply_text = format_multi_conversion(
             points=ctx.detection.points,
             sender=ctx.input.sender,
-            members=members,
-            response_style=self.response_style,
-            show_usernames=False,
-            show_event_title=False
+            members=ctx.members,
+            response_style=self.settings.response_style,
+            show_usernames=self.settings.show_usernames,
+            show_event_title=self.settings.show_event_title
         )
         return ctx
 
