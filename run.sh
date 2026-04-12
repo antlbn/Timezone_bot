@@ -3,27 +3,23 @@
 
 cd "$(dirname "$0")"
 
-# Store PIDs
-TG_PID=""
-DISCORD_PID=""
+# Store PID
+BOT_PID=""
 
 cleanup() {
     echo ""
-    echo "Received stop signal. Shutting down bots gracefully..."
-    kill -TERM $TG_PID $DISCORD_PID 2>/dev/null
-    wait $TG_PID $DISCORD_PID
-    echo "All bots stopped."
+    echo "Received stop signal. Shutting down bot gracefully..."
+    kill -TERM $BOT_PID 2>/dev/null
+    wait $BOT_PID
+    echo "Bot stopped."
     exit 0
 }
 
 trap cleanup SIGINT SIGTERM
 
-echo "Starting bots... (Ctrl+C to stop)"
+echo "Starting Timezone Bot... (Ctrl+C to stop)"
 
 uv run python -m src.main &
-TG_PID=$!
-
-uv run python -m src.discord_main &
-DISCORD_PID=$!
+BOT_PID=$!
 
 wait

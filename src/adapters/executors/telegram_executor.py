@@ -13,7 +13,7 @@ class TelegramCommandExecutor(BaseCommandExecutor):
     async def _handle_show_onboarding(self, cmd: ShowOnboarding, context: TelegramCtx) -> None:
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
-                InlineKeyboardButton(text="Set Timezone", url=f"https://t.me/your_bot_name?start=set_tz")
+                InlineKeyboardButton(text="Set Timezone", url="https://t.me/your_bot_name?start=set_tz")
             ]]
         )
         await context.message.answer(

@@ -55,10 +55,10 @@ class SQLiteStorage(StoragePort):
         return UserProfile(
             user_id=row["user_id"],
             platform=Platform(row["platform"]),
-            city=row.get("city"),
-            timezone=row.get("timezone"),
-            flag=row.get("flag"),
-            onboarding_declined=bool(row.get("onboarding_declined", 0))
+            city=row["city"],
+            timezone=row["timezone"],
+            flag=row["flag"],
+            onboarding_declined=bool(row["onboarding_declined"])
         )
 
     async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:

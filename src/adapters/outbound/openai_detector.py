@@ -3,7 +3,6 @@ import logging
 import os
 import re
 from openai import AsyncOpenAI
-from typing import Any
 
 from src.ports.detection import DetectionPort, DetectionRequest, DetectionResult
 from src.core.domain.value_objects import TimePoint
@@ -24,9 +23,9 @@ class OpenAIDetector(DetectionPort):
         return text
 
     async def detect(self, request: DetectionRequest) -> DetectionResult:
-        api_key = os.getenv("LLM_API_KEY")
-        base_url = os.getenv("LLM_BASE_URL")
-        model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        api_key = os.getenv("LLM_FALLBACK_API_KEY")
+        base_url = os.getenv("LLM_FALLBACK_BASE_URL")
+        model = os.getenv("LLM_FALLBACK_MODEL", "gpt-4o-mini")
 
         if not api_key:
             logger.error("No LLM_API_KEY found")
