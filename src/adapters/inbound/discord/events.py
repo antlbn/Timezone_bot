@@ -11,8 +11,6 @@ async def on_message(message: discord.Message, container: 'AppContainer') -> Non
     if message.author.bot or not message.guild:
         return
 
-    sender = await container.storage.get_user(message.author.id, Platform.DISCORD)
-    
     ctx = MessageContext(input=InputData(
         text=message.content,
         user_id=message.author.id,
@@ -20,7 +18,6 @@ async def on_message(message: discord.Message, container: 'AppContainer') -> Non
         author_name=message.author.display_name,
         timestamp_utc=message.created_at,
         chat_id=str(message.guild.id),
-        sender=sender,
         is_bot=message.author.bot
     ))
     

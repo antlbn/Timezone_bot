@@ -47,7 +47,6 @@ class InputData:
     author_name: str
     timestamp_utc: datetime
     chat_id: str
-    sender: UserProfile | None = None
     is_bot: bool = False
 
 @dataclass(frozen=True)
@@ -60,6 +59,7 @@ class BotSettings:
 class MessageContext:
     input: InputData
     detection: DetectionResult | None = None
+    sender: UserProfile | None = None
     reply_text: str | None = None
     commands: list[Command] = field(default_factory=list)
     members: list[UserProfile] = field(default_factory=list)

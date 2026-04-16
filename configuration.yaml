@@ -12,7 +12,7 @@ logging:
 # Bot Settings
 bot:
   # Show usernames next to timezone (default: false)
-  show_usernames: false
+  show_usernames: true
   # Show event title above each block if explicitly returned by the LLM
   show_event_title: true
   # Reply layout: block or inline_sentence

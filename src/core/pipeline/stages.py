@@ -51,9 +51,11 @@ class ResolveStage:
         self.storage_port = storage_port
 
     async def process(self, ctx: MessageContext) -> MessageContext:
+        ctx.sender = await self.storage_port.get_user(ctx.input.user_id, ctx.input.platform)
+
         if ctx.input.chat_id:
             # First, ensure sender is in the chat member list (registration)
-            if ctx.input.sender:
+            if ctx.sender:
                 await self.storage_port.add_chat_member(
                     chat_id=ctx.input.chat_id,
                     user_id=ctx.input.user_id,
@@ -75,13 +77,13 @@ class FormatStage:
     async def process(self, ctx: MessageContext) -> MessageContext:
         if not ctx.detection or not ctx.detection.points:
             return ctx
-        if not ctx.input.sender or not ctx.input.sender.timezone:
+        if not ctx.sender or not ctx.sender.timezone:
             return ctx
 
         # All IO was handled in ResolveStage, now this is pure logic.
         ctx.reply_text = format_multi_conversion(
             points=ctx.detection.points,
-            sender=ctx.input.sender,
+            sender=ctx.sender,
             members=ctx.members,
             response_style=self.settings.response_style,
             show_usernames=self.settings.show_usernames,
@@ -96,14 +98,14 @@ class CommandFactoryStage:
             ctx.commands = [NoOp()]
             return ctx
 
-        if ctx.input.sender is not None and ctx.input.sender.timezone:
+        if ctx.sender is not None and ctx.sender.timezone:
             if ctx.reply_text:
                 ctx.commands = [SendReply(text=ctx.reply_text)]
             else:
                 ctx.commands = [NoOp()]
             return ctx
 
-        if ctx.input.sender is None or not ctx.input.sender.onboarding_declined:
+        if ctx.sender is None or not ctx.sender.onboarding_declined:
             pending = PendingMessage(
                 text=ctx.input.text,
                 author_name=ctx.input.author_name,

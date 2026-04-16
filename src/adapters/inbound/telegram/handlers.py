@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 async def on_message(message: Message, container: 'AppContainer') -> None:
-    sender = await container.storage.get_user(message.from_user.id, Platform.TELEGRAM)
-    
     ctx = MessageContext(input=InputData(
         text=message.text or "",
         user_id=message.from_user.id,
@@ -20,7 +18,6 @@ async def on_message(message: Message, container: 'AppContainer') -> None:
         author_name=message.from_user.full_name,
         timestamp_utc=message.date,
         chat_id=str(message.chat.id),
-        sender=sender,
         is_bot=message.from_user.is_bot
     ))
     

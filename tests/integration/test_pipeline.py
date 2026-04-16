@@ -23,6 +23,7 @@ async def test_pipeline_no_time_noop():
     ])
 
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
+    storage.users[(1, Platform.TELEGRAM)] = sender
     
     ctx = MessageContext(input=InputData(
         text="Hello world!",
@@ -30,8 +31,7 @@ async def test_pipeline_no_time_noop():
         platform=Platform.TELEGRAM,
         author_name="John",
         timestamp_utc=datetime.now(timezone.utc),
-        chat_id="chat1",
-        sender=sender
+        chat_id="chat1"
     ))
 
     ctx = await pipeline.run(ctx)
@@ -61,6 +61,7 @@ async def test_pipeline_time_found_configured_user_sends_reply():
     ])
 
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
+    storage.users[(1, Platform.TELEGRAM)] = sender
     
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00",
@@ -68,8 +69,7 @@ async def test_pipeline_time_found_configured_user_sends_reply():
         platform=Platform.TELEGRAM,
         author_name="John",
         timestamp_utc=datetime.now(timezone.utc),
-        chat_id="chat1",
-        sender=sender
+        chat_id="chat1"
     ))
 
     ctx = await pipeline.run(ctx)
@@ -101,7 +101,6 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
     ])
 
     # User is unconfigured
-    sender = None
     
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00",
@@ -109,8 +108,7 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
         platform=Platform.TELEGRAM,
         author_name="John",
         timestamp_utc=datetime.now(timezone.utc),
-        chat_id="chat1",
-        sender=sender
+        chat_id="chat1"
     ))
 
     ctx = await pipeline.run(ctx)
