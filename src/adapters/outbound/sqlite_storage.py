@@ -132,7 +132,20 @@ class SQLiteStorage(StoragePort):
         )
         await db.commit()
 
+    async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
+        db = await self._get_conn()
+        await db.execute(
+            """
+            INSERT INTO users (user_id, platform, onboarding_declined)
+            VALUES (?, ?, 1)
+            ON CONFLICT(user_id, platform) DO UPDATE SET onboarding_declined = 1
+            """,
+            (user_id, platform.value),
+        )
+        await db.commit()
+
     async def close(self):
         if self._db:
             await self._db.close()
             self._db = None
+

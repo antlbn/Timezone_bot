@@ -34,10 +34,8 @@ class UserProfile:
 
 @dataclass(frozen=True)
 class PendingMessage:
-    text: str
-    author_name: str
-    chat_id: str
-    timestamp_utc: datetime
+    original_input: "InputData"
+    detection: Any = None  # DetectionResult — stored to skip re-detection on resume
 
 @dataclass(frozen=True)
 class InputData:
@@ -64,3 +62,5 @@ class MessageContext:
     commands: list[Command] = field(default_factory=list)
     members: list[UserProfile] = field(default_factory=list)
     _stopped: bool = False
+    from_pending: bool = False  # True when re-processing a frozen pending message
+                                # after onboarding; Guard and Aging stages skip themselves

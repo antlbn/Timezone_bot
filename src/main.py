@@ -7,6 +7,8 @@ from pathlib import Path
 from aiogram import Bot as TgBot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import Update
 import discord
 import yaml
 from discord import app_commands
@@ -21,6 +23,7 @@ from src.adapters.executors.discord_executor import DiscordCommandExecutor
 from src.core.pipeline.pipeline import Pipeline
 from src.core.domain.value_objects import BotSettings
 from src.core.domain.enums import ResponseStyle
+from src.core.services.onboarding import OnboardingService
 from src.ports.storage import StoragePort
 from src.ports.geocoding import GeoPort
 
@@ -31,6 +34,8 @@ class AppContainer:
     tg_executor: TelegramCommandExecutor
     dc_executor: DiscordCommandExecutor
     geocoder: GeoPort
+    onboarding_service: OnboardingService
+    bot: TgBot | None = None  # set after TgBot is created
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +44,7 @@ logger = logging.getLogger(__name__)
 async def main():
     # Deferred imports to avoid circular dependency since AppContainer is now in main.py
     from src.adapters.inbound.telegram.handlers import on_message as tg_on_message
+    from src.adapters.inbound.telegram.onboarding_handler import router as onboarding_router
     from src.adapters.inbound.discord.events import on_message as dc_on_message
     from src.adapters.inbound.discord.slash_commands import setup_slash_commands
     from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
@@ -96,14 +102,39 @@ async def main():
     tg_executor = TelegramCommandExecutor(pending_port=pending)
     dc_executor = DiscordCommandExecutor(pending_port=pending)
 
-    container = AppContainer(storage, pipeline, tg_executor, dc_executor, geocoder)
+    onboarding_service = OnboardingService(
+        storage_port=storage,
+        pending_port=pending,
+        geocoding_port=geocoder,
+        pipeline=pipeline,
+    )
+
+    container = AppContainer(
+        storage=storage,
+        pipeline=pipeline,
+        tg_executor=tg_executor,
+        dc_executor=dc_executor,
+        geocoder=geocoder,
+        onboarding_service=onboarding_service,
+    )
 
     tasks = []
 
     # Setup Telegram
     if tg_token:
         tg_bot = TgBot(token=tg_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-        dp = Dispatcher()
+        container.bot = tg_bot  # make bot available for replay dispatches
+
+        dp = Dispatcher(storage=MemoryStorage())  # FSM needs a storage backend
+
+        # Middleware: injects `container` into every handler that declares it
+        @dp.update.outer_middleware()
+        async def container_middleware(handler, event: Update, data: dict):
+            data["container"] = container
+            return await handler(event, data)
+
+        # Onboarding FSM router — must be registered BEFORE the catch-all
+        dp.include_router(onboarding_router)
 
         @dp.message()
         async def wrapped_tg_on_message(message):

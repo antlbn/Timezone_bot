@@ -9,6 +9,9 @@ from src.core.domain.enums import ResponseStyle
 
 class GuardStage:
     async def process(self, ctx: MessageContext) -> MessageContext:
+        # Messages from the pending queue already passed validation on arrival.
+        if ctx.from_pending:
+            return ctx
         if ctx.input.is_bot:
             ctx._stopped = True
             return ctx
@@ -26,6 +29,9 @@ class AgingStage:
         self.max_age_seconds = max_age_seconds
 
     async def process(self, ctx: MessageContext) -> MessageContext:
+        # Messages from the pending queue are intentionally old — skip the age check.
+        if ctx.from_pending:
+            return ctx
         now = datetime.now(timezone.utc)
         age = (now - ctx.input.timestamp_utc).total_seconds()
         if age > self.max_age_seconds:
@@ -38,6 +44,10 @@ class DetectionStage:
         self.detection_port = detection_port
 
     async def process(self, ctx: MessageContext) -> MessageContext:
+        # If this message came from the pending queue, the detection result
+        # was cached in PendingMessage.detection — no need to call the LLM again.
+        if ctx.from_pending and ctx.detection is not None:
+            return ctx
         request = DetectionRequest(text=ctx.input.text, timestamp=ctx.input.timestamp_utc)
         result = await self.detection_port.detect(request)
         ctx.detection = result
@@ -106,12 +116,7 @@ class CommandFactoryStage:
             return ctx
 
         if ctx.sender is None or not ctx.sender.onboarding_declined:
-            pending = PendingMessage(
-                text=ctx.input.text,
-                author_name=ctx.input.author_name,
-                chat_id=ctx.input.chat_id,
-                timestamp_utc=ctx.input.timestamp_utc,
-            )
+            pending = PendingMessage(original_input=ctx.input, detection=ctx.detection)
             ctx.commands = [
                 SavePending(user_id=ctx.input.user_id, platform=ctx.input.platform, message=pending),
                 ShowOnboarding(user_id=ctx.input.user_id, author_name=ctx.input.author_name, chat_id=ctx.input.chat_id)
