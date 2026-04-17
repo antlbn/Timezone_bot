@@ -25,17 +25,19 @@ class GuardStage:
 
 
 class AgingStage:
-    def __init__(self, max_age_seconds: int = 120):
-        self.max_age_seconds = max_age_seconds
+    def __init__(self, settings: BotSettings):
+        self._settings = settings
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        # Messages from the pending queue are intentionally old — skip the age check.
+        age_seconds = (datetime.now(timezone.utc) - ctx.input.timestamp_utc).total_seconds()
+        
         if ctx.from_pending:
-            return ctx
-        now = datetime.now(timezone.utc)
-        age = (now - ctx.input.timestamp_utc).total_seconds()
-        if age > self.max_age_seconds:
-            ctx._stopped = True
+            if age_seconds > self._settings.max_age_pending_secs:
+                ctx._stopped = True
+        else:
+            if age_seconds > self._settings.max_age_fresh_secs:
+                ctx._stopped = True
+                
         return ctx
 
 

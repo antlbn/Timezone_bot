@@ -15,7 +15,7 @@ async def test_pipeline_no_time_noop():
     settings = BotSettings()
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=120),
+        AgingStage(BotSettings()),
         DetectionStage(detection),
         ResolveStage(storage),
         FormatStage(settings),
@@ -53,7 +53,7 @@ async def test_pipeline_time_found_configured_user_sends_reply():
     settings = BotSettings()
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=120),
+        AgingStage(BotSettings()),
         DetectionStage(detection),
         ResolveStage(storage),
         FormatStage(settings),
@@ -93,7 +93,7 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
     settings = BotSettings()
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=120),
+        AgingStage(BotSettings()),
         DetectionStage(detection),
         ResolveStage(storage),
         FormatStage(settings),
@@ -132,7 +132,7 @@ async def test_pipeline_declined_onboarding_no_spam():
     
     settings = BotSettings()
     pipeline = Pipeline([
-        GuardStage(), AgingStage(max_age_seconds=120),
+        GuardStage(), AgingStage(BotSettings()),
         DetectionStage(detection), ResolveStage(storage),
         FormatStage(settings), CommandFactoryStage()
     ])
@@ -150,7 +150,7 @@ async def test_pipeline_declined_onboarding_no_spam():
 
 @pytest.mark.asyncio
 async def test_pipeline_aging_stage_drops_old_messages():
-    pipeline = Pipeline([AgingStage(max_age_seconds=120)])
+    pipeline = Pipeline([AgingStage(BotSettings())])
 
     # Message is 10 minutes old!
     from datetime import timedelta

@@ -53,6 +53,8 @@ class BotSettings:
     show_usernames: bool = False
     show_event_title: bool = True
     response_style: ResponseStyle = ResponseStyle.BLOCK
+    max_age_fresh_secs: int = 30
+    max_age_pending_secs: int = 60
 
 @dataclass
 class MessageContext:

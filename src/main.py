@@ -88,12 +88,14 @@ async def main():
     settings = BotSettings(
         show_usernames=bot_config.get("show_usernames", False),
         show_event_title=bot_config.get("show_event_title", True),
-        response_style=style
+        response_style=style,
+        max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
+        max_age_pending_secs=bot_config.get("max_age_pending_secs", 60),
     )
 
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=config_data.get("event_detection", {}).get("max_message_age_seconds", 120)),
+        AgingStage(settings),
         DetectionStage(detector),
         ResolveStage(storage),
         FormatStage(settings),

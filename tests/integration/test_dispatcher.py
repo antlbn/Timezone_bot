@@ -28,7 +28,7 @@ async def test_dispatcher_routes_commands_to_correct_executor():
     
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=120),
+        AgingStage(BotSettings()),
         DetectionStage(detection),
         ResolveStage(storage),
         FormatStage(BotSettings()),
@@ -74,7 +74,7 @@ async def test_dispatcher_from_pending_skips_detection_and_uses_cached_result():
     
     pipeline = Pipeline([
         GuardStage(),
-        AgingStage(max_age_seconds=120),
+        AgingStage(BotSettings()),
         DetectionStage(detection),
         ResolveStage(storage),
         FormatStage(BotSettings()),
