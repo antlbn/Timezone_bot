@@ -2,11 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Any
 from src.core.domain.commands import Command, SavePending, NoOp, SendReply, ShowOnboarding
 from src.ports.pending import PendingPort
+from src.ports.command_bus import CommandBusPort
 import logging
 
 logger = logging.getLogger(__name__)
 
-class BaseCommandExecutor(ABC):
+class BaseCommandBus(CommandBusPort, ABC):
     def __init__(self, pending_port: PendingPort):
         self.pending_port = pending_port
 
