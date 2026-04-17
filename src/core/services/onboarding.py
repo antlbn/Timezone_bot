@@ -86,17 +86,8 @@ class OnboardingService:
         # Messages from the pending queue — use original timestamp (honest data).
         # from_pending=True tells Guard and Aging to skip themselves.
         for pending in pending_messages:
-            input_data = InputData(
-                text=pending.original_input.text,
-                user_id=pending.original_input.user_id,
-                platform=pending.original_input.platform,
-                author_name=pending.original_input.author_name,
-                timestamp_utc=pending.original_input.timestamp_utc,
-                chat_id=pending.original_input.chat_id,
-                thread_id=pending.original_input.thread_id,
-                is_bot=pending.original_input.is_bot
-            )
-            await self._dispatcher.process_input(input_data, from_pending=True)
+            # We already have the exact original InputData!
+            await self._dispatcher.process_input(pending.original_input, from_pending=True)
 
         return OnboardingResult(
             ok=True,
