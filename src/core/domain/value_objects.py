@@ -34,8 +34,8 @@ class UserProfile:
 
 @dataclass(frozen=True)
 class PendingMessage:
-    original_input: "InputData"
-    detection: "DetectionResult" | None = None  # Stored to skip re-detection on resume
+    original_input: InputData
+    detection: DetectionResult  # Stored to skip re-detection on resume
 
 @dataclass(frozen=True)
 class InputData:
