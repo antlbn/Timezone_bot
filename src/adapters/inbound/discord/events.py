@@ -1,7 +1,6 @@
 import discord
-from src.core.domain.value_objects import InputData, MessageContext
+from src.core.domain.value_objects import InputData
 from src.core.domain.enums import Platform
-from src.adapters.executors.discord_executor import DiscordCtx
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class OnboardingDispatch:
     """One outgoing message produced by replaying a pending message."""
+
+@dataclass(frozen=True)
 class OnboardingResult:
     ok: bool
     timezone_name: str | None = None

@@ -24,6 +24,7 @@ from src.core.pipeline.pipeline import Pipeline
 from src.core.domain.value_objects import BotSettings
 from src.core.domain.enums import ResponseStyle
 from src.core.services.onboarding import OnboardingService
+from src.core.services.profile import ProfileService
 from src.ports.storage import StoragePort
 from src.ports.geocoding import GeoPort
 
@@ -46,6 +47,7 @@ async def main():
     # Deferred imports to avoid circular dependency since AppContainer is now in main.py
     from src.adapters.inbound.telegram.handlers import on_message as tg_on_message
     from src.adapters.inbound.telegram.onboarding_handler import router as onboarding_router
+    from src.adapters.inbound.telegram.commands_handler import router as tg_commands_router
     from src.adapters.inbound.discord.events import on_message as dc_on_message
     from src.adapters.inbound.discord.slash_commands import setup_slash_commands
     from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
@@ -131,18 +133,23 @@ async def main():
         geocoding_port=geocoder,
         dispatcher=dispatcher,
     )
+    
+    profile_service = ProfileService(storage_port=storage)
+
+    if dc_executor:
+        dc_executor.set_onboarding_service(onboarding_service)
 
     container = AppContainer(
         storage=storage,
         pipeline=pipeline,
         geocoder=geocoder,
         onboarding_service=onboarding_service,
-        tg_executor=tg_executor,
-        dc_executor=dc_executor,
-        bot=tg_bot,
+        profile_service=profile_service,
+        dispatcher=dispatcher,
     )
-    # Add dispatcher to container for handlers
-    container.dispatcher = dispatcher
+    container.tg_executor = tg_executor
+    container.dc_executor = dc_executor
+    container.bot = tg_bot
 
     tasks = []
 

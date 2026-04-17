@@ -9,22 +9,20 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
     @tree.command(name="tb_settz", description="Set your timezone")
     @app_commands.describe(city="Your city (e.g., Paris, New York)")
     async def tb_settz(interaction: discord.Interaction, city: str):
-        # Resolve city using GeoPort
-        location = await container.geocoder.resolve_city(city)
-        if not location:
-            await interaction.response.send_message(f"❌ Could not resolve city: {city}", ephemeral=True)
-            return
-            
-        await container.storage.set_user(
+        # Defer to allow time for API call
+        await interaction.response.defer(ephemeral=True)
+        res = await container.onboarding_service.complete(
             user_id=interaction.user.id,
+            city_raw=city,
             platform=Platform.DISCORD,
-            timezone=location.timezone,
-            city=location.city,
-            flag=location.flag
+            author_name=interaction.user.display_name
         )
-        
-        await interaction.response.send_message(
-            f"✅ Timezone set to **{location.timezone}** ({location.city} {location.flag})", 
+        if not res.ok:
+            await interaction.followup.send(f"❌ Could not resolve city: {city}", ephemeral=True)
+            return
+
+        await interaction.followup.send(
+            f"✅ Timezone set to **{res.timezone_name}** ({res.city} {res.flag})", 
             ephemeral=True
         )
 
@@ -35,3 +33,47 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
             "Use `/tb_settz` to set your timezone.",
             ephemeral=True
         )
+
+    @tree.command(name="tb_skip", description="Opt out of Timezone Bot features")
+    async def tb_skip(interaction: discord.Interaction):
+        await container.onboarding_service.decline(
+            user_id=interaction.user.id,
+            platform=Platform.DISCORD
+        )
+        await interaction.response.send_message(
+            "Got it! I won't prompt you for your timezone anymore. Use `/tb_settz` if you change your mind.",
+            ephemeral=True
+        )
+
+    @tree.command(name="tb_me", description="Show your current timezone")
+    async def tb_me(interaction: discord.Interaction):
+        user = await container.profile_service.get_user(interaction.user.id, Platform.DISCORD)
+        if not user or not user.timezone:
+            await interaction.response.send_message("Not set. Use `/tb_settz`", ephemeral=True)
+            return
+
+        await interaction.response.send_message(
+            f"{user.city} {user.flag} ({user.timezone})", ephemeral=True
+        )
+
+    @tree.command(name="tb_members", description="List server members with timezones")
+    async def tb_members(interaction: discord.Interaction):
+        if not interaction.guild:
+            await interaction.response.send_message("Server only", ephemeral=True)
+            return
+
+        members = await container.profile_service.get_sorted_chat_members(str(interaction.guild.id), Platform.DISCORD)
+
+        if not members:
+            await interaction.response.send_message("No members yet. Use `/tb_settz`", ephemeral=True)
+            return
+
+        lines = ["**Server members:**"]
+        for i, m in enumerate(members, 1):
+            flag = m.flag or ""
+            city = m.city or "Unknown"
+            # Note: Discord user tags not natively stored unless we look up, but ID can be used or we omit.
+            lines.append(f"{i}. {city} {flag}")
+            
+        # Optional: formatting into embed or simple text
+        await interaction.response.send_message("\n".join(lines), ephemeral=True)

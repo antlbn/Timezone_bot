@@ -10,6 +10,10 @@ class DiscordCommandExecutor(BaseCommandExecutor):
     def __init__(self, pending_port, client: discord.Client):
         super().__init__(pending_port)
         self.client = client
+        self.onboarding_service = None
+
+    def set_onboarding_service(self, service):
+        self.onboarding_service = service
 
     async def _get_channel(self, thread_id: str | None) -> discord.abc.Messageable | None:
         if not thread_id:
@@ -50,6 +54,6 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         await channel.send(
             content=f"<@{cmd.user_id}>",
             embed=embed,
-            view=SetTimezoneView(cmd.user_id),
+            view=SetTimezoneView(cmd.user_id, self.onboarding_service),
             delete_after=60
         )
