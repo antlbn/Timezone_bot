@@ -1,9 +1,9 @@
 import discord
-from src.adapters.command_bus.base_bus import BaseCommandBus
+from src.adapters.executors.base_executor import BaseCommandExecutor
 from src.core.domain.commands import SendReply, ShowOnboarding
 from src.adapters.inbound.discord.ui import SetTimezoneView
 
-class DiscordCommandBus(BaseCommandBus):
+class DiscordCommandExecutor(BaseCommandExecutor):
     def __init__(self, pending_port, client: discord.Client):
         super().__init__(pending_port)
         self.client = client

@@ -1,10 +1,10 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from src.adapters.command_bus.base_bus import BaseCommandBus
+from src.adapters.executors.base_executor import BaseCommandExecutor
 from src.core.domain.commands import SendReply, ShowOnboarding
 
 from aiogram import Bot
 
-class TelegramCommandBus(BaseCommandBus):
+class TelegramCommandExecutor(BaseCommandExecutor):
     def __init__(self, pending_port, bot: Bot):
         super().__init__(pending_port)
         self.bot = bot

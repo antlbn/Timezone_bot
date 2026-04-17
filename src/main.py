@@ -18,8 +18,8 @@ from src.adapters.outbound.sqlite_storage import SQLiteStorage
 from src.adapters.outbound.openai_detector import OpenAIDetector
 from src.adapters.outbound.nominatim_geo import NominatimGeo
 from src.adapters.outbound.memory_pending import MemoryPending
-from src.adapters.command_bus.telegram_bus import TelegramCommandBus
-from src.adapters.command_bus.discord_bus import DiscordCommandBus
+from src.adapters.executors.telegram_executor import TelegramCommandExecutor
+from src.adapters.executors.discord_executor import DiscordCommandExecutor
 from src.core.pipeline.pipeline import Pipeline
 from src.core.domain.value_objects import BotSettings
 from src.core.domain.enums import ResponseStyle
@@ -34,8 +34,8 @@ class AppContainer:
     geocoder: GeoPort
     onboarding_service: OnboardingService
     dispatcher: 'MessageDispatcher'
-    tg_bus: TelegramCommandBus | None = None
-    dc_bus: DiscordCommandBus | None = None
+    tg_executor: TelegramCommandExecutor | None = None
+    dc_executor: DiscordCommandExecutor | None = None
     bot: TgBot | None = None  # TODO: clean this up when OnboardingService delegates to executor
 
 logger = logging.getLogger(__name__)
@@ -114,13 +114,13 @@ async def main():
 
     from src.core.services.dispatcher import MessageDispatcher
 
-    tg_bus = TelegramCommandBus(pending_port=pending, bot=tg_bot) if tg_bot else None
-    dc_bus = DiscordCommandBus(pending_port=pending, client=dc_client) if dc_client else None
+    tg_executor = TelegramCommandExecutor(pending_port=pending, bot=tg_bot) if tg_bot else None
+    dc_executor = DiscordCommandExecutor(pending_port=pending, client=dc_client) if dc_client else None
 
     dispatcher = MessageDispatcher(
         pipeline=pipeline,
-        tg_executor=tg_bus,
-        dc_executor=dc_bus,
+        tg_executor=tg_executor,
+        dc_executor=dc_executor,
     )
 
     onboarding_service = OnboardingService(
@@ -135,8 +135,8 @@ async def main():
         pipeline=pipeline,
         geocoder=geocoder,
         onboarding_service=onboarding_service,
-        tg_bus=tg_bus,
-        dc_bus=dc_bus,
+        tg_executor=tg_executor,
+        dc_executor=dc_executor,
         bot=tg_bot,
     )
     # Add dispatcher to container for handlers

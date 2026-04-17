@@ -2,7 +2,7 @@ import logging
 from src.core.domain.value_objects import InputData, MessageContext
 from src.core.domain.enums import Platform
 from src.core.pipeline.pipeline import Pipeline
-from src.ports.command_bus import CommandBusPort
+from src.ports.executor import CommandExecutorPort
 
 logger = logging.getLogger(__name__)
 
@@ -10,8 +10,8 @@ class MessageDispatcher:
     def __init__(
         self,
         pipeline: Pipeline,
-        tg_executor: CommandBusPort | None,
-        dc_executor: CommandBusPort | None,
+        tg_executor: CommandExecutorPort | None,
+        dc_executor: CommandExecutorPort | None,
     ):
         self.pipeline = pipeline
         self.routes = {}
