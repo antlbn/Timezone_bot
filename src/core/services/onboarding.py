@@ -63,6 +63,7 @@ class OnboardingService:
         user_id: int,
         city_raw: str,
         platform: Platform,
+        author_name: str,
     ) -> OnboardingResult:
         """
         User submitted a city name.
@@ -94,7 +95,6 @@ class OnboardingService:
             timezone_name=location.timezone,
             city=location.city,
             flag=location.flag,
-            dispatches=tuple(dispatches),
         )
 
     async def decline(self, user_id: int, platform: Platform) -> None:
