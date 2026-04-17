@@ -4,6 +4,10 @@ import signal
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.services.dispatcher import MessageDispatcher
 from aiogram import Bot as TgBot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -34,6 +38,7 @@ class AppContainer:
     pipeline: Pipeline
     geocoder: GeoPort
     onboarding_service: OnboardingService
+    profile_service: ProfileService
     dispatcher: 'MessageDispatcher'
     tg_executor: TelegramCommandExecutor | None = None
     dc_executor: DiscordCommandExecutor | None = None
@@ -165,6 +170,7 @@ async def main():
 
         # Onboarding FSM router — must be registered BEFORE the catch-all
         dp.include_router(onboarding_router)
+        dp.include_router(tg_commands_router)
 
         @dp.message()
         async def wrapped_tg_on_message(message):

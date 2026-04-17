@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Any
 from src.core.domain.commands import Command, SavePending, NoOp, SendReply, ShowOnboarding
 from src.ports.pending import PendingPort
 from src.ports.executor import CommandExecutorPort

@@ -1,7 +1,6 @@
 from aiogram.types import Message
-from src.core.domain.value_objects import InputData, MessageContext
+from src.core.domain.value_objects import InputData
 from src.core.domain.enums import Platform
-from src.adapters.executors.telegram_executor import TelegramCtx
 import logging
 from typing import TYPE_CHECKING
 

@@ -4,7 +4,6 @@ from src.core.domain.commands import SendReply, SavePending, ShowOnboarding, NoO
 from src.ports.detection import DetectionPort, DetectionRequest
 from src.ports.storage import StoragePort
 from src.core.services.formatting import format_multi_conversion
-from src.core.domain.enums import ResponseStyle
 
 
 class GuardStage:

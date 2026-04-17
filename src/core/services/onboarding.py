@@ -12,18 +12,16 @@ Nothing here knows about Telegram, aiogram, or any UI framework.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from src.core.domain.commands import SendReply
 from src.core.domain.enums import Platform
-from src.core.domain.value_objects import InputData, MessageContext
 from src.ports.geocoding import GeoPort
 from src.ports.pending import PendingPort
 from src.ports.storage import StoragePort
 
 if TYPE_CHECKING:
-    from src.core.pipeline.pipeline import Pipeline
+    from src.core.services.dispatcher import MessageDispatcher
 
 
 # ---------------------------------------------------------------------------

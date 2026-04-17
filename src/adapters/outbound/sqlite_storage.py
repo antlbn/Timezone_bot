@@ -25,7 +25,8 @@ class SQLiteStorage(StoragePort):
         return self._db
 
     async def init_db(self):
-        if not self._db: return
+        if not self._db:
+            return
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER,
