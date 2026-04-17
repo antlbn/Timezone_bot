@@ -16,7 +16,7 @@ class Pipeline:
                 if ctx._stopped:
                     return ctx
             except Exception as e:
-                logger.error(f"Pipeline stage {stage.__class__.__name__} failed: {e}")
+                logger.exception(f"Pipeline stage {stage.__class__.__name__} failed: {e}")
                 ctx.commands = [NoOp()]
                 return ctx
         return ctx

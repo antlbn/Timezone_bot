@@ -1,7 +1,10 @@
 import discord
+import logging
 from src.adapters.executors.base_executor import BaseCommandExecutor
 from src.core.domain.commands import SendReply, ShowOnboarding
 from src.adapters.inbound.discord.ui import SetTimezoneView
+
+logger = logging.getLogger(__name__)
 
 class DiscordCommandExecutor(BaseCommandExecutor):
     def __init__(self, pending_port, client: discord.Client):
@@ -15,7 +18,13 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         if not channel:
             try:
                 channel = await self.client.fetch_channel(int(thread_id))
-            except Exception:
+            except discord.NotFound:
+                return None
+            except discord.HTTPException as e:
+                logger.error(f"Discord HTTP error when fetching channel {thread_id}: {e}")
+                return None
+            except Exception as e:
+                logger.exception(f"Unexpected error fetching channel {thread_id}: {e}")
                 return None
         return channel
 

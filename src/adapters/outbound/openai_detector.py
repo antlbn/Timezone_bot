@@ -31,7 +31,7 @@ class OpenAIDetector(DetectionPort):
             logger.error("No LLM_API_KEY found")
             return DetectionResult(time_mentioned=False, points=tuple())
 
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=10.0)
         
         # Super simplified system prompt for testing
         system_prompt = """You extract time references from conversational text and return a JSON object.
@@ -68,5 +68,5 @@ Keep am_pm_clear true unless ambiguous."""
 
             return DetectionResult(time_mentioned=time_mentioned, points=tuple(points))
         except Exception as e:
-            logger.error(f"Detector error: {e}")
+            logger.exception(f"Detector error: {e}")
             return DetectionResult(time_mentioned=False, points=tuple())

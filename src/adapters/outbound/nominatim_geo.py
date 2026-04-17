@@ -34,7 +34,7 @@ class NominatimGeo(GeoPort):
                 flag=get_country_flag(country_code)
             )
         except Exception as e:
-            logger.error(f"Geocoding error for '{name}': {e}")
+            logger.exception(f"Geocoding error for '{name}': {e}")
             return None
 
     async def resolve_city(self, name: str) -> Location | None:
