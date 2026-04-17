@@ -83,10 +83,3 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
     await message.answer(
         f"✅ Установлено: <b>{result.timezone_name}</b> {result.flag or ''}"
     )
-
-    # ── execute dispatches (replay results back to group chats) ───────────
-    for dispatch in result.dispatches:
-        await container.bot.send_message(
-            chat_id=dispatch.chat_id,
-            text=dispatch.text,
-        )

@@ -45,6 +45,7 @@ class InputData:
     author_name: str
     timestamp_utc: datetime
     chat_id: str
+    thread_id: str | None = None
     is_bot: bool = False
 
 @dataclass(frozen=True)

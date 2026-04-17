@@ -33,17 +33,11 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class OnboardingDispatch:
     """One outgoing message produced by replaying a pending message."""
-    chat_id: str
-    text: str
-
-
-@dataclass(frozen=True)
 class OnboardingResult:
     ok: bool
     timezone_name: str | None = None
     city: str | None = None
     flag: str | None = None
-    dispatches: tuple[OnboardingDispatch, ...] = field(default_factory=tuple)
     error: str | None = None  # "city_not_found"
 
 
@@ -54,15 +48,15 @@ class OnboardingResult:
 class OnboardingService:
     def __init__(
         self,
-        storage_port: StoragePort,
-        pending_port: PendingPort,
-        geocoding_port: GeoPort,
-        pipeline: Pipeline,
+        storage_port: 'StoragePort',
+        pending_port: 'PendingPort',
+        geocoding_port: 'GeoPort',
+        dispatcher: 'MessageDispatcher',
     ) -> None:
         self._storage = storage_port
         self._pending = pending_port
-        self._geocoding = geocoding_port
-        self._pipeline = pipeline
+        self._geo = geocoding_port
+        self._dispatcher = dispatcher
 
     async def complete(
         self,
@@ -72,12 +66,8 @@ class OnboardingService:
     ) -> OnboardingResult:
         """
         User submitted a city name.
-
-        Returns OnboardingResult with `dispatches` — a list of
-        (chat_id, text) pairs that the adapter must send to the
-        original group chats after confirming success to the user.
         """
-        location = await self._geocoding.resolve_city(city_raw)
+        location = await self._geo.resolve_city(city_raw)
         if location is None:
             return OnboardingResult(ok=False, error="city_not_found")
 
@@ -95,19 +85,18 @@ class OnboardingService:
 
         # Messages from the pending queue — use original timestamp (honest data).
         # from_pending=True tells Guard and Aging to skip themselves.
-        dispatches: list[OnboardingDispatch] = []
         for pending in pending_messages:
-            ctx = MessageContext(
-                input=pending.original_input,
-                detection=pending.detection,   # cached — DetectionStage will skip LLM
-                from_pending=True,             # Guard + Aging will skip themselves
+            input_data = InputData(
+                text=pending.original_input.text,
+                user_id=pending.original_input.user_id,
+                platform=pending.original_input.platform,
+                author_name=pending.original_input.author_name,
+                timestamp_utc=pending.original_input.timestamp_utc,
+                chat_id=pending.original_input.chat_id,
+                thread_id=pending.original_input.thread_id,
+                is_bot=pending.original_input.is_bot
             )
-            ctx = await self._pipeline.run(ctx)
-            for cmd in ctx.commands:
-                if isinstance(cmd, SendReply):
-                    dispatches.append(
-                        OnboardingDispatch(chat_id=pending.original_input.chat_id, text=cmd.text)
-                    )
+            await self._dispatcher.process_input(input_data, from_pending=True)
 
         return OnboardingResult(
             ok=True,

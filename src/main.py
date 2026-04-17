@@ -31,11 +31,12 @@ from src.ports.geocoding import GeoPort
 class AppContainer:
     storage: StoragePort
     pipeline: Pipeline
-    tg_executor: TelegramCommandExecutor
-    dc_executor: DiscordCommandExecutor
     geocoder: GeoPort
     onboarding_service: OnboardingService
-    bot: TgBot | None = None  # set after TgBot is created
+    dispatcher: 'MessageDispatcher'
+    tg_executor: TelegramCommandExecutor | None = None
+    dc_executor: DiscordCommandExecutor | None = None
+    bot: TgBot | None = None  # TODO: clean this up when OnboardingService delegates to executor
 
 logger = logging.getLogger(__name__)
 
@@ -99,32 +100,52 @@ async def main():
         CommandFactoryStage()
     ])
 
-    tg_executor = TelegramCommandExecutor(pending_port=pending)
-    dc_executor = DiscordCommandExecutor(pending_port=pending)
+    tg_bot = None
+    if tg_token:
+        tg_bot = TgBot(token=tg_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    dc_client = None
+    tree = None
+    if dc_token:
+        intents = discord.Intents.default()
+        intents.message_content = True
+        dc_client = discord.Client(intents=intents)
+        tree = app_commands.CommandTree(dc_client)
+
+    from src.core.services.dispatcher import MessageDispatcher
+
+    tg_executor = TelegramCommandExecutor(pending_port=pending, bot=tg_bot) if tg_bot else None
+    dc_executor = DiscordCommandExecutor(pending_port=pending, client=dc_client) if dc_client else None
+
+    dispatcher = MessageDispatcher(
+        pipeline=pipeline,
+        tg_executor=tg_executor,
+        dc_executor=dc_executor,
+    )
 
     onboarding_service = OnboardingService(
         storage_port=storage,
         pending_port=pending,
         geocoding_port=geocoder,
-        pipeline=pipeline,
+        dispatcher=dispatcher,
     )
 
     container = AppContainer(
         storage=storage,
         pipeline=pipeline,
-        tg_executor=tg_executor,
-        dc_executor=dc_executor,
         geocoder=geocoder,
         onboarding_service=onboarding_service,
+        tg_executor=tg_executor,
+        dc_executor=dc_executor,
+        bot=tg_bot,
     )
+    # Add dispatcher to container for handlers
+    container.dispatcher = dispatcher
 
     tasks = []
 
     # Setup Telegram
-    if tg_token:
-        tg_bot = TgBot(token=tg_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-        container.bot = tg_bot  # make bot available for replay dispatches
-
+    if tg_token and tg_bot:
         dp = Dispatcher(storage=MemoryStorage())  # FSM needs a storage backend
 
         # Middleware: injects `container` into every handler that declares it
@@ -143,11 +164,7 @@ async def main():
         tasks.append(asyncio.create_task(dp.start_polling(tg_bot, handle_signals=False)))
 
     # Setup Discord
-    if dc_token:
-        intents = discord.Intents.default()
-        intents.message_content = True
-        dc_client = discord.Client(intents=intents)
-        tree = app_commands.CommandTree(dc_client)
+    if dc_token and dc_client and tree:
 
         @dc_client.event
         async def on_message(message):

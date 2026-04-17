@@ -11,20 +11,15 @@ async def on_message(message: discord.Message, container: 'AppContainer') -> Non
     if message.author.bot or not message.guild:
         return
 
-    ctx = MessageContext(input=InputData(
+    data = InputData(
         text=message.content,
         user_id=message.author.id,
         platform=Platform.DISCORD,
         author_name=message.author.display_name,
         timestamp_utc=message.created_at,
         chat_id=str(message.guild.id),
+        thread_id=str(message.channel.id),
         is_bot=message.author.bot
-    ))
+    )
     
-    ctx = await container.pipeline.run(ctx)
-    commands = ctx.commands
-    if not commands:
-        return
-    
-    dc_ctx = DiscordCtx(message)
-    await container.dc_executor.execute(commands, dc_ctx)
+    await container.dispatcher.process_input(data)

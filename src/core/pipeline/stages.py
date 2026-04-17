@@ -110,7 +110,7 @@ class CommandFactoryStage:
 
         if ctx.sender is not None and ctx.sender.timezone:
             if ctx.reply_text:
-                ctx.commands = [SendReply(text=ctx.reply_text)]
+                ctx.commands = [SendReply(text=ctx.reply_text, chat_id=ctx.input.chat_id, thread_id=ctx.input.thread_id)]
             else:
                 ctx.commands = [NoOp()]
             return ctx
@@ -119,7 +119,12 @@ class CommandFactoryStage:
             pending = PendingMessage(original_input=ctx.input, detection=ctx.detection)
             ctx.commands = [
                 SavePending(user_id=ctx.input.user_id, platform=ctx.input.platform, message=pending),
-                ShowOnboarding(user_id=ctx.input.user_id, author_name=ctx.input.author_name, chat_id=ctx.input.chat_id)
+                ShowOnboarding(
+                    user_id=ctx.input.user_id, 
+                    author_name=ctx.input.author_name, 
+                    chat_id=ctx.input.chat_id,
+                    thread_id=ctx.input.thread_id
+                )
             ]
             return ctx
 

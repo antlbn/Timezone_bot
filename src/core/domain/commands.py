@@ -11,6 +11,8 @@ class Command:
 @dataclass(frozen=True)
 class SendReply(Command):
     text: str
+    chat_id: str
+    thread_id: str | None = None
 
 @dataclass(frozen=True)
 class SavePending(Command):
@@ -23,6 +25,7 @@ class ShowOnboarding(Command):
     user_id: int
     author_name: str
     chat_id: str
+    thread_id: str | None = None
 
 @dataclass(frozen=True)
 class NoOp(Command):

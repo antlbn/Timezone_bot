@@ -11,21 +11,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 async def on_message(message: Message, container: 'AppContainer') -> None:
-    ctx = MessageContext(input=InputData(
+    data = InputData(
         text=message.text or "",
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
         author_name=message.from_user.full_name,
         timestamp_utc=message.date,
         chat_id=str(message.chat.id),
+        thread_id=str(message.message_thread_id) if message.message_thread_id else None,
         is_bot=message.from_user.is_bot
-    ))
+    )
     
-    ctx = await container.pipeline.run(ctx)
-    commands = ctx.commands
-    if not commands:
-        return
-    
-    # Needs TelegramCtx from telegram_executor
-    tg_ctx = TelegramCtx(message)
-    await container.tg_executor.execute(commands, tg_ctx)
+    await container.dispatcher.process_input(data)
