@@ -2,6 +2,10 @@ from src.core.domain.enums import Platform
 from src.core.domain.value_objects import UserProfile, PendingMessage, TimePoint
 from src.ports.storage import StoragePort
 from src.ports.detection import DetectionPort, DetectionRequest, DetectionResult
+from src.ports.geocoding import GeoPort, Location
+from src.ports.pending import PendingPort
+from src.ports.executor import CommandExecutorPort
+from src.core.domain.commands import Command
 
 class FakeStoragePort:
     def __init__(self):
@@ -36,3 +40,33 @@ class FakeDetectionPort:
             time_mentioned=self._time_mentioned,
             points=tuple(self._points)
         )
+
+class FakeGeoPort(GeoPort):
+    def __init__(self, resolves_to: Location | None = None):
+        self._resolves_to = resolves_to
+
+    async def resolve_city(self, name: str) -> Location | None:
+        return self._resolves_to
+
+class FakePendingPort(PendingPort):
+    def __init__(self):
+        self.messages = {}
+
+    async def save_pending(self, user_id: int, platform: Platform, message: PendingMessage) -> None:
+        key = (user_id, platform)
+        if key not in self.messages:
+            self.messages[key] = []
+        self.messages[key].append(message)
+
+    async def get_and_clear_pending(self, user_id: int, platform: Platform) -> list[PendingMessage]:
+        key = (user_id, platform)
+        msgs = self.messages.get(key, [])
+        self.messages[key] = []
+        return msgs
+
+class FakeCommandExecutorPort(CommandExecutorPort):
+    def __init__(self):
+        self.executed_commands = []
+
+    async def execute(self, commands: list[Command]) -> None:
+        self.executed_commands.extend(commands)
