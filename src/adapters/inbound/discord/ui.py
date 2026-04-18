@@ -45,7 +45,8 @@ class SetTimezoneView(ui.View):
     async def skip_setup(self, interaction: discord.Interaction, button: ui.Button):
         await self.onboarding_service.decline(
             user_id=interaction.user.id,
-            platform=Platform.DISCORD
+            platform=Platform.DISCORD,
+            author_name=interaction.user.display_name
         )
         await interaction.response.send_message(
             "Got it! I won't bother you again. Use `/tb_settz` if you change your mind.", 

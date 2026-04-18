@@ -79,6 +79,7 @@ class OnboardingService:
             location.timezone,
             location.city,
             location.flag,
+            author_name,
         )
 
         # Fetch and atomically delete all pending messages for this user.
@@ -97,11 +98,11 @@ class OnboardingService:
             flag=location.flag,
         )
 
-    async def decline(self, user_id: int, platform: Platform) -> None:
+    async def decline(self, user_id: int, platform: Platform, author_name: str | None = None) -> None:
         """
         User pressed /skip.
         Mark as declined so CommandFactoryStage emits NoOp in future.
         Delete pending messages without replay.
         """
-        await self._storage.set_onboarding_declined(user_id, platform)
+        await self._storage.set_onboarding_declined(user_id, platform, author_name)
         await self._pending.get_and_delete(user_id, platform)

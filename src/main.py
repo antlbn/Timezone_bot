@@ -42,7 +42,6 @@ class AppContainer:
     dispatcher: 'MessageDispatcher'
     tg_executor: TelegramCommandExecutor | None = None
     dc_executor: DiscordCommandExecutor | None = None
-    bot: TgBot | None = None  # TODO: clean this up when OnboardingService delegates to executor
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +153,6 @@ async def main():
     )
     container.tg_executor = tg_executor
     container.dc_executor = dc_executor
-    container.bot = tg_bot
 
     tasks = []
 

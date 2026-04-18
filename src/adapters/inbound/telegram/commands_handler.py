@@ -32,6 +32,7 @@ async def cmd_skip(message: Message, state: FSMContext, container: "AppContainer
     await container.onboarding_service.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
+        author_name=message.from_user.full_name,
     )
     await message.answer("Got it! I won't ask you again. Use /tb_settz if you change your mind.")
 
@@ -62,7 +63,8 @@ async def cmd_members(message: Message, container: "AppContainer") -> None:
     for i, m in enumerate(members, 1):
         flag = m.flag or ""
         city = m.city or "Unknown"
-        lines.append(f"{i}. {city} {flag}")
+        name = f" (@{m.username})" if m.username else ""
+        lines.append(f"{i}. {city} {flag}{name}")
 
     await message.answer("\n".join(lines))
 

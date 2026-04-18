@@ -38,7 +38,8 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
     async def tb_skip(interaction: discord.Interaction):
         await container.onboarding_service.decline(
             user_id=interaction.user.id,
-            platform=Platform.DISCORD
+            platform=Platform.DISCORD,
+            author_name=interaction.user.display_name
         )
         await interaction.response.send_message(
             "Got it! I won't prompt you for your timezone anymore. Use `/tb_settz` if you change your mind.",
@@ -72,8 +73,8 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
         for i, m in enumerate(members, 1):
             flag = m.flag or ""
             city = m.city or "Unknown"
-            # Note: Discord user tags not natively stored unless we look up, but ID can be used or we omit.
-            lines.append(f"{i}. {city} {flag}")
+            name = f" (@{m.username})" if m.username else ""
+            lines.append(f"{i}. {city} {flag}{name}")
             
         # Optional: formatting into embed or simple text
         await interaction.response.send_message("\n".join(lines), ephemeral=True)

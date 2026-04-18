@@ -72,15 +72,15 @@ class SQLiteStorage(StoragePort):
             row = await cursor.fetchone()
             return self._row_to_user_profile(row) if row else None
 
-    async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None) -> None:
+    async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None, username: str | None = None) -> None:
         db = await self._get_conn()
         await db.execute(
             """
-            INSERT INTO users (user_id, platform, city, timezone, flag)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, platform) DO UPDATE SET city = ?, timezone = ?, flag = ?
+            INSERT INTO users (user_id, platform, city, timezone, flag, username)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET city = ?, timezone = ?, flag = ?, username = ?
             """,
-            (user_id, platform.value, city, timezone, flag or "", city, timezone, flag or ""),
+            (user_id, platform.value, city, timezone, flag or "", username or "", city, timezone, flag or "", username or ""),
         )
         await db.commit()
         # clear basic cache
@@ -134,15 +134,15 @@ class SQLiteStorage(StoragePort):
         )
         await db.commit()
 
-    async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
+    async def set_onboarding_declined(self, user_id: int, platform: Platform, username: str | None = None) -> None:
         db = await self._get_conn()
         await db.execute(
             """
-            INSERT INTO users (user_id, platform, onboarding_declined)
-            VALUES (?, ?, 1)
-            ON CONFLICT(user_id, platform) DO UPDATE SET onboarding_declined = 1
+            INSERT INTO users (user_id, platform, onboarding_declined, username)
+            VALUES (?, ?, 1, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET onboarding_declined = 1, username = COALESCE(?, username)
             """,
-            (user_id, platform.value),
+            (user_id, platform.value, username or "", username or ""),
         )
         await db.commit()
 

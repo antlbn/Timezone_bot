@@ -53,6 +53,7 @@ async def on_skip(message: Message, state: FSMContext, container: "AppContainer"
     await container.onboarding_service.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
+        author_name=message.from_user.full_name,
     )
     await message.answer("Окей, не буду спрашивать 🙂 Если передумаешь — /start")
 
