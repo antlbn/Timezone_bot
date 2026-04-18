@@ -27,6 +27,7 @@ class TimePoint:
 class UserProfile:
     user_id: int
     platform: Platform
+    username: str | None = None
     city: str | None = None
     timezone: str | None = None
     flag: str | None = None

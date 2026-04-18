@@ -21,11 +21,8 @@ def _format_time_with_shift(time_str: str, day_shift: int) -> str:
 
 
 def _member_name(member: UserProfile) -> str:
-    # We don't have username/display_name in UserProfile yet, maybe just user_id for now
-    # Wait, the user profile has no name? The sender has a name in InputData.
-    # Group members should have names if they were discord users.
-    # For now, let's just use user_id or "user" if needed.
-    # In M1.1 UserProfile doesn't have a name field. It's fine, we can just skip or add a mock if show_usernames=False.
+    if member.username:
+        return f"@{member.username}"
     return f"@{member.user_id}"
 
 

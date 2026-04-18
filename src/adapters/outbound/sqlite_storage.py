@@ -56,6 +56,7 @@ class SQLiteStorage(StoragePort):
         return UserProfile(
             user_id=row["user_id"],
             platform=Platform(row["platform"]),
+            username=row["username"],
             city=row["city"],
             timezone=row["timezone"],
             flag=row["flag"],
