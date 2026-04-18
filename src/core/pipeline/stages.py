@@ -24,12 +24,14 @@ class GuardStage:
 
 
 class AgingStage:
+        # Checks if the message is too old
     def __init__(self, settings: BotSettings):
         self._settings = settings
 
     async def process(self, ctx: MessageContext) -> MessageContext:
         age_seconds = (datetime.now(timezone.utc) - ctx.input.timestamp_utc).total_seconds()
-        
+        # For regular messages, we have a short window to respond
+        # For pending from onboarding  messages, we have a longer window to respond
         if ctx.from_pending:
             if age_seconds > self._settings.max_age_pending_secs:
                 ctx._stopped = True
@@ -41,11 +43,12 @@ class AgingStage:
 
 
 class DetectionStage:
+    # Detects time mentioned in the message
     def __init__(self, detection_port: DetectionPort):
         self.detection_port = detection_port
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        # If this message came from the pending queue, the detection result
+        # If this message came from the pending_onboarding queue, the detection result
         # was cached in PendingMessage.detection — no need to call the LLM again.
         if ctx.from_pending and ctx.detection is not None:
             return ctx
@@ -58,6 +61,7 @@ class DetectionStage:
 
 
 class ResolveStage:
+    # Resolves the sender and chat members
     def __init__(self, storage_port: StoragePort):
         self.storage_port = storage_port
 

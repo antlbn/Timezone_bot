@@ -14,7 +14,7 @@ async def on_message(message: Message, container: 'AppContainer') -> None:
         text=message.text or "",
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
-        author_name=message.from_user.full_name,
+        author_name=message.from_user.first_name,
         timestamp_utc=message.date,
         chat_id=str(message.chat.id),
         thread_id=str(message.message_thread_id) if message.message_thread_id else None,

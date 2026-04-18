@@ -24,6 +24,5 @@ class StoragePort(Protocol):
     async def update_activity(self, chat_id: str, user_id: int, platform: Platform) -> None:
         ...
 
-    async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
-        ...
+
 

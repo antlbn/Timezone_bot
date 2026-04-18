@@ -53,7 +53,7 @@ async def on_skip(message: Message, state: FSMContext, container: "AppContainer"
     await container.onboarding_service.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
-        author_name=message.from_user.full_name,
+        author_name=message.from_user.first_name,
     )
     await message.answer("Окей, не буду спрашивать 🙂 Если передумаешь — /start")
 
@@ -69,7 +69,7 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
         user_id=user_id,
         city_raw=city_raw,
         platform=Platform.TELEGRAM,
-        author_name=message.from_user.full_name,
+        author_name=message.from_user.first_name,
     )
 
     if not result.ok:
