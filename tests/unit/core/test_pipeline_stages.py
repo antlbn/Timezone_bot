@@ -32,7 +32,7 @@ def _ctx(
 
 
 @pytest.mark.asyncio
-async def test_command_factory_reply_and_onboarding_commands():
+async def test_decision_stage_reply_and_onboarding_decision():
     ctx = _ctx(reply_text="15:00 Berlin")
 
     result = await DecisionStage().process(ctx)
@@ -57,7 +57,7 @@ async def test_decision_stage_reply_and_pending_without_prompt_flags():
 
 
 @pytest.mark.asyncio
-async def test_command_factory_onboarding_without_reply():
+async def test_decision_stage_onboarding_without_reply():
     ctx = _ctx()
 
     result = await DecisionStage().process(ctx)
@@ -69,7 +69,7 @@ async def test_command_factory_onboarding_without_reply():
 
 
 @pytest.mark.asyncio
-async def test_command_factory_declined_user_gets_no_onboarding_commands():
+async def test_decision_stage_declined_user_gets_ignore_decision():
     ctx = _ctx(sender=UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True))
 
     result = await DecisionStage().process(ctx)

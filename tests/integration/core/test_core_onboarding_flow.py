@@ -90,7 +90,7 @@ def _make_services(
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_routes_reply_to_correct_executor():
+async def test_message_processor_routes_reply_to_correct_executor():
     storage = FakeStoragePort()
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/London", city="London", flag="🇬🇧")
     storage.users[(1, Platform.TELEGRAM)] = sender
@@ -169,7 +169,7 @@ async def test_complete_replays_latest_pending_and_clears_it():
         "country_code": "GB",
         "flag": "🇬🇧",
     })()
-    _, pending, _, onboarding, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo)
+    _, pending, _, onboarding_coordinator, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo)
 
     receiver = UserProfile(user_id=2, platform=Platform.TELEGRAM, timezone="America/New_York", city="New York", flag="🇺🇸")
     storage.members[("chat1", Platform.TELEGRAM)] = [receiver]
@@ -187,7 +187,7 @@ async def test_complete_replays_latest_pending_and_clears_it():
     )
     await pending.upsert(1, Platform.TELEGRAM, pending_msg)
 
-    result = await onboarding.complete(1, "London", Platform.TELEGRAM)
+    result = await onboarding_coordinator.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
     assert len(tg_executor.executed_commands) == 1
@@ -207,7 +207,7 @@ async def test_complete_drops_stale_pending_without_reply():
         "flag": "🇬🇧",
     })()
     settings = BotSettings(max_age_fresh_secs=30)
-    _, pending, _, onboarding, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo, settings=settings)
+    _, pending, _, onboarding_coordinator, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo, settings=settings)
 
     stale_msg = OnboardingPendingMessage(
         original_input=InputData(
@@ -222,7 +222,7 @@ async def test_complete_drops_stale_pending_without_reply():
     )
     await pending.upsert(1, Platform.TELEGRAM, stale_msg)
 
-    result = await onboarding.complete(1, "London", Platform.TELEGRAM)
+    result = await onboarding_coordinator.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
     assert tg_executor.executed_commands == []
@@ -233,7 +233,7 @@ async def test_complete_drops_stale_pending_without_reply():
 async def test_decline_marks_user_and_clears_pending():
     storage = FakeStoragePort()
     pending = FakeOnboardingPendingPort()
-    _, pending, _, onboarding, _, _ = _make_services(storage=storage, pending=pending)
+    _, pending, _, onboarding_coordinator, _, _ = _make_services(storage=storage, pending=pending)
 
     await pending.upsert(
         1,
@@ -251,7 +251,7 @@ async def test_decline_marks_user_and_clears_pending():
         ),
     )
 
-    await onboarding.decline(1, Platform.TELEGRAM)
+    await onboarding_coordinator.decline(1, Platform.TELEGRAM)
 
     assert storage.users[(1, Platform.TELEGRAM)].onboarding_declined is True
     assert await pending.get(1, Platform.TELEGRAM) is None

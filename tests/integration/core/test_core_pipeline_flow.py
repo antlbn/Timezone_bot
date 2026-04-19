@@ -106,7 +106,6 @@ async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
     assert ctx.decision.reply_text is None
 
 
-
 @pytest.mark.asyncio
 async def test_pipeline_declined_onboarding_no_spam():
     """User declined -> pipeline returns an ignore decision."""
@@ -187,7 +186,6 @@ async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     declined = UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True)
     storage.users[(1, Platform.TELEGRAM)] = declined
 
-    # TimePoint with pre-resolved tz (GeoResolveStage already ran, simulated by test setup)
     tp = TimePoint(time="14:00", tz_city="London", tz_resolved="Europe/London")
     detection = FakeDetectionPort(time_mentioned=True, points=[tp])
     pipeline = _fresh_pipeline(storage, detection)
@@ -198,7 +196,6 @@ async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     ))
     ctx = await pipeline.run(ctx)
 
-    # Must NOT emit ShowOnboarding
     assert ctx.decision is not None
     assert ctx.decision.reply_text is not None
     assert ctx.decision.needs_onboarding is False
