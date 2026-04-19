@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from core.domain.enums import Platform
-from core.domain.value_objects import PendingMessage
+from core.domain.value_objects import OnboardingPendingMessage
 
 @dataclass(frozen=True)
 class Command:
@@ -15,10 +15,10 @@ class SendReply(Command):
     thread_id: str | None = None
 
 @dataclass(frozen=True)
-class SavePending(Command):
+class SaveOnboardingPending(Command):
     user_id: int
     platform: Platform
-    message: PendingMessage
+    message: OnboardingPendingMessage
 
 @dataclass(frozen=True)
 class ShowOnboarding(Command):
@@ -26,6 +26,11 @@ class ShowOnboarding(Command):
     author_name: str
     chat_id: str
     thread_id: str | None = None
+
+@dataclass(frozen=True)
+class MarkOnboardingPromptShown(Command):
+    user_id: int
+    platform: Platform
 
 @dataclass(frozen=True)
 class NoOp(Command):

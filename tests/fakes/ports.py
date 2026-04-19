@@ -1,10 +1,10 @@
 import dataclasses
 from core.domain.enums import Platform
-from core.domain.value_objects import UserProfile, PendingMessage, TimePoint
+from core.domain.value_objects import UserProfile, OnboardingPendingMessage, TimePoint
 from ports.storage import StoragePort
 from ports.detection import DetectionPort, DetectionRequest, DetectionResult
 from ports.geocoding import GeoPort, Location
-from ports.pending import PendingPort
+from ports.pending import OnboardingPendingPort
 from ports.executor import CommandExecutorPort
 from core.domain.commands import Command
 
@@ -107,25 +107,34 @@ class FakeGeoPort:
         return self._resolves_to
 
 
-class FakePendingPort:
-    def __init__(self, has_pending_result: bool = False):
-        self.messages: dict[tuple[int, str], list[PendingMessage]] = {}
-        self._has_pending_result = has_pending_result
+class FakeOnboardingPendingPort:
+    def __init__(self):
+        self.messages: dict[tuple[int, str], OnboardingPendingMessage] = {}
 
-    async def save(self, user_id: int, platform: Platform, message: PendingMessage) -> None:
-        key = (user_id, platform.value)
-        self.messages.setdefault(key, []).append(message)
+    async def upsert(self, user_id: int, platform: Platform, message: OnboardingPendingMessage) -> None:
+        self.messages[(user_id, platform.value)] = message
 
-    async def get_and_delete(self, user_id: int, platform: Platform) -> list[PendingMessage]:
-        key = (user_id, platform.value)
-        msgs = self.messages.get(key, [])
-        self.messages[key] = []
-        return msgs
+    async def get_and_delete(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
+        return self.messages.pop((user_id, platform.value), None)
 
-    async def has_pending(self, user_id: int, platform: Platform) -> bool:
-        if self._has_pending_result:
-            return True
-        return bool(self.messages.get((user_id, platform.value), []))
+
+class FakeOnboardingChilloutStatePort:
+    def __init__(self, in_chillout: bool = False):
+        self.in_chillout = in_chillout
+        self.marked: list[tuple[int, Platform]] = []
+        self.checked: list[tuple[int, Platform, int]] = []
+
+    async def is_onboarding_in_chillout(
+        self,
+        user_id: int,
+        platform: Platform,
+        cooldown_seconds: int,
+    ) -> bool:
+        self.checked.append((user_id, platform, cooldown_seconds))
+        return self.in_chillout
+
+    async def mark_onboarding_shown(self, user_id: int, platform: Platform) -> None:
+        self.marked.append((user_id, platform))
 
 
 class FakeCommandExecutorPort:

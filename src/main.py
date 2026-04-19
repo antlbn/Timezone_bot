@@ -21,7 +21,8 @@ from dotenv import load_dotenv
 from adapters.outbound.sqlite_storage import SQLiteStorage
 from adapters.outbound.openai_detector import OpenAIDetector
 from adapters.outbound.nominatim_geo import NominatimGeo
-from adapters.outbound.memory_pending import MemoryPending
+from adapters.outbound.memory_pending import MemoryOnboardingPending
+from adapters.outbound.memory_onboarding_chillout_state import MemoryOnboardingChilloutState
 from adapters.executors.telegram_executor import TelegramCommandExecutor
 from adapters.executors.discord_executor import DiscordCommandExecutor
 from core.pipeline.pipeline import Pipeline
@@ -57,7 +58,7 @@ async def main():
     from adapters.inbound.discord.slash_commands import setup_slash_commands
     from core.pipeline.stages import (
         GuardStage, AgingStage, DetectionStage, GeoResolveStage,
-        RegistrationStage, HydrationStage,
+        RegistrationStage, HydrationStage, OnboardingChilloutStage,
         FormatStage, CommandFactoryStage,
     )
 
@@ -99,9 +100,13 @@ async def main():
         response_style=style,
         max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
         onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
+        onboarding_pending_ttl_secs=bot_config.get("onboarding_pending_ttl_secs", 3600),
     )
 
-    pending = MemoryPending(ttl_seconds=settings.onboarding_cooldown_secs)
+    onboarding_pending_store = MemoryOnboardingPending(
+        ttl_seconds=settings.onboarding_pending_ttl_secs
+    )
+    onboarding_chillout_state = MemoryOnboardingChilloutState()
 
     # Fresh pipeline: full processing flow for inbound messages
     fresh_pipeline = Pipeline([
@@ -111,12 +116,13 @@ async def main():
         GeoResolveStage(geocoder),
         RegistrationStage(storage),
         HydrationStage(storage),
+        OnboardingChilloutStage(onboarding_chillout_state, settings),
         FormatStage(settings),
         CommandFactoryStage(),
     ])
 
     # Replay pipeline: resumed computation after onboarding completes.
-    # ctx.detection is pre-loaded from PendingMessage by MessageDispatcher.process_pending.
+    # ctx.detection is pre-loaded from OnboardingPendingMessage by MessageDispatcher.process_pending.
     replay_pipeline = Pipeline([
         HydrationStage(storage),
         FormatStage(settings),
@@ -137,8 +143,22 @@ async def main():
 
     from core.services.dispatcher import MessageDispatcher
 
-    tg_executor = TelegramCommandExecutor(pending_port=pending, bot=tg_bot) if tg_bot else None
-    dc_executor = DiscordCommandExecutor(pending_port=pending, client=dc_client) if dc_client else None
+    tg_executor = (
+        TelegramCommandExecutor(
+            onboarding_pending_port=onboarding_pending_store,
+            onboarding_chillout_state_port=onboarding_chillout_state,
+            bot=tg_bot,
+        )
+        if tg_bot else None
+    )
+    dc_executor = (
+        DiscordCommandExecutor(
+            onboarding_pending_port=onboarding_pending_store,
+            onboarding_chillout_state_port=onboarding_chillout_state,
+            client=dc_client,
+        )
+        if dc_client else None
+    )
 
     dispatcher = MessageDispatcher(
         fresh_pipeline=fresh_pipeline,
@@ -149,7 +169,7 @@ async def main():
 
     onboarding_service = OnboardingService(
         storage_port=storage,
-        pending_port=pending,
+        onboarding_pending_port=onboarding_pending_store,
         geocoding_port=geocoder,
         dispatcher=dispatcher,
     )

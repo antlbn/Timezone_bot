@@ -17,6 +17,12 @@ bot:
   show_event_title: true
   # Reply layout: block or inline_sentence
   response_style: inline_sentence
+  # Messages older than this are skipped before processing
+  max_age_fresh_secs: 30
+  # How long to wait before showing onboarding again
+  onboarding_cooldown_secs: 600
+  # How long to keep the latest onboarding-pending message for replay
+  onboarding_pending_ttl_secs: 120
   # Send response as a reply to the original user message
   reply_to_original_message: false
   # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.

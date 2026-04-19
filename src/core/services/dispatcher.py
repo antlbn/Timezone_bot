@@ -1,5 +1,5 @@
 import logging
-from core.domain.value_objects import InputData, MessageContext, PendingMessage
+from core.domain.value_objects import InputData, MessageContext, OnboardingPendingMessage
 from core.domain.enums import Platform
 from core.pipeline.pipeline import Pipeline
 from ports.executor import CommandExecutorPort
@@ -12,12 +12,12 @@ class MessageDispatcher:
     Two pipelines:
       fresh_pipeline  — for new inbound messages
                         (Guard → Aging → Detection → GeoResolve → Registration
-                         → Hydration → Format → Command)
-      replay_pipeline — for pending messages after onboarding
+                         → Hydration → Chillout → Format → Command)
+      replay_pipeline — for onboarding-pending messages after onboarding
                         (Hydration → Format → Command)
 
     The replay pipeline receives a MessageContext with ctx.detection already populated
-    from the stored PendingMessage checkpoint. Hydration still runs in replay so the
+    from the stored OnboardingPendingMessage checkpoint. Hydration still runs in replay so the
     formatter and command factory can load the current sender profile and chat members.
     """
     def __init__(
@@ -41,10 +41,10 @@ class MessageDispatcher:
         ctx = await self.fresh_pipeline.run(ctx)
         await self._dispatch(ctx, data.platform)
 
-    async def process_pending(self, pending: PendingMessage) -> None:
+    async def process_pending(self, pending: OnboardingPendingMessage) -> None:
         """Replay a pending message after onboarding completion.
 
-        The detection checkpoint stored in PendingMessage (including geo-resolved tz_resolved)
+        The detection checkpoint stored in OnboardingPendingMessage (including geo-resolved tz_resolved)
         is injected into the context here, so replay skips Guard, Aging, Detection,
         GeoResolve, and Registration, then resumes from HydrationStage.
         """

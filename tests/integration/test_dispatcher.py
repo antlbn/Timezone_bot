@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timezone
 
 from core.domain.enums import Platform
-from core.domain.value_objects import InputData, TimePoint, UserProfile, BotSettings, PendingMessage
+from core.domain.value_objects import InputData, TimePoint, UserProfile, BotSettings, OnboardingPendingMessage
 from core.domain.commands import SendReply
 from ports.detection import DetectionResult
 
@@ -18,7 +18,7 @@ from core.pipeline.stages import (
 )
 from core.services.dispatcher import MessageDispatcher
 
-from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeCommandExecutorPort, FakePendingPort
+from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeCommandExecutorPort
 
 
 def _make_fresh_pipeline(storage, detection):
@@ -85,7 +85,7 @@ async def test_dispatcher_routes_commands_to_correct_executor():
 
 @pytest.mark.asyncio
 async def test_dispatcher_replay_uses_checkpoint_detection():
-    """Replay pipeline uses ctx.detection from PendingMessage — no re-detection occurs.
+    """Replay pipeline uses ctx.detection from OnboardingPendingMessage — no re-detection occurs.
     FakeDetectionPort is set to time_mentioned=False; if it were called, no reply would be produced.
     Since replay pipeline skips DetectionStage entirely, the cached detection is used → reply is sent.
     """
@@ -118,12 +118,12 @@ async def test_dispatcher_replay_uses_checkpoint_detection():
         chat_id="chat1",
     )
 
-    # Pre-built detection checkpoint (what was stored in PendingMessage)
+    # Pre-built detection checkpoint (what was stored in OnboardingPendingMessage)
     cached_detection = DetectionResult(
         time_mentioned=True,
         points=(TimePoint(time="12:00", tz_city=None),),
     )
-    pending_msg = PendingMessage(original_input=original_data, detection=cached_detection)
+    pending_msg = OnboardingPendingMessage(original_input=original_data, detection=cached_detection)
 
     await dispatcher.process_pending(pending_msg)
 

@@ -5,8 +5,8 @@ from core.domain.commands import SendReply, ShowOnboarding
 from aiogram import Bot
 
 class TelegramCommandExecutor(BaseCommandExecutor):
-    def __init__(self, pending_port, bot: Bot):
-        super().__init__(pending_port)
+    def __init__(self, onboarding_pending_port, onboarding_chillout_state_port, bot: Bot):
+        super().__init__(onboarding_pending_port, onboarding_chillout_state_port)
         self.bot = bot
 
     async def _handle_send_reply(self, cmd: SendReply) -> None:

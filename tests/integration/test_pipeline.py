@@ -3,7 +3,13 @@ from datetime import datetime, timezone, timedelta
 
 from core.domain.enums import Platform
 from core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile, BotSettings
-from core.domain.commands import SendReply, ShowOnboarding, SavePending, NoOp
+from core.domain.commands import (
+    SendReply,
+    ShowOnboarding,
+    SaveOnboardingPending,
+    MarkOnboardingPromptShown,
+    NoOp,
+)
 from core.pipeline.pipeline import Pipeline
 from core.pipeline.stages import (
     GuardStage, AgingStage, DetectionStage,
@@ -101,9 +107,10 @@ async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
     ctx = await pipeline.run(ctx)
 
     assert ctx._stopped is False
-    assert len(ctx.commands) == 2
-    assert isinstance(ctx.commands[0], SavePending)
+    assert len(ctx.commands) == 3
+    assert isinstance(ctx.commands[0], SaveOnboardingPending)
     assert isinstance(ctx.commands[1], ShowOnboarding)
+    assert isinstance(ctx.commands[2], MarkOnboardingPromptShown)
 
 
 
@@ -180,7 +187,7 @@ async def test_load_chat_context_creates_stub_for_unknown_user():
 @pytest.mark.asyncio
 async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     """Declined user who writes '14:00 по Лондону' should receive a SendReply.
-    CommandFactory drops onboarding check because tz_resolved is present.
+    Decline blocks onboarding even when a reply can be built from tz_resolved.
     """
     from ports.detection import DetectionResult
     storage = FakeStoragePort()

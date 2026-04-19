@@ -2,11 +2,18 @@ import dataclasses
 import logging
 from datetime import datetime, timezone
 
-from core.domain.value_objects import MessageContext, PendingMessage, BotSettings, TimePoint
-from core.domain.commands import SendReply, SavePending, ShowOnboarding, NoOp
+from core.domain.value_objects import MessageContext, OnboardingPendingMessage, BotSettings, TimePoint
+from core.domain.commands import (
+    SendReply,
+    SaveOnboardingPending,
+    ShowOnboarding,
+    MarkOnboardingPromptShown,
+    NoOp,
+)
 from ports.detection import DetectionPort, DetectionRequest, DetectionResult
 from ports.storage import StoragePort
 from ports.geocoding import GeoPort
+from ports.onboarding_chillout_state import OnboardingChilloutStatePort
 from core.services.formatting import format_multi_conversion
 
 logger = logging.getLogger(__name__)
@@ -58,7 +65,7 @@ class DetectionStage:
 
 class GeoResolveStage:
     """Enriches TimePoints that have an explicit tz_city with a resolved IANA timezone (tz_resolved).
-    This happens once in the fresh pipeline; the result is stored in PendingMessage.detection,
+    This happens once in the fresh pipeline; the result is stored in OnboardingPendingMessage.detection,
     so the replay pipeline does not need to call the geocoder again.
     """
     def __init__(self, geo_port: GeoPort):
@@ -169,6 +176,27 @@ class FormatStage:
         return ctx
 
 
+class OnboardingChilloutStage:
+    """Suppresses repeated onboarding prompts during the chillout window."""
+
+    def __init__(self, chillout_state_port: OnboardingChilloutStatePort, settings: BotSettings):
+        self._chillout_state = chillout_state_port
+        self._settings = settings
+
+    async def process(self, ctx: MessageContext) -> MessageContext:
+        if ctx.sender and ctx.sender.timezone:
+            return ctx
+        if ctx.sender and ctx.sender.onboarding_declined:
+            return ctx
+
+        ctx.onboarding_prompt_suppressed = await self._chillout_state.is_onboarding_in_chillout(
+            ctx.input.user_id,
+            ctx.input.platform,
+            self._settings.onboarding_cooldown_secs,
+        )
+        return ctx
+
+
 class CommandFactoryStage:
     """Produces the final list of Commands based on accumulated context.
     Pure logic — no I/O. All eligibility filtering was done by upstream stages.
@@ -178,41 +206,52 @@ class CommandFactoryStage:
             ctx.commands = [NoOp()]
             return ctx
 
-        # Has a usable source timezone (sender's profile or explicit city in message)?
-        # If yes, FormatStage should have produced reply_text.
-        has_source = (
-            (ctx.sender and ctx.sender.timezone) or
-            any(p.tz_resolved for p in ctx.detection.points)
-        )
-        if has_source:
-            if ctx.reply_text:
-                ctx.commands = [SendReply(
-                    text=ctx.reply_text,
-                    chat_id=ctx.input.chat_id,
-                    thread_id=ctx.input.thread_id,
-                )]
-            else:
-                logger.warning(
-                    "CommandFactoryStage: source timezone present but reply_text is empty — "
-                    "FormatStage may have failed silently."
-                )
-                ctx.commands = [NoOp()]
-            return ctx
+        commands = []
 
-        # No source timezone. If declined, silently do nothing.
-        if ctx.sender and ctx.sender.onboarding_declined:
-            ctx.commands = [NoOp()]
-            return ctx
-
-        # Save the message for replay after onboarding and prompt the user.
-        pending = PendingMessage(original_input=ctx.input, detection=ctx.detection)
-        ctx.commands = [
-            SavePending(user_id=ctx.input.user_id, platform=ctx.input.platform, message=pending),
-            ShowOnboarding(
-                user_id=ctx.input.user_id,
-                author_name=ctx.input.author_name,
+        if ctx.reply_text:
+            commands.append(SendReply(
+                text=ctx.reply_text,
                 chat_id=ctx.input.chat_id,
                 thread_id=ctx.input.thread_id,
-            ),
-        ]
+            ))
+
+        needs_onboarding = (
+            (not ctx.sender or not ctx.sender.timezone) and
+            not (ctx.sender and ctx.sender.onboarding_declined)
+        )
+
+        if needs_onboarding:
+            pending = OnboardingPendingMessage(original_input=ctx.input, detection=ctx.detection)
+            commands.append(
+                SaveOnboardingPending(
+                    user_id=ctx.input.user_id,
+                    platform=ctx.input.platform,
+                    message=pending,
+                )
+            )
+            if not ctx.onboarding_prompt_suppressed:
+                commands.append(
+                    ShowOnboarding(
+                        user_id=ctx.input.user_id,
+                        author_name=ctx.input.author_name,
+                        chat_id=ctx.input.chat_id,
+                        thread_id=ctx.input.thread_id,
+                    )
+                )
+                commands.append(
+                    MarkOnboardingPromptShown(
+                        user_id=ctx.input.user_id,
+                        platform=ctx.input.platform,
+                    )
+                )
+
+        if not commands:
+            has_profile_tz = bool(ctx.sender and ctx.sender.timezone)
+            if has_profile_tz:
+                logger.warning(
+                    "CommandFactoryStage: sender timezone present but no commands were produced."
+                )
+            commands = [NoOp()]
+
+        ctx.commands = commands
         return ctx

@@ -35,7 +35,7 @@ class UserProfile:
     onboarding_declined: bool = False
 
 @dataclass(frozen=True)
-class PendingMessage:
+class OnboardingPendingMessage:
     original_input: InputData
     detection: DetectionResult  # Checkpoint: detection was done, geo was resolved; store here to skip re-detection on replay
 
@@ -57,13 +57,15 @@ class BotSettings:
     response_style: ResponseStyle = ResponseStyle.BLOCK
     max_age_fresh_secs: int = 30
     onboarding_cooldown_secs: int = 3600  # How long to wait before re-prompting an ignoring user
+    onboarding_pending_ttl_secs: int = 3600
 
 @dataclass
 class MessageContext:
     input: InputData
-    detection: DetectionResult | None = None  # Set by DetectionStage (fresh) or pre-loaded from PendingMessage (replay)
+    detection: DetectionResult | None = None  # Set by DetectionStage (fresh) or pre-loaded from OnboardingPendingMessage (replay)
     sender: UserProfile | None = None
     reply_text: str | None = None
     commands: list[Command] = field(default_factory=list)
     members: list[UserProfile] = field(default_factory=list)
+    onboarding_prompt_suppressed: bool = False
     _stopped: bool = False

@@ -4,8 +4,8 @@ OnboardingService — Application Service.
 Owns ALL orchestration for the onboarding completion flow:
   1. Resolve city → timezone via geocoding
   2. Persist user profile (storage)
-  3. Fetch and delete pending messages
-  4. Replay each pending message through the replay pipeline via MessageDispatcher
+  3. Fetch and delete the latest onboarding-pending message
+  4. Replay it through the replay pipeline via MessageDispatcher
 
 Nothing here knows about Telegram, aiogram, Discord, or any UI framework.
 author_name is NOT a parameter here — it is synced to the DB by RegistrationStage
@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from core.domain.enums import Platform
 from ports.geocoding import GeoPort
-from ports.pending import PendingPort
+from ports.pending import OnboardingPendingPort
 from ports.storage import StoragePort
 
 if TYPE_CHECKING:
@@ -46,12 +46,12 @@ class OnboardingService:
     def __init__(
         self,
         storage_port: 'StoragePort',
-        pending_port: 'PendingPort',
+        onboarding_pending_port: 'OnboardingPendingPort',
         geocoding_port: 'GeoPort',
         dispatcher: 'MessageDispatcher',
     ) -> None:
         self._storage = storage_port
-        self._pending = pending_port
+        self._onboarding_pending = onboarding_pending_port
         self._geo = geocoding_port
         self._dispatcher = dispatcher
 
@@ -75,13 +75,13 @@ class OnboardingService:
             location.flag,
         )
 
-        # Fetch and atomically delete all pending messages for this user.
-        pending_messages = await self._pending.get_and_delete(user_id, platform)
+        # Fetch and atomically delete the latest pending message for this user.
+        pending_message = await self._onboarding_pending.get_and_delete(user_id, platform)
 
         # Replay through the replay pipeline (Hydration → Format → Command).
-        # ctx.detection is pre-loaded from each PendingMessage checkpoint in MessageDispatcher.
-        for pending in pending_messages:
-            await self._dispatcher.process_pending(pending)
+        # ctx.detection is pre-loaded from the OnboardingPendingMessage checkpoint.
+        if pending_message:
+            await self._dispatcher.process_pending(pending_message)
 
         return OnboardingResult(
             ok=True,
@@ -96,4 +96,4 @@ class OnboardingService:
         Delete pending messages without replay.
         """
         await self._storage.set_onboarding_declined(user_id, platform)
-        await self._pending.get_and_delete(user_id, platform)
+        await self._onboarding_pending.get_and_delete(user_id, platform)

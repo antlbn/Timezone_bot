@@ -7,8 +7,8 @@ from adapters.inbound.discord.ui import SetTimezoneView
 logger = logging.getLogger(__name__)
 
 class DiscordCommandExecutor(BaseCommandExecutor):
-    def __init__(self, pending_port, client: discord.Client):
-        super().__init__(pending_port)
+    def __init__(self, onboarding_pending_port, onboarding_chillout_state_port, client: discord.Client):
+        super().__init__(onboarding_pending_port, onboarding_chillout_state_port)
         self.client = client
         self.onboarding_service = None
 

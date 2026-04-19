@@ -1,33 +1,30 @@
 from time import monotonic
-from core.domain.enums import Platform
-from core.domain.value_objects import PendingMessage
-from ports.pending import PendingPort
 
-class MemoryPending(PendingPort):
-    """In-memory pending store with TTL."""
-    def __init__(self, ttl_seconds: int = 3600):
-        # (user_id, platform_value) → list of (expires_at, message)
-        self._store: dict[tuple[int, str], list[tuple[float, PendingMessage]]] = {}
+from core.domain.enums import Platform
+from core.domain.value_objects import OnboardingPendingMessage
+from ports.pending import OnboardingPendingPort
+
+class MemoryOnboardingPending(OnboardingPendingPort):
+    """In-memory store for the latest onboarding-pending message per user."""
+    def __init__(self, ttl_seconds: int = 3600, now_fn=None):
+        # (user_id, platform_value) → (expires_at, message)
+        self._store: dict[tuple[int, str], tuple[float, OnboardingPendingMessage]] = {}
         self.ttl = ttl_seconds
+        self._now = now_fn or monotonic
 
     def _cleanup(self):
-        now = monotonic()
+        now = self._now()
         for key in list(self._store.keys()):
-            self._store[key] = [(expires, msg) for expires, msg in self._store[key] if expires > now]
-            if not self._store[key]:
+            expires, _ = self._store[key]
+            if expires <= now:
                 del self._store[key]
 
-    async def save(self, user_id: int, platform: Platform, message: PendingMessage) -> None:
+    async def upsert(self, user_id: int, platform: Platform, message: OnboardingPendingMessage) -> None:
         self._cleanup()
-        expires = monotonic() + self.ttl
-        self._store.setdefault((user_id, platform.value), []).append((expires, message))
+        expires = self._now() + self.ttl
+        self._store[(user_id, platform.value)] = (expires, message)
 
-    async def get_and_delete(self, user_id: int, platform: Platform) -> list[PendingMessage]:
+    async def get_and_delete(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
         self._cleanup()
-        items = self._store.pop((user_id, platform.value), [])
-        return [msg for _, msg in items]
-
-    async def has_pending(self, user_id: int, platform: Platform) -> bool:
-        """True if user has at least one non-expired pending message."""
-        self._cleanup()
-        return (user_id, platform.value) in self._store
+        item = self._store.pop((user_id, platform.value), None)
+        return item[1] if item else None
