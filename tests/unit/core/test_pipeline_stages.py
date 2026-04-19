@@ -45,18 +45,6 @@ async def test_decision_stage_reply_and_onboarding_decision():
 
 
 @pytest.mark.asyncio
-async def test_decision_stage_reply_and_pending_without_prompt_flags():
-    ctx = _ctx(reply_text="15:00 Berlin")
-
-    result = await DecisionStage().process(ctx)
-
-    assert result.decision is not None
-    assert result.decision.reply_text == "15:00 Berlin"
-    assert result.decision.pending_message is not None
-    assert result.decision.show_onboarding is False
-
-
-@pytest.mark.asyncio
 async def test_decision_stage_onboarding_without_reply():
     ctx = _ctx()
 

@@ -43,8 +43,6 @@ class MessageDecision:
     reply_text: str | None = None
     pending_message: OnboardingPendingMessage | None = None
     needs_onboarding: bool = False
-    show_onboarding: bool = False
-    mark_onboarding_prompt_shown: bool = False
     ignore: bool = False
 
 @dataclass(frozen=True)
