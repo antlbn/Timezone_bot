@@ -109,10 +109,14 @@ async def main():
     tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
     dc_token = os.getenv("DISCORD_BOT_TOKEN")
     
-    if not tg_token or not dc_token:
-        logger.warning("Both TELEGRAM_BOT_TOKEN and DISCORD_BOT_TOKEN must be set to run both bots.")
-        if not tg_token and not dc_token:
-            return
+    if not tg_token:
+        logger.warning("TELEGRAM_BOT_TOKEN not found. Telegram bot will be disabled.")
+    if not dc_token:
+        logger.warning("DISCORD_BOT_TOKEN not found. Discord bot will be disabled.")
+    
+    if not tg_token and not dc_token:
+        logger.error("No bot tokens found. Neither Telegram nor Discord can be started. Exiting.")
+        return
 
     # Infrastructure Setup
     db_path = Path("data/bot.db")
