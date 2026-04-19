@@ -24,7 +24,16 @@ class MemoryOnboardingPending(OnboardingPendingPort):
         expires = self._now() + self.ttl
         self._store[(user_id, platform.value)] = (expires, message)
 
-    async def get_and_delete(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
+    async def get(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
         self._cleanup()
-        item = self._store.pop((user_id, platform.value), None)
+        item = self._store.get((user_id, platform.value))
         return item[1] if item else None
+
+    async def delete(self, user_id: int, platform: Platform) -> None:
+        self._cleanup()
+        self._store.pop((user_id, platform.value), None)
+
+    async def get_and_delete(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
+        message = await self.get(user_id, platform)
+        await self.delete(user_id, platform)
+        return message

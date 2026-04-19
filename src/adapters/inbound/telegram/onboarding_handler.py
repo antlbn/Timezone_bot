@@ -4,12 +4,12 @@ Telegram-specific onboarding FSM handler.
 Responsibilities (adapter layer only):
   - Parse Telegram events (Message objects)
   - Manage aiogram FSM state transitions
-  - Call OnboardingService (application layer)
+  - Call OnboardingCoordinator (application layer)
   - Execute returned dispatches via bot.send_message
 
 This handler knows nothing about geocoding, storage, or the pipeline.
-author_name is NOT passed to OnboardingService — RegistrationStage already
-synced it to the DB when the original message was processed.
+author_name is NOT passed to OnboardingCoordinator — it was already
+synced to the DB when the original time message was processed.
 """
 
 from aiogram import Router, F
@@ -52,7 +52,7 @@ async def on_start_onboard(message: Message, state: FSMContext) -> None:
 async def on_skip(message: Message, state: FSMContext, container: "AppContainer") -> None:
     """User chose not to provide location."""
     await state.clear()
-    await container.onboarding_service.decline(
+    await container.onboarding_coordinator.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
     )
@@ -65,7 +65,7 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
     city_raw = message.text.strip()
     user_id = message.from_user.id
 
-    result = await container.onboarding_service.complete(
+    result = await container.onboarding_coordinator.complete(
         user_id=user_id,
         city_raw=city_raw,
         platform=Platform.TELEGRAM,

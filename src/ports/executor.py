@@ -3,5 +3,5 @@ from core.domain.commands import Command
 
 class CommandExecutorPort(Protocol):
     async def execute(self, commands: list[Command]) -> None:
-        """Executes a list of commands natively on the target platform."""
+        """Executes user-facing delivery commands on the target platform."""
         ...

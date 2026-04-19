@@ -1,6 +1,5 @@
 import logging
-from core.domain.value_objects import MessageContext
-from core.domain.commands import NoOp
+from core.domain.value_objects import MessageContext, MessageDecision
 from core.pipeline.contracts import Stage
 
 logger = logging.getLogger(__name__)
@@ -13,10 +12,10 @@ class Pipeline:
         for stage in self.stages:
             try:
                 ctx = await stage.process(ctx)
-                if ctx._stopped:
+                if ctx.stop_processing:
                     return ctx
             except Exception as e:
                 logger.exception(f"Pipeline stage {stage.__class__.__name__} failed: {e}")
-                ctx.commands = [NoOp()]
+                ctx.decision = MessageDecision(ignore=True)
                 return ctx
         return ctx

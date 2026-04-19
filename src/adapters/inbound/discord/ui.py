@@ -5,13 +5,13 @@ from core.domain.enums import Platform
 class TimezoneModal(ui.Modal, title="Timezone Setup"):
     city = ui.TextInput(label="City", placeholder="e.g. London, Tokyo")
     
-    def __init__(self, onboarding_service):
+    def __init__(self, onboarding_coordinator):
         super().__init__()
-        self.onboarding_service = onboarding_service
+        self.onboarding_coordinator = onboarding_coordinator
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        res = await self.onboarding_service.complete(
+        res = await self.onboarding_coordinator.complete(
             user_id=interaction.user.id,
             city_raw=self.city.value,
             platform=Platform.DISCORD,
@@ -27,20 +27,20 @@ class TimezoneModal(ui.Modal, title="Timezone Setup"):
             await interaction.followup.send(f"❌ Could not resolve city: {self.city.value}", ephemeral=True)
 
 class SetTimezoneView(ui.View):
-    def __init__(self, target_user_id: int, onboarding_service):
+    def __init__(self, target_user_id: int, onboarding_coordinator):
         super().__init__(timeout=None)
         self.target_user_id = target_user_id
-        self.onboarding_service = onboarding_service
+        self.onboarding_coordinator = onboarding_coordinator
 
     @ui.button(label="⚙️ Settings", style=discord.ButtonStyle.primary, custom_id="settz_button")
     async def start_setup(self, interaction: discord.Interaction, button: ui.Button):
-        modal = TimezoneModal(self.onboarding_service)
+        modal = TimezoneModal(self.onboarding_coordinator)
         modal.origin_message = interaction.message
         await interaction.response.send_modal(modal)
 
     @ui.button(label="🚫 Skip", style=discord.ButtonStyle.secondary, custom_id="skip_button")
     async def skip_setup(self, interaction: discord.Interaction, button: ui.Button):
-        await self.onboarding_service.decline(
+        await self.onboarding_coordinator.decline(
             user_id=interaction.user.id,
             platform=Platform.DISCORD,
         )

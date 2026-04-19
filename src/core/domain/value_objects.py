@@ -2,13 +2,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from core.domain.enums import Platform, ResponseStyle
 
 if TYPE_CHECKING:
     from ports.detection import DetectionResult
-    from core.domain.commands import Command
 
 @dataclass(frozen=True)
 class TimePoint:
@@ -40,6 +39,15 @@ class OnboardingPendingMessage:
     detection: DetectionResult  # Checkpoint: detection was done, geo was resolved; store here to skip re-detection on replay
 
 @dataclass(frozen=True)
+class MessageDecision:
+    reply_text: str | None = None
+    pending_message: OnboardingPendingMessage | None = None
+    needs_onboarding: bool = False
+    show_onboarding: bool = False
+    mark_onboarding_prompt_shown: bool = False
+    ignore: bool = False
+
+@dataclass(frozen=True)
 class InputData:
     text: str
     user_id: int
@@ -65,7 +73,6 @@ class MessageContext:
     detection: DetectionResult | None = None  # Set by DetectionStage (fresh) or pre-loaded from OnboardingPendingMessage (replay)
     sender: UserProfile | None = None
     reply_text: str | None = None
-    commands: list[Command] = field(default_factory=list)
     members: list[UserProfile] = field(default_factory=list)
-    onboarding_prompt_suppressed: bool = False
-    _stopped: bool = False
+    decision: MessageDecision | None = None
+    stop_processing: bool = False

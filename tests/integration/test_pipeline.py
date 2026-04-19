@@ -3,17 +3,10 @@ from datetime import datetime, timezone, timedelta
 
 from core.domain.enums import Platform
 from core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile, BotSettings
-from core.domain.commands import (
-    SendReply,
-    ShowOnboarding,
-    SaveOnboardingPending,
-    MarkOnboardingPromptShown,
-    NoOp,
-)
 from core.pipeline.pipeline import Pipeline
 from core.pipeline.stages import (
     GuardStage, AgingStage, DetectionStage,
-    RegistrationStage, HydrationStage, FormatStage, CommandFactoryStage,
+    HydrationStage, FormatStage, DecisionStage,
 )
 from tests.fakes.ports import FakeDetectionPort, FakeStoragePort
 
@@ -24,10 +17,9 @@ def _fresh_pipeline(storage, detection, settings=None):
         GuardStage(),
         AgingStage(settings),
         DetectionStage(detection),
-        RegistrationStage(storage),
         HydrationStage(storage),
         FormatStage(settings),
-        CommandFactoryStage(),
+        DecisionStage(),
     ])
 
 
@@ -51,8 +43,8 @@ async def test_pipeline_no_time_noop():
     ))
 
     ctx = await pipeline.run(ctx)
-    assert ctx._stopped is True
-    assert len(ctx.commands) == 0
+    assert ctx.stop_processing is True
+    assert ctx.decision is None
 
 
 @pytest.mark.asyncio
@@ -79,16 +71,17 @@ async def test_pipeline_time_found_configured_user_sends_reply():
 
     ctx = await pipeline.run(ctx)
 
-    assert ctx._stopped is False
+    assert ctx.stop_processing is False
     assert ctx.reply_text is not None
     assert "15:00 Berlin" in ctx.reply_text
-    assert len(ctx.commands) == 1
-    assert isinstance(ctx.commands[0], SendReply)
+    assert ctx.decision is not None
+    assert ctx.decision.reply_text == ctx.reply_text
+    assert ctx.decision.needs_onboarding is False
 
 
 @pytest.mark.asyncio
 async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
-    """New user without timezone gets onboarding commands."""
+    """New user without timezone produces an onboarding decision."""
     storage = FakeStoragePort()
 
     tp = TimePoint(time="15:00", tz_city=None)
@@ -106,17 +99,17 @@ async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
 
     ctx = await pipeline.run(ctx)
 
-    assert ctx._stopped is False
-    assert len(ctx.commands) == 3
-    assert isinstance(ctx.commands[0], SaveOnboardingPending)
-    assert isinstance(ctx.commands[1], ShowOnboarding)
-    assert isinstance(ctx.commands[2], MarkOnboardingPromptShown)
+    assert ctx.stop_processing is False
+    assert ctx.decision is not None
+    assert ctx.decision.needs_onboarding is True
+    assert ctx.decision.pending_message is not None
+    assert ctx.decision.reply_text is None
 
 
 
 @pytest.mark.asyncio
 async def test_pipeline_declined_onboarding_no_spam():
-    """User declined → Pipeline drops message silently via NoOp at CommandFactory."""
+    """User declined -> pipeline returns an ignore decision."""
     storage = FakeStoragePort()
 
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True)
@@ -133,9 +126,9 @@ async def test_pipeline_declined_onboarding_no_spam():
 
     ctx = await pipeline.run(ctx)
 
-    assert ctx._stopped is False
-    assert len(ctx.commands) == 1
-    assert isinstance(ctx.commands[0], NoOp)
+    assert ctx.stop_processing is False
+    assert ctx.decision is not None
+    assert ctx.decision.ignore is True
 
 
 @pytest.mark.asyncio
@@ -149,7 +142,7 @@ async def test_pipeline_aging_stage_drops_old_messages():
     ))
 
     ctx = await pipeline.run(ctx)
-    assert ctx._stopped is True
+    assert ctx.stop_processing is True
 
 
 @pytest.mark.asyncio
@@ -163,12 +156,12 @@ async def test_pipeline_guard_stage_drops_bots():
     ))
 
     ctx = await pipeline.run(ctx)
-    assert ctx._stopped is True
+    assert ctx.stop_processing is True
 
 
 @pytest.mark.asyncio
-async def test_load_chat_context_creates_stub_for_unknown_user():
-    """RegistrationStage creates a stub user so later onboarding actions can find it."""
+async def test_pipeline_does_not_register_unknown_user_anymore():
+    """Registration moved out of pipeline; pipeline itself remains read-heavy."""
     storage = FakeStoragePort()
 
     tp = TimePoint(time="15:00", tz_city=None)
@@ -181,7 +174,7 @@ async def test_load_chat_context_creates_stub_for_unknown_user():
     ))
     await pipeline.run(ctx)
 
-    assert (42, Platform.TELEGRAM, "Alice") in storage.created
+    assert (42, Platform.TELEGRAM, "Alice") not in storage.created
 
 
 @pytest.mark.asyncio
@@ -189,7 +182,6 @@ async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     """Declined user who writes '14:00 по Лондону' should receive a SendReply.
     Decline blocks onboarding even when a reply can be built from tz_resolved.
     """
-    from ports.detection import DetectionResult
     storage = FakeStoragePort()
 
     declined = UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True)
@@ -207,4 +199,6 @@ async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     ctx = await pipeline.run(ctx)
 
     # Must NOT emit ShowOnboarding
-    assert not any(isinstance(cmd, ShowOnboarding) for cmd in ctx.commands)
+    assert ctx.decision is not None
+    assert ctx.decision.reply_text is not None
+    assert ctx.decision.needs_onboarding is False

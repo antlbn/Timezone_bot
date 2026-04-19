@@ -4,15 +4,13 @@ import signal
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from core.services.dispatcher import MessageDispatcher
+from typing import Any
 from aiogram import Bot as TgBot, Dispatcher
+from aiogram import BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Update
+from aiogram.types import TelegramObject
 import discord
 import yaml
 from discord import app_commands
@@ -25,10 +23,13 @@ from adapters.outbound.memory_pending import MemoryOnboardingPending
 from adapters.outbound.memory_onboarding_chillout_state import MemoryOnboardingChilloutState
 from adapters.executors.telegram_executor import TelegramCommandExecutor
 from adapters.executors.discord_executor import DiscordCommandExecutor
+from adapters.inbound.discord.ui import SetTimezoneView
 from core.pipeline.pipeline import Pipeline
 from core.domain.value_objects import BotSettings
 from core.domain.enums import ResponseStyle
-from core.services.onboarding import OnboardingService
+from core.services.delivery import DeliveryService
+from core.services.message_processing import MessageProcessingService
+from core.services.onboarding import OnboardingCoordinator
 from core.services.profile import ProfileService
 from ports.storage import StoragePort
 from ports.geocoding import GeoPort
@@ -39,28 +40,67 @@ class AppContainer:
     fresh_pipeline: Pipeline
     replay_pipeline: Pipeline
     geocoder: GeoPort
-    onboarding_service: OnboardingService
+    onboarding_coordinator: OnboardingCoordinator
     profile_service: ProfileService
-    dispatcher: 'MessageDispatcher'
-    tg_executor: TelegramCommandExecutor | None = None
-    dc_executor: DiscordCommandExecutor | None = None
+    message_processor: MessageProcessingService
 
 logger = logging.getLogger(__name__)
 
 
+def build_settings(config_path: Path) -> BotSettings:
+    with open(config_path, "r") as f:
+        config_data = yaml.safe_load(f)
+
+    bot_config = config_data.get("bot", {})
+    response_style_str = bot_config.get("response_style", "block")
+    style = ResponseStyle.INLINE if response_style_str.lower() == "inline_sentence" else ResponseStyle.BLOCK
+
+    return BotSettings(
+        show_usernames=bot_config.get("show_usernames", False),
+        show_event_title=bot_config.get("show_event_title", True),
+        response_style=style,
+        max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
+        onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
+        onboarding_pending_ttl_secs=bot_config.get("onboarding_pending_ttl_secs", 3600),
+    )
+
+
+def build_pipelines(storage, detector, geocoder, settings: BotSettings) -> tuple[Pipeline, Pipeline]:
+    from core.pipeline.stages import (
+        GuardStage,
+        AgingStage,
+        DetectionStage,
+        GeoResolveStage,
+        HydrationStage,
+        FormatStage,
+        DecisionStage,
+    )
+
+    fresh_pipeline = Pipeline([
+        GuardStage(),
+        AgingStage(settings),
+        DetectionStage(detector),
+        GeoResolveStage(geocoder),
+        HydrationStage(storage),
+        FormatStage(settings),
+        DecisionStage(),
+    ])
+
+    replay_pipeline = Pipeline([
+        HydrationStage(storage),
+        FormatStage(settings),
+        DecisionStage(),
+    ])
+    return fresh_pipeline, replay_pipeline
+
+
 
 async def main():
-    # Deferred imports to avoid circular dependency since AppContainer is now in main.py
     from adapters.inbound.telegram.handlers import on_message as tg_on_message
     from adapters.inbound.telegram.onboarding_handler import router as onboarding_router
     from adapters.inbound.telegram.commands_handler import router as tg_commands_router
     from adapters.inbound.discord.events import on_message as dc_on_message
     from adapters.inbound.discord.slash_commands import setup_slash_commands
-    from core.pipeline.stages import (
-        GuardStage, AgingStage, DetectionStage, GeoResolveStage,
-        RegistrationStage, HydrationStage, OnboardingChilloutStage,
-        FormatStage, CommandFactoryStage,
-    )
 
     load_dotenv()
     logging.basicConfig(level=logging.INFO)
@@ -81,53 +121,13 @@ async def main():
 
     detector = OpenAIDetector()
     geocoder = NominatimGeo()
-    # Load configuration
-    config_path = Path("configuration.yaml")
-    with open(config_path, "r") as f:
-        config_data = yaml.safe_load(f)
-
-    bot_config = config_data.get("bot", {})
-    response_style_str = bot_config.get("response_style", "block")
-
-    if response_style_str.lower() == "inline_sentence":
-        style = ResponseStyle.INLINE
-    else:
-        style = ResponseStyle.BLOCK
-
-    settings = BotSettings(
-        show_usernames=bot_config.get("show_usernames", False),
-        show_event_title=bot_config.get("show_event_title", True),
-        response_style=style,
-        max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
-        onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
-        onboarding_pending_ttl_secs=bot_config.get("onboarding_pending_ttl_secs", 3600),
-    )
+    settings = build_settings(Path("configuration.yaml"))
 
     onboarding_pending_store = MemoryOnboardingPending(
         ttl_seconds=settings.onboarding_pending_ttl_secs
     )
     onboarding_chillout_state = MemoryOnboardingChilloutState()
-
-    # Fresh pipeline: full processing flow for inbound messages
-    fresh_pipeline = Pipeline([
-        GuardStage(),
-        AgingStage(settings),
-        DetectionStage(detector),
-        GeoResolveStage(geocoder),
-        RegistrationStage(storage),
-        HydrationStage(storage),
-        OnboardingChilloutStage(onboarding_chillout_state, settings),
-        FormatStage(settings),
-        CommandFactoryStage(),
-    ])
-
-    # Replay pipeline: resumed computation after onboarding completes.
-    # ctx.detection is pre-loaded from OnboardingPendingMessage by MessageDispatcher.process_pending.
-    replay_pipeline = Pipeline([
-        HydrationStage(storage),
-        FormatStage(settings),
-        CommandFactoryStage(),
-    ])
+    fresh_pipeline, replay_pipeline = build_pipelines(storage, detector, geocoder, settings)
 
     tg_bot = None
     if tg_token:
@@ -141,55 +141,53 @@ async def main():
         dc_client = discord.Client(intents=intents)
         tree = app_commands.CommandTree(dc_client)
 
-    from core.services.dispatcher import MessageDispatcher
+    onboarding_coordinator: OnboardingCoordinator | None = None
 
-    tg_executor = (
-        TelegramCommandExecutor(
-            onboarding_pending_port=onboarding_pending_store,
-            onboarding_chillout_state_port=onboarding_chillout_state,
-            bot=tg_bot,
-        )
-        if tg_bot else None
-    )
+    tg_executor = TelegramCommandExecutor(bot=tg_bot) if tg_bot else None
+
+    def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
+        if onboarding_coordinator is None:
+            raise RuntimeError("Onboarding coordinator is not initialized yet")
+        return SetTimezoneView(target_user_id, onboarding_coordinator)
+
     dc_executor = (
         DiscordCommandExecutor(
-            onboarding_pending_port=onboarding_pending_store,
-            onboarding_chillout_state_port=onboarding_chillout_state,
             client=dc_client,
+            onboarding_view_factory=_make_discord_onboarding_view,
         )
         if dc_client else None
     )
 
-    dispatcher = MessageDispatcher(
-        fresh_pipeline=fresh_pipeline,
-        replay_pipeline=replay_pipeline,
-        tg_executor=tg_executor,
-        dc_executor=dc_executor,
-    )
+    delivery_service = DeliveryService(tg_executor=tg_executor, dc_executor=dc_executor)
 
-    onboarding_service = OnboardingService(
+    onboarding_coordinator = OnboardingCoordinator(
         storage_port=storage,
         onboarding_pending_port=onboarding_pending_store,
+        chillout_state_port=onboarding_chillout_state,
         geocoding_port=geocoder,
-        dispatcher=dispatcher,
+        replay_pipeline=replay_pipeline,
+        delivery_service=delivery_service,
+        settings=settings,
     )
-    
-    profile_service = ProfileService(storage_port=storage)
 
-    if dc_executor:
-        dc_executor.set_onboarding_service(onboarding_service)
+    message_processor = MessageProcessingService(
+        fresh_pipeline=fresh_pipeline,
+        storage_port=storage,
+        delivery_service=delivery_service,
+        onboarding_coordinator=onboarding_coordinator,
+    )
+
+    profile_service = ProfileService(storage_port=storage)
 
     container = AppContainer(
         storage=storage,
         fresh_pipeline=fresh_pipeline,
         replay_pipeline=replay_pipeline,
         geocoder=geocoder,
-        onboarding_service=onboarding_service,
+        onboarding_coordinator=onboarding_coordinator,
         profile_service=profile_service,
-        dispatcher=dispatcher,
+        message_processor=message_processor,
     )
-    container.tg_executor = tg_executor
-    container.dc_executor = dc_executor
 
     tasks = []
 
@@ -198,10 +196,17 @@ async def main():
         dp = Dispatcher(storage=MemoryStorage())  # FSM needs a storage backend
 
         # Middleware: injects `container` into every handler that declares it
-        @dp.update.outer_middleware()
-        async def container_middleware(handler, event: Update, data: dict):
-            data["container"] = container
-            return await handler(event, data)
+        class ContainerMiddleware(BaseMiddleware):
+            async def __call__(
+                self,
+                handler,
+                event: TelegramObject,
+                data: dict[str, Any],
+            ) -> Any:
+                data["container"] = container
+                return await handler(event, data)
+
+        dp.update.outer_middleware(ContainerMiddleware())
 
         # Onboarding FSM router — must be registered BEFORE the catch-all
         dp.include_router(onboarding_router)
@@ -257,7 +262,7 @@ async def main():
             if stop_event.is_set():
                 if 'tg_bot' in locals() and 'dp' in locals():
                     await dp.stop_polling()
-                if 'dc_client' in locals():
+                if dc_client is not None:
                     await dc_client.close()
                 logger.info("Waiting for bots to cleanly exit...")
                 await asyncio.gather(*tasks, return_exceptions=True)

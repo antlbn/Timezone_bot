@@ -1,72 +1,124 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
-from datetime import datetime, timezone
 
+from core.domain.commands import SendReply, ShowOnboarding
 from core.domain.enums import Platform
-from core.domain.value_objects import InputData, TimePoint, UserProfile, BotSettings, OnboardingPendingMessage
-from core.domain.commands import SendReply
-from ports.detection import DetectionResult
-
+from core.domain.value_objects import BotSettings, InputData, OnboardingPendingMessage, TimePoint, UserProfile
 from core.pipeline.pipeline import Pipeline
 from core.pipeline.stages import (
-    GuardStage,
     AgingStage,
+    DecisionStage,
     DetectionStage,
-    RegistrationStage,
-    HydrationStage,
     FormatStage,
-    CommandFactoryStage,
+    GeoResolveStage,
+    GuardStage,
+    HydrationStage,
 )
-from core.services.dispatcher import MessageDispatcher
+from core.services.delivery import DeliveryService
+from core.services.message_processing import MessageProcessingService
+from core.services.onboarding import OnboardingCoordinator
+from ports.detection import DetectionResult
+from tests.fakes.ports import (
+    FakeCommandExecutorPort,
+    FakeDetectionPort,
+    FakeGeoPort,
+    FakeOnboardingChilloutStatePort,
+    FakeOnboardingPendingPort,
+    FakeStoragePort,
+)
 
-from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeCommandExecutorPort
 
-
-def _make_fresh_pipeline(storage, detection):
-    """Minimal fresh pipeline for dispatcher tests."""
+def _make_fresh_pipeline(storage, detection, geo=None, settings=None):
+    settings = settings or BotSettings()
+    geo = geo or FakeGeoPort()
     return Pipeline([
         GuardStage(),
-        AgingStage(BotSettings()),
+        AgingStage(settings),
         DetectionStage(detection),
-        RegistrationStage(storage),
+        GeoResolveStage(geo),
         HydrationStage(storage),
-        FormatStage(BotSettings()),
-        CommandFactoryStage(),
+        FormatStage(settings),
+        DecisionStage(),
     ])
 
 
-def _make_replay_pipeline(storage):
+def _make_replay_pipeline(storage, settings=None):
+    settings = settings or BotSettings()
     return Pipeline([
         HydrationStage(storage),
-        FormatStage(BotSettings()),
-        CommandFactoryStage(),
+        FormatStage(settings),
+        DecisionStage(),
     ])
+
+
+def _make_services(
+    *,
+    storage=None,
+    detection=None,
+    pending=None,
+    chillout=None,
+    geo=None,
+    settings=None,
+):
+    storage = storage or FakeStoragePort()
+    detection = detection or FakeDetectionPort(time_mentioned=True, points=[TimePoint(time="12:00")])
+    pending = pending or FakeOnboardingPendingPort()
+    chillout = chillout or FakeOnboardingChilloutStatePort()
+    geo = geo or FakeGeoPort()
+    settings = settings or BotSettings()
+
+    tg_executor = FakeCommandExecutorPort()
+    delivery = DeliveryService(tg_executor=tg_executor)
+    replay = _make_replay_pipeline(storage, settings)
+    onboarding_coordinator = OnboardingCoordinator(
+        storage_port=storage,
+        onboarding_pending_port=pending,
+        chillout_state_port=chillout,
+        geocoding_port=geo,
+        replay_pipeline=replay,
+        delivery_service=delivery,
+        settings=settings,
+    )
+    processor = MessageProcessingService(
+        fresh_pipeline=_make_fresh_pipeline(storage, detection, geo, settings),
+        storage_port=storage,
+        delivery_service=delivery,
+        onboarding_coordinator=onboarding_coordinator,
+    )
+    return storage, pending, chillout, onboarding_coordinator, processor, tg_executor
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_routes_commands_to_correct_executor():
-    # 1. Arrange
+async def test_dispatcher_routes_reply_to_correct_executor():
     storage = FakeStoragePort()
-    tg_executor = FakeCommandExecutorPort()
-    dc_executor = FakeCommandExecutorPort()
+    sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/London", city="London", flag="🇬🇧")
+    storage.users[(1, Platform.TELEGRAM)] = sender
+    storage.members[("chat1", Platform.TELEGRAM)] = [sender]
 
-    user = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/London", city="London", flag="🇬🇧")
-    storage.users[(1, Platform.TELEGRAM)] = user
-    storage.members[("chat1", Platform.TELEGRAM)] = [user]
+    _, _, _, _, processor, tg_executor = _make_services(storage=storage)
 
-    tp = TimePoint(time="12:00", tz_city=None)
-    detection = FakeDetectionPort(time_mentioned=True, points=[tp])
-
-    fresh = _make_fresh_pipeline(storage, detection)
-    replay = _make_replay_pipeline(storage)
-
-    dispatcher = MessageDispatcher(
-        fresh_pipeline=fresh,
-        replay_pipeline=replay,
-        tg_executor=tg_executor,
-        dc_executor=dc_executor,
+    await processor.process_input(
+        InputData(
+            text="Let's meet at 12:00",
+            user_id=1,
+            platform=Platform.TELEGRAM,
+            author_name="Alice",
+            timestamp_utc=datetime.now(timezone.utc),
+            chat_id="chat1",
+        )
     )
 
-    # 2. Act
+    assert len(tg_executor.executed_commands) == 1
+    assert isinstance(tg_executor.executed_commands[0], SendReply)
+
+
+@pytest.mark.asyncio
+async def test_fresh_message_without_timezone_saves_latest_pending_and_shows_prompt():
+    pending = FakeOnboardingPendingPort()
+    chillout = FakeOnboardingChilloutStatePort(in_chillout=False)
+    storage, _, _, _, processor, tg_executor = _make_services(pending=pending, chillout=chillout)
+
     data = InputData(
         text="Let's meet at 12:00",
         user_id=1,
@@ -75,57 +127,131 @@ async def test_dispatcher_routes_commands_to_correct_executor():
         timestamp_utc=datetime.now(timezone.utc),
         chat_id="chat1",
     )
-    await dispatcher.process_input(data)
+    await processor.process_input(data)
 
-    # 3. Assert
+    assert (1, Platform.TELEGRAM, "Alice") in storage.created
+    assert pending.messages[(1, Platform.TELEGRAM.value)].original_input.text == data.text
     assert len(tg_executor.executed_commands) == 1
-    assert isinstance(tg_executor.executed_commands[0], SendReply)
-    assert len(dc_executor.executed_commands) == 0
+    assert isinstance(tg_executor.executed_commands[0], ShowOnboarding)
+    assert chillout.marked == [(1, Platform.TELEGRAM)]
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_replay_uses_checkpoint_detection():
-    """Replay pipeline uses ctx.detection from OnboardingPendingMessage — no re-detection occurs.
-    FakeDetectionPort is set to time_mentioned=False; if it were called, no reply would be produced.
-    Since replay pipeline skips DetectionStage entirely, the cached detection is used → reply is sent.
-    """
-    storage = FakeStoragePort()
-    tg_executor = FakeCommandExecutorPort()
+async def test_fresh_message_during_chillout_updates_pending_without_prompt():
+    pending = FakeOnboardingPendingPort()
+    chillout = FakeOnboardingChilloutStatePort(in_chillout=True)
+    storage, _, _, _, processor, tg_executor = _make_services(pending=pending, chillout=chillout)
 
-    user = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/London", city="London", flag="🇬🇧")
-    storage.users[(1, Platform.TELEGRAM)] = user
-    storage.members[("chat1", Platform.TELEGRAM)] = [user]
-
-    # If detection were called, it would return no time → no reply. It should NOT be called.
-    detection = FakeDetectionPort(time_mentioned=False, points=[])
-
-    fresh = _make_fresh_pipeline(storage, detection)
-    replay = _make_replay_pipeline(storage)
-
-    dispatcher = MessageDispatcher(
-        fresh_pipeline=fresh,
-        replay_pipeline=replay,
-        tg_executor=tg_executor,
-        dc_executor=None,
-    )
-
-    original_data = InputData(
-        text="I said 12:00 yesterday!",
+    data = InputData(
+        text="Let's meet at 12:00",
         user_id=1,
         platform=Platform.TELEGRAM,
         author_name="Alice",
         timestamp_utc=datetime.now(timezone.utc),
         chat_id="chat1",
     )
+    await processor.process_input(data)
 
-    # Pre-built detection checkpoint (what was stored in OnboardingPendingMessage)
-    cached_detection = DetectionResult(
-        time_mentioned=True,
-        points=(TimePoint(time="12:00", tz_city=None),),
+    assert (1, Platform.TELEGRAM, "Alice") in storage.created
+    assert pending.messages[(1, Platform.TELEGRAM.value)].original_input.text == data.text
+    assert tg_executor.executed_commands == []
+    assert chillout.marked == []
+
+
+@pytest.mark.asyncio
+async def test_complete_replays_latest_pending_and_clears_it():
+    storage = FakeStoragePort()
+    pending = FakeOnboardingPendingPort()
+    geo = FakeGeoPort()
+    geo._resolves_to = type("Location", (), {
+        "city": "London",
+        "timezone": "Europe/London",
+        "country_code": "GB",
+        "flag": "🇬🇧",
+    })()
+    _, pending, _, onboarding, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo)
+
+    receiver = UserProfile(user_id=2, platform=Platform.TELEGRAM, timezone="America/New_York", city="New York", flag="🇺🇸")
+    storage.members[("chat1", Platform.TELEGRAM)] = [receiver]
+
+    pending_msg = OnboardingPendingMessage(
+        original_input=InputData(
+            text="Let's meet at 12:00",
+            user_id=1,
+            platform=Platform.TELEGRAM,
+            author_name="Alice",
+            timestamp_utc=datetime.now(timezone.utc),
+            chat_id="chat1",
+        ),
+        detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="12:00"),)),
     )
-    pending_msg = OnboardingPendingMessage(original_input=original_data, detection=cached_detection)
+    await pending.upsert(1, Platform.TELEGRAM, pending_msg)
 
-    await dispatcher.process_pending(pending_msg)
+    result = await onboarding.complete(1, "London", Platform.TELEGRAM)
 
+    assert result.ok is True
     assert len(tg_executor.executed_commands) == 1
     assert isinstance(tg_executor.executed_commands[0], SendReply)
+    assert await pending.get(1, Platform.TELEGRAM) is None
+
+
+@pytest.mark.asyncio
+async def test_complete_drops_stale_pending_without_reply():
+    storage = FakeStoragePort()
+    pending = FakeOnboardingPendingPort()
+    geo = FakeGeoPort()
+    geo._resolves_to = type("Location", (), {
+        "city": "London",
+        "timezone": "Europe/London",
+        "country_code": "GB",
+        "flag": "🇬🇧",
+    })()
+    settings = BotSettings(max_age_fresh_secs=30)
+    _, pending, _, onboarding, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo, settings=settings)
+
+    stale_msg = OnboardingPendingMessage(
+        original_input=InputData(
+            text="Let's meet at 12:00",
+            user_id=1,
+            platform=Platform.TELEGRAM,
+            author_name="Alice",
+            timestamp_utc=datetime.now(timezone.utc) - timedelta(minutes=10),
+            chat_id="chat1",
+        ),
+        detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="12:00"),)),
+    )
+    await pending.upsert(1, Platform.TELEGRAM, stale_msg)
+
+    result = await onboarding.complete(1, "London", Platform.TELEGRAM)
+
+    assert result.ok is True
+    assert tg_executor.executed_commands == []
+    assert await pending.get(1, Platform.TELEGRAM) is None
+
+
+@pytest.mark.asyncio
+async def test_decline_marks_user_and_clears_pending():
+    storage = FakeStoragePort()
+    pending = FakeOnboardingPendingPort()
+    _, pending, _, onboarding, _, _ = _make_services(storage=storage, pending=pending)
+
+    await pending.upsert(
+        1,
+        Platform.TELEGRAM,
+        OnboardingPendingMessage(
+            original_input=InputData(
+                text="Let's meet at 12:00",
+                user_id=1,
+                platform=Platform.TELEGRAM,
+                author_name="Alice",
+                timestamp_utc=datetime.now(timezone.utc),
+                chat_id="chat1",
+            ),
+            detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="12:00"),)),
+        ),
+    )
+
+    await onboarding.decline(1, Platform.TELEGRAM)
+
+    assert storage.users[(1, Platform.TELEGRAM)].onboarding_declined is True
+    assert await pending.get(1, Platform.TELEGRAM) is None

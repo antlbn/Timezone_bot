@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import dataclasses
 from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile, OnboardingPendingMessage, TimePoint
-from ports.storage import StoragePort
-from ports.detection import DetectionPort, DetectionRequest, DetectionResult
-from ports.geocoding import GeoPort, Location
-from ports.pending import OnboardingPendingPort
-from ports.executor import CommandExecutorPort
+from ports.detection import DetectionRequest, DetectionResult
+from ports.geocoding import Location
 from core.domain.commands import Command
 
 
@@ -88,7 +87,7 @@ class FakeStoragePort:
 
 
 class FakeDetectionPort:
-    def __init__(self, time_mentioned: bool = True, points: list[TimePoint] = None):
+    def __init__(self, time_mentioned: bool = True, points: list[TimePoint] | None = None):
         self._time_mentioned = time_mentioned
         self._points = points or []
 
@@ -114,8 +113,16 @@ class FakeOnboardingPendingPort:
     async def upsert(self, user_id: int, platform: Platform, message: OnboardingPendingMessage) -> None:
         self.messages[(user_id, platform.value)] = message
 
+    async def get(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
+        return self.messages.get((user_id, platform.value))
+
+    async def delete(self, user_id: int, platform: Platform) -> None:
+        self.messages.pop((user_id, platform.value), None)
+
     async def get_and_delete(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
-        return self.messages.pop((user_id, platform.value), None)
+        message = await self.get(user_id, platform)
+        await self.delete(user_id, platform)
+        return message
 
 
 class FakeOnboardingChilloutStatePort:

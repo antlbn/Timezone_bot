@@ -1,19 +1,16 @@
-import dataclasses
 import logging
 from datetime import datetime, timezone
 
-from core.domain.value_objects import MessageContext, OnboardingPendingMessage, BotSettings, TimePoint
-from core.domain.commands import (
-    SendReply,
-    SaveOnboardingPending,
-    ShowOnboarding,
-    MarkOnboardingPromptShown,
-    NoOp,
+from core.domain.value_objects import (
+    MessageContext,
+    OnboardingPendingMessage,
+    BotSettings,
+    MessageDecision,
+    TimePoint,
 )
 from ports.detection import DetectionPort, DetectionRequest, DetectionResult
 from ports.storage import StoragePort
 from ports.geocoding import GeoPort
-from ports.onboarding_chillout_state import OnboardingChilloutStatePort
 from core.services.formatting import format_multi_conversion
 
 logger = logging.getLogger(__name__)
@@ -23,13 +20,13 @@ class GuardStage:
     """Drops messages that should never enter the pipeline."""
     async def process(self, ctx: MessageContext) -> MessageContext:
         if ctx.input.is_bot:
-            ctx._stopped = True
+            ctx.stop_processing = True
             return ctx
         if not ctx.input.text or ctx.input.text.strip() == "":
-            ctx._stopped = True
+            ctx.stop_processing = True
             return ctx
         if len(ctx.input.text) > 4000:
-            ctx._stopped = True
+            ctx.stop_processing = True
             return ctx
         return ctx
 
@@ -37,7 +34,7 @@ class GuardStage:
 class AgingStage:
     """Drops messages that are too old to be worth processing.
     Only used in the fresh pipeline — replay pipeline skips aging entirely
-    because replaying is an intentional decision made by OnboardingService.
+    because replaying is an intentional decision made by OnboardingCoordinator.
     """
     def __init__(self, settings: BotSettings):
         self._settings = settings
@@ -45,7 +42,7 @@ class AgingStage:
     async def process(self, ctx: MessageContext) -> MessageContext:
         age_seconds = (datetime.now(timezone.utc) - ctx.input.timestamp_utc).total_seconds()
         if age_seconds > self._settings.max_age_fresh_secs:
-            ctx._stopped = True
+            ctx.stop_processing = True
         return ctx
 
 
@@ -59,7 +56,7 @@ class DetectionStage:
         result = await self.detection_port.detect(request)
         ctx.detection = result
         if not result.time_mentioned or not result.points:
-            ctx._stopped = True
+            ctx.stop_processing = True
         return ctx
 
 
@@ -102,29 +99,6 @@ class GeoResolveStage:
         return ctx
 
 
-class RegistrationStage:
-    """Syncs basic user metadata and chat membership. Side-effect only.
-    Runs in fresh pipeline after detection to avoid registering one-off noise.
-    """
-    def __init__(self, storage_port: StoragePort):
-        self._storage = storage_port
-
-    async def process(self, ctx: MessageContext) -> MessageContext:
-        # Sync persona info
-        await self._storage.ensure_user_metadata(
-            ctx.input.user_id, ctx.input.platform, ctx.input.author_name
-        )
-
-        # Ensure chat membership link exists
-        if ctx.input.chat_id:
-            await self._storage.add_chat_member(
-                chat_id=ctx.input.chat_id,
-                user_id=ctx.input.user_id,
-                platform=ctx.input.platform,
-            )
-        return ctx
-
-
 class HydrationStage:
     """Loads domain context from storage. Strictly read-only.
     Populates ctx.sender and ctx.members (only those with timezones).
@@ -149,7 +123,7 @@ class FormatStage:
 
     Uses tz_resolved (explicit city in message) as source timezone if present.
     Falls back to sender.timezone if no tz_resolved is available.
-    Drops silently if neither is available; CommandFactory will decide what to do next.
+    Drops silently if neither is available; DecisionStage will decide what to do next.
     """
     def __init__(self, settings: BotSettings):
         self.settings = settings
@@ -176,82 +150,35 @@ class FormatStage:
         return ctx
 
 
-class OnboardingChilloutStage:
-    """Suppresses repeated onboarding prompts during the chillout window."""
-
-    def __init__(self, chillout_state_port: OnboardingChilloutStatePort, settings: BotSettings):
-        self._chillout_state = chillout_state_port
-        self._settings = settings
-
-    async def process(self, ctx: MessageContext) -> MessageContext:
-        if ctx.sender and ctx.sender.timezone:
-            return ctx
-        if ctx.sender and ctx.sender.onboarding_declined:
-            return ctx
-
-        ctx.onboarding_prompt_suppressed = await self._chillout_state.is_onboarding_in_chillout(
-            ctx.input.user_id,
-            ctx.input.platform,
-            self._settings.onboarding_cooldown_secs,
-        )
-        return ctx
-
-
-class CommandFactoryStage:
-    """Produces the final list of Commands based on accumulated context.
-    Pure logic — no I/O. All eligibility filtering was done by upstream stages.
+class DecisionStage:
+    """Produces the final pipeline decision based on accumulated context.
+    Pure logic — no I/O. Workflow side effects are handled by the application layer.
     """
     async def process(self, ctx: MessageContext) -> MessageContext:
         if not ctx.detection or not ctx.detection.time_mentioned:
-            ctx.commands = [NoOp()]
+            ctx.decision = MessageDecision(ignore=True)
             return ctx
-
-        commands = []
-
-        if ctx.reply_text:
-            commands.append(SendReply(
-                text=ctx.reply_text,
-                chat_id=ctx.input.chat_id,
-                thread_id=ctx.input.thread_id,
-            ))
 
         needs_onboarding = (
             (not ctx.sender or not ctx.sender.timezone) and
             not (ctx.sender and ctx.sender.onboarding_declined)
         )
 
+        pending_message = None
         if needs_onboarding:
-            pending = OnboardingPendingMessage(original_input=ctx.input, detection=ctx.detection)
-            commands.append(
-                SaveOnboardingPending(
-                    user_id=ctx.input.user_id,
-                    platform=ctx.input.platform,
-                    message=pending,
-                )
-            )
-            if not ctx.onboarding_prompt_suppressed:
-                commands.append(
-                    ShowOnboarding(
-                        user_id=ctx.input.user_id,
-                        author_name=ctx.input.author_name,
-                        chat_id=ctx.input.chat_id,
-                        thread_id=ctx.input.thread_id,
-                    )
-                )
-                commands.append(
-                    MarkOnboardingPromptShown(
-                        user_id=ctx.input.user_id,
-                        platform=ctx.input.platform,
-                    )
-                )
+            pending_message = OnboardingPendingMessage(original_input=ctx.input, detection=ctx.detection)
 
-        if not commands:
+        ignore = not ctx.reply_text and pending_message is None
+        if ignore:
             has_profile_tz = bool(ctx.sender and ctx.sender.timezone)
             if has_profile_tz:
                 logger.warning(
-                    "CommandFactoryStage: sender timezone present but no commands were produced."
+                    "DecisionStage: sender timezone present but no outcome was produced."
                 )
-            commands = [NoOp()]
-
-        ctx.commands = commands
+        ctx.decision = MessageDecision(
+            reply_text=ctx.reply_text,
+            pending_message=pending_message,
+            needs_onboarding=needs_onboarding,
+            ignore=ignore,
+        )
         return ctx

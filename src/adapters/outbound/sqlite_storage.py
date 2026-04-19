@@ -189,7 +189,7 @@ class SQLiteStorage(StoragePort):
         await db.commit()
 
     async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
-        """Mark as declined. Username was already synced by ensure_user/RegistrationStage."""
+        """Mark as declined. Username was already synced in the message processing flow."""
         db = await self._get_conn()
         await db.execute(
             """

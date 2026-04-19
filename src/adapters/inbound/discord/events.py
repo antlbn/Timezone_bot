@@ -21,4 +21,4 @@ async def on_message(message: discord.Message, container: 'AppContainer') -> Non
         is_bot=message.author.bot
     )
     
-    await container.dispatcher.process_input(data)
+    await container.message_processor.process_input(data)

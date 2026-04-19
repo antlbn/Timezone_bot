@@ -1,19 +1,20 @@
 import discord
 import logging
+from collections.abc import Callable
 from adapters.executors.base_executor import BaseCommandExecutor
 from core.domain.commands import SendReply, ShowOnboarding
-from adapters.inbound.discord.ui import SetTimezoneView
 
 logger = logging.getLogger(__name__)
 
 class DiscordCommandExecutor(BaseCommandExecutor):
-    def __init__(self, onboarding_pending_port, onboarding_chillout_state_port, client: discord.Client):
-        super().__init__(onboarding_pending_port, onboarding_chillout_state_port)
+    def __init__(
+        self,
+        client: discord.Client,
+        onboarding_view_factory: Callable[[int], discord.ui.View],
+    ):
+        super().__init__()
         self.client = client
-        self.onboarding_service = None
-
-    def set_onboarding_service(self, service):
-        self.onboarding_service = service
+        self._onboarding_view_factory = onboarding_view_factory
 
     async def _get_channel(self, thread_id: str | None) -> discord.abc.Messageable | None:
         if not thread_id:
@@ -54,6 +55,6 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         await channel.send(
             content=f"<@{cmd.user_id}>",
             embed=embed,
-            view=SetTimezoneView(cmd.user_id, self.onboarding_service),
+            view=self._onboarding_view_factory(cmd.user_id),
             delete_after=60
         )
