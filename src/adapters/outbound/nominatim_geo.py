@@ -2,7 +2,7 @@ import asyncio
 import logging
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
-from src.ports.geocoding import GeoPort, Location
+from ports.geocoding import GeoPort, Location
 
 logger = logging.getLogger(__name__)
 _tf = TimezoneFinder()

@@ -1,6 +1,6 @@
 import discord
 from discord import app_commands
-from src.core.domain.enums import Platform
+from core.domain.enums import Platform
 import logging
 
 logger = logging.getLogger(__name__)

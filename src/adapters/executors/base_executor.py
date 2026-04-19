@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from src.core.domain.commands import Command, SavePending, NoOp, SendReply, ShowOnboarding
-from src.ports.pending import PendingPort
-from src.ports.executor import CommandExecutorPort
+from core.domain.commands import Command, SavePending, NoOp, SendReply, ShowOnboarding
+from ports.pending import PendingPort
+from ports.executor import CommandExecutorPort
 import logging
 
 logger = logging.getLogger(__name__)

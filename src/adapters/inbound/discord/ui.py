@@ -1,6 +1,6 @@
 import discord
 from discord import ui
-from src.core.domain.enums import Platform
+from core.domain.enums import Platform
 
 class TimezoneModal(ui.Modal, title="Timezone Setup"):
     city = ui.TextInput(label="City", placeholder="e.g. London, Tokyo")

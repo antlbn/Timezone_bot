@@ -1,11 +1,11 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 
-from src.core.domain.enums import Platform
-from src.core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile, BotSettings
-from src.core.domain.commands import SendReply, ShowOnboarding, SavePending, NoOp
-from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import (
+from core.domain.enums import Platform
+from core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile, BotSettings
+from core.domain.commands import SendReply, ShowOnboarding, SavePending, NoOp
+from core.pipeline.pipeline import Pipeline
+from core.pipeline.stages import (
     GuardStage, AgingStage, DetectionStage,
     RegistrationStage, HydrationStage, FormatStage, CommandFactoryStage,
 )
@@ -182,7 +182,7 @@ async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     """Declined user who writes '14:00 по Лондону' should receive a SendReply.
     CommandFactory drops onboarding check because tz_resolved is present.
     """
-    from src.ports.detection import DetectionResult
+    from ports.detection import DetectionResult
     storage = FakeStoragePort()
 
     declined = UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True)

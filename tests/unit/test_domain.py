@@ -1,7 +1,7 @@
 import pytest
 from dataclasses import FrozenInstanceError
-from src.core.domain.value_objects import TimePoint
-from src.core.domain.enums import Platform
+from core.domain.value_objects import TimePoint
+from core.domain.enums import Platform
 
 def test_timepoint_validation_valid():
     """Test valid time format -> OK."""

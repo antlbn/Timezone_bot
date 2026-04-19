@@ -4,11 +4,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, TYPE_CHECKING
 
-from src.core.domain.enums import Platform, ResponseStyle
+from core.domain.enums import Platform, ResponseStyle
 
 if TYPE_CHECKING:
-    from src.ports.detection import DetectionResult
-    from src.core.domain.commands import Command
+    from ports.detection import DetectionResult
+    from core.domain.commands import Command
 
 @dataclass(frozen=True)
 class TimePoint:

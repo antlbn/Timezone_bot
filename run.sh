@@ -18,8 +18,9 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 echo "Starting Timezone Bot... (Ctrl+C to stop)"
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
 
-uv run python -m src.main &
+uv run python -m main &
 BOT_PID=$!
 
 wait

@@ -1,8 +1,8 @@
 import discord
 import logging
-from src.adapters.executors.base_executor import BaseCommandExecutor
-from src.core.domain.commands import SendReply, ShowOnboarding
-from src.adapters.inbound.discord.ui import SetTimezoneView
+from adapters.executors.base_executor import BaseCommandExecutor
+from core.domain.commands import SendReply, ShowOnboarding
+from adapters.inbound.discord.ui import SetTimezoneView
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from src.core.domain.enums import Platform
-from src.core.domain.value_objects import PendingMessage
+from core.domain.enums import Platform
+from core.domain.value_objects import PendingMessage
 
 @dataclass(frozen=True)
 class Command:

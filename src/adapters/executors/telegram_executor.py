@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from src.adapters.executors.base_executor import BaseCommandExecutor
-from src.core.domain.commands import SendReply, ShowOnboarding
+from adapters.executors.base_executor import BaseCommandExecutor
+from core.domain.commands import SendReply, ShowOnboarding
 
 from aiogram import Bot
 

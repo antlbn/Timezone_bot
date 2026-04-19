@@ -1,6 +1,6 @@
-from src.core.domain.enums import Platform
-from src.core.domain.value_objects import UserProfile
-from src.ports.storage import StoragePort
+from core.domain.enums import Platform
+from core.domain.value_objects import UserProfile
+from ports.storage import StoragePort
 from zoneinfo import ZoneInfo
 from datetime import datetime
 

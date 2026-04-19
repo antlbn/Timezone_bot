@@ -1,4 +1,4 @@
-from src.core.services.conversion import convert_time, parse_time
+from core.services.conversion import convert_time, parse_time
 from datetime import time
 
 def test_conversion_convert_time():

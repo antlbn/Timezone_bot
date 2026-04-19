@@ -1,7 +1,7 @@
 from collections import defaultdict
-from src.core.domain.value_objects import TimePoint, UserProfile
-from src.core.services.conversion import convert_time, get_utc_offset, parse_time
-from src.core.domain.enums import ResponseStyle
+from core.domain.value_objects import TimePoint, UserProfile
+from core.services.conversion import convert_time, get_utc_offset, parse_time
+from core.domain.enums import ResponseStyle
 
 
 def normalize_time(time_str: str) -> str:

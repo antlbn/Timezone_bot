@@ -17,11 +17,11 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
-from src.core.domain.enums import Platform
+from core.domain.enums import Platform
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.main import AppContainer
+    from main import AppContainer
 
 router = Router(name="onboarding")
 

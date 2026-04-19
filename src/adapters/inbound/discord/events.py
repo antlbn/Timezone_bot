@@ -1,10 +1,10 @@
 import discord
-from src.core.domain.value_objects import InputData
-from src.core.domain.enums import Platform
+from core.domain.value_objects import InputData
+from core.domain.enums import Platform
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.main import AppContainer
+    from main import AppContainer
 
 async def on_message(message: discord.Message, container: 'AppContainer') -> None:
     if message.author.bot or not message.guild:

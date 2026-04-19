@@ -1,12 +1,12 @@
 import dataclasses
-from src.core.domain.enums import Platform
-from src.core.domain.value_objects import UserProfile, PendingMessage, TimePoint
-from src.ports.storage import StoragePort
-from src.ports.detection import DetectionPort, DetectionRequest, DetectionResult
-from src.ports.geocoding import GeoPort, Location
-from src.ports.pending import PendingPort
-from src.ports.executor import CommandExecutorPort
-from src.core.domain.commands import Command
+from core.domain.enums import Platform
+from core.domain.value_objects import UserProfile, PendingMessage, TimePoint
+from ports.storage import StoragePort
+from ports.detection import DetectionPort, DetectionRequest, DetectionResult
+from ports.geocoding import GeoPort, Location
+from ports.pending import PendingPort
+from ports.executor import CommandExecutorPort
+from core.domain.commands import Command
 
 
 class FakeStoragePort:

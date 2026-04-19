@@ -1,13 +1,13 @@
 import pytest
 from datetime import datetime, timezone
 
-from src.core.domain.enums import Platform
-from src.core.domain.value_objects import InputData, TimePoint, UserProfile, BotSettings, PendingMessage
-from src.core.domain.commands import SendReply
-from src.ports.detection import DetectionResult
+from core.domain.enums import Platform
+from core.domain.value_objects import InputData, TimePoint, UserProfile, BotSettings, PendingMessage
+from core.domain.commands import SendReply
+from ports.detection import DetectionResult
 
-from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import (
+from core.pipeline.pipeline import Pipeline
+from core.pipeline.stages import (
     GuardStage,
     AgingStage,
     DetectionStage,
@@ -16,7 +16,7 @@ from src.core.pipeline.stages import (
     FormatStage,
     CommandFactoryStage,
 )
-from src.core.services.dispatcher import MessageDispatcher
+from core.services.dispatcher import MessageDispatcher
 
 from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeCommandExecutorPort, FakePendingPort
 

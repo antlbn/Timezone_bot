@@ -1,7 +1,7 @@
 import pytest
-from src.core.domain.value_objects import TimePoint, UserProfile
-from src.core.domain.enums import Platform, ResponseStyle
-from src.core.services.formatting import format_multi_conversion, format_single_point, _format_time_with_shift
+from core.domain.value_objects import TimePoint, UserProfile
+from core.domain.enums import Platform, ResponseStyle
+from core.services.formatting import format_multi_conversion, format_single_point, _format_time_with_shift
 
 @pytest.fixture
 def sender():

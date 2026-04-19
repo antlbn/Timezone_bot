@@ -1,5 +1,5 @@
 from typing import Protocol
-from src.core.domain.commands import Command
+from core.domain.commands import Command
 
 class CommandExecutorPort(Protocol):
     async def execute(self, commands: list[Command]) -> None:

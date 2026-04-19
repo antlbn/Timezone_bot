@@ -1,7 +1,7 @@
 from time import monotonic
-from src.core.domain.enums import Platform
-from src.core.domain.value_objects import PendingMessage
-from src.ports.pending import PendingPort
+from core.domain.enums import Platform
+from core.domain.value_objects import PendingMessage
+from ports.pending import PendingPort
 
 class MemoryPending(PendingPort):
     """In-memory pending store with TTL.

@@ -4,8 +4,8 @@ import os
 import re
 from openai import AsyncOpenAI
 
-from src.ports.detection import DetectionPort, DetectionRequest, DetectionResult
-from src.core.domain.value_objects import TimePoint
+from ports.detection import DetectionPort, DetectionRequest, DetectionResult
+from core.domain.value_objects import TimePoint
 
 logger = logging.getLogger(__name__)
 

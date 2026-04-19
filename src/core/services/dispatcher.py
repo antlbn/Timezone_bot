@@ -1,8 +1,8 @@
 import logging
-from src.core.domain.value_objects import InputData, MessageContext, PendingMessage
-from src.core.domain.enums import Platform
-from src.core.pipeline.pipeline import Pipeline
-from src.ports.executor import CommandExecutorPort
+from core.domain.value_objects import InputData, MessageContext, PendingMessage
+from core.domain.enums import Platform
+from core.pipeline.pipeline import Pipeline
+from ports.executor import CommandExecutorPort
 
 logger = logging.getLogger(__name__)
 

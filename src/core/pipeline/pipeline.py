@@ -1,7 +1,7 @@
 import logging
-from src.core.domain.value_objects import MessageContext
-from src.core.domain.commands import NoOp
-from src.core.pipeline.contracts import Stage
+from core.domain.value_objects import MessageContext
+from core.domain.commands import NoOp
+from core.pipeline.contracts import Stage
 
 logger = logging.getLogger(__name__)
 

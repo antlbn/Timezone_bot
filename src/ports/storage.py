@@ -1,6 +1,6 @@
 from typing import Protocol
-from src.core.domain.value_objects import UserProfile
-from src.core.domain.enums import Platform
+from core.domain.value_objects import UserProfile
+from core.domain.enums import Platform
 
 class StoragePort(Protocol):
     async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:

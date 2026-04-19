@@ -16,13 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from src.core.domain.enums import Platform
-from src.ports.geocoding import GeoPort
-from src.ports.pending import PendingPort
-from src.ports.storage import StoragePort
+from core.domain.enums import Platform
+from ports.geocoding import GeoPort
+from ports.pending import PendingPort
+from ports.storage import StoragePort
 
 if TYPE_CHECKING:
-    from src.core.services.dispatcher import MessageDispatcher
+    from core.services.dispatcher import MessageDispatcher
 
 
 # ---------------------------------------------------------------------------

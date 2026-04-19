@@ -9,11 +9,12 @@
   "venvPath": ".",
   "venv": ".venv",
   "extraPaths": [
+    "src",
     "."
   ],
   "executionEnvironments": [
     {
-      "root": "."
+      "root": "src"
     }
   ],
   "typeCheckingMode": "basic"

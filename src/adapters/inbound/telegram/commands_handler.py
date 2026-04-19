@@ -2,12 +2,12 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
-from src.core.domain.enums import Platform
-from src.adapters.inbound.telegram.onboarding_handler import OnboardingFSM
+from core.domain.enums import Platform
+from adapters.inbound.telegram.onboarding_handler import OnboardingFSM
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.main import AppContainer
+    from main import AppContainer
 
 router = Router(name="commands")
 

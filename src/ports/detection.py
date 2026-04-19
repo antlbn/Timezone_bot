@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Protocol
 from datetime import datetime
 
-from src.core.domain.value_objects import TimePoint
+from core.domain.value_objects import TimePoint
 
 @dataclass
 class DetectionRequest:
