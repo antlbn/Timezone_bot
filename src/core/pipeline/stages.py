@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+import dataclasses
 
 from core.domain.value_objects import (
     MessageContext,
@@ -75,14 +76,7 @@ class GeoResolveStage:
             if point.tz_city and not point.tz_resolved:
                 location = await self._geo.resolve_city(point.tz_city)
                 if location:
-                    point = TimePoint(
-                        time=point.time,
-                        tz_city=point.tz_city,
-                        tz_resolved=location.timezone,
-                        am_pm_clear=point.am_pm_clear,
-                        day_shift=point.day_shift,
-                        event_title=point.event_title,
-                    )
+                    point = dataclasses.replace(point, tz_resolved=location.timezone)
                     changed = True
                 else:
                     logger.debug("GeoResolveStage: could not resolve city %r", point.tz_city)
@@ -154,10 +148,7 @@ class DecisionStage:
             ctx.decision = MessageDecision(ignore=True)
             return
 
-        needs_onboarding = (
-            (not ctx.sender or not ctx.sender.timezone) and
-            not (ctx.sender and ctx.sender.onboarding_declined)
-        )
+        needs_onboarding = not ctx.sender or ctx.sender.needs_onboarding
 
         pending_message = None
         if needs_onboarding:

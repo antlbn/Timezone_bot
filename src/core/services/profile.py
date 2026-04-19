@@ -3,6 +3,7 @@ from core.domain.value_objects import UserProfile
 from ports.storage import StoragePort
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from datetime import datetime
+from core.services.conversion import get_utc_offset
 
 class ProfileService:
     def __init__(self, storage_port: StoragePort) -> None:
@@ -16,12 +17,5 @@ class ProfileService:
         if not members:
             return []
 
-        def get_offset(tz_name: str) -> float:
-            try:
-                # get UTC offset in seconds
-                return datetime.now(ZoneInfo(tz_name)).utcoffset().total_seconds()
-            except (ValueError, ZoneInfoNotFoundError):
-                return 0.0
-
         # sort by timezone offset
-        return sorted(members, key=lambda m: get_offset(m.timezone))
+        return sorted(members, key=lambda m: get_utc_offset(m.timezone))

@@ -33,6 +33,10 @@ class UserProfile:
     flag: str | None = None
     onboarding_declined: bool = False
 
+    @property
+    def needs_onboarding(self) -> bool:
+        return not self.timezone and not self.onboarding_declined
+
 @dataclass(frozen=True)
 class OnboardingPendingMessage:
     original_input: InputData
