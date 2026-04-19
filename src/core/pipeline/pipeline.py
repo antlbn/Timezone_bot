@@ -26,7 +26,14 @@ class Pipeline:
                 if ctx.stop_processing:
                     return ctx
             except Exception as e:
-                logger.exception(f"Pipeline stage {stage.__class__.__name__} failed: {e}")
+                logger.exception(
+                    "Pipeline stage %s failed for user=%s chat=%s text_snippet=%r: %s",
+                    stage.__class__.__name__,
+                    ctx.input.user_id,
+                    ctx.input.chat_id,
+                    ctx.input.text[:50] if ctx.input.text else "",
+                    e,
+                )
                 ctx.decision = MessageDecision(ignore=True)
                 return ctx
         return ctx
