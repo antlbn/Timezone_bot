@@ -11,9 +11,10 @@ logger = logging.getLogger(__name__)
 
 # To decouple completely from legacy config, we use env vars directly.
 class OpenAIDetector(DetectionPort):
-    def __init__(self):
-        # We will initialize connection logic inline or pass a client 
-        pass
+    def __init__(self, api_key: str | None, base_url: str | None, model: str = "gpt-4o-mini"):
+        self._api_key = api_key
+        self._base_url = base_url
+        self._model = model
 
     def _strip_json_fences(self, raw: str) -> str:
         text = (raw or "").strip()
@@ -23,15 +24,11 @@ class OpenAIDetector(DetectionPort):
         return text
 
     async def detect(self, request: DetectionRequest) -> DetectionResult:
-        api_key = os.getenv("LLM_FALLBACK_API_KEY")
-        base_url = os.getenv("LLM_FALLBACK_BASE_URL")
-        model = os.getenv("LLM_FALLBACK_MODEL", "gpt-4o-mini")
-
-        if not api_key:
+        if not self._api_key:
             logger.error("No LLM_API_KEY found")
             return DetectionResult(time_mentioned=False, points=tuple())
 
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=10.0)
+        client = AsyncOpenAI(api_key=self._api_key, base_url=self._base_url, timeout=10.0)
         
         # Super simplified system prompt for testing
         system_prompt = """You extract time references from conversational text and return a JSON object.
@@ -42,7 +39,7 @@ Keep am_pm_clear true unless ambiguous."""
 
         try:
             response = await client.chat.completions.create(
-                model=model,
+                model=self._model,
                 temperature=0.0,
                 response_format={"type": "json_object"},
                 messages=[

@@ -15,6 +15,7 @@ on every message that passes DetectionStage, before onboarding is ever triggered
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from core.domain.commands import SendReply

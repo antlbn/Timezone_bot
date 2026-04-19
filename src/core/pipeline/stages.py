@@ -141,6 +141,7 @@ class FormatStage:
             response_style=self.settings.response_style,
             show_usernames=self.settings.show_usernames,
             show_event_title=self.settings.show_event_title,
+            reference_date=ctx.input.timestamp_utc,
         )
 
 

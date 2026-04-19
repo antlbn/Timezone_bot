@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime
 from core.domain.value_objects import TimePoint, UserProfile
 from core.services.conversion import convert_time, get_utc_offset, parse_time
 from core.domain.enums import ResponseStyle
@@ -62,6 +63,7 @@ def _build_conversion_rows(
     source_label: str,
     source_flag: str,
     members: list[UserProfile],
+    reference_date: datetime,
 ) -> list[dict]:
     """Build the list of display rows: source first (at source_tz), then all other
     member timezones sorted by UTC offset.
@@ -92,7 +94,7 @@ def _build_conversion_rows(
     }]
 
     for tz, group in other_groups:
-        converted_time, day_shift = convert_time(original_time, source_tz, tz)
+        converted_time, day_shift = convert_time(original_time, source_tz, tz, reference_date)
         rows.append({
             "displayed_time": _format_time_with_shift(converted_time, day_shift),
             "label": _join_city_labels(group, tz),
@@ -138,13 +140,14 @@ def format_single_point(
     response_style: ResponseStyle,
     show_usernames: bool,
     show_event_title: bool,
+    reference_date: datetime,
 ) -> str:
     source = _resolve_source(point, sender)
     if source is None:
         return ""  # No reference timezone — nothing to format
 
     source_tz, source_label, source_flag = source
-    rows = _build_conversion_rows(point.time, source_tz, source_label, source_flag, members)
+    rows = _build_conversion_rows(point.time, source_tz, source_label, source_flag, members, reference_date)
 
     ambiguous_prefix = "" if point.am_pm_clear else "AM/PM?"
     title = point.event_title if point.event_title and show_event_title else ""
@@ -187,13 +190,20 @@ def format_multi_conversion(
     response_style: ResponseStyle = ResponseStyle.BLOCK,
     show_usernames: bool = False,
     show_event_title: bool = False,
+    reference_date: datetime = None,
 ) -> str:
-    if not points:
+    """
+    Formats the converted times into a single text representation.
+    Architectural Note: Returns a flat string for simplicity (YAGNI). 
+    If platform-specific rendering (e.g. Markdown) is needed later, 
+    refactor this to return a pure PresentationModel object instead.
+    """
+    if not points or not reference_date:
         return ""
 
     blocks = [
         block for point in points
-        if (block := format_single_point(point, sender, members, response_style, show_usernames, show_event_title))
+        if (block := format_single_point(point, sender, members, response_style, show_usernames, show_event_title, reference_date))
     ]
 
     if not blocks:

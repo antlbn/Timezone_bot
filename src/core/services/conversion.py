@@ -1,5 +1,5 @@
 from datetime import datetime, time, timezone
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def get_utc_offset(tz_name: str) -> float:
@@ -8,7 +8,7 @@ def get_utc_offset(tz_name: str) -> float:
         tz = ZoneInfo(tz_name)
         now = datetime.now(tz)
         return now.utcoffset().total_seconds() / 3600
-    except Exception:
+    except (ValueError, ZoneInfoNotFoundError):
         return 0
 
 
@@ -44,12 +44,12 @@ def parse_time(time_str: str) -> time | None:
             hour = 0
 
         return time(hour, minute)
-    except Exception:
+    except ValueError:
         return None
 
 
 def convert_time(
-    time_str: str, from_tz: str, to_tz: str, reference_date: datetime | None = None
+    time_str: str, from_tz: str, to_tz: str, reference_date: datetime
 ) -> tuple[str, int]:
     """
     Convert time from one timezone to another.
@@ -57,8 +57,6 @@ def convert_time(
     Returns:
         Tuple of (converted_time_str, day_offset)
     """
-    if reference_date is None:
-        reference_date = datetime.now(timezone.utc)
 
     t = parse_time(time_str)
     if t is None:

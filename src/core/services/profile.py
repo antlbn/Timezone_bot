@@ -1,7 +1,7 @@
 from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile
 from ports.storage import StoragePort
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from datetime import datetime
 
 class ProfileService:
@@ -20,7 +20,7 @@ class ProfileService:
             try:
                 # get UTC offset in seconds
                 return datetime.now(ZoneInfo(tz_name)).utcoffset().total_seconds()
-            except Exception:
+            except (ValueError, ZoneInfoNotFoundError):
                 return 0.0
 
         # sort by timezone offset

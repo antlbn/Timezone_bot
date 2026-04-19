@@ -123,7 +123,11 @@ async def main():
     storage = SQLiteStorage(db_path)
     await storage.initialize()
 
-    detector = OpenAIDetector()
+    detector = OpenAIDetector(
+        api_key=os.getenv("LLM_FALLBACK_API_KEY"),
+        base_url=os.getenv("LLM_FALLBACK_BASE_URL"),
+        model=os.getenv("LLM_FALLBACK_MODEL", "gpt-4o-mini")
+    )
     geocoder = NominatimGeo()
     settings = build_settings(Path("configuration.yaml"))
 
