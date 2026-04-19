@@ -10,13 +10,11 @@ class TimezoneModal(ui.Modal, title="Timezone Setup"):
         self.onboarding_service = onboarding_service
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Defers so it doesn't timeout while geocoding
         await interaction.response.defer(ephemeral=True)
         res = await self.onboarding_service.complete(
             user_id=interaction.user.id,
             city_raw=self.city.value,
             platform=Platform.DISCORD,
-            author_name=interaction.user.display_name
         )
         if res.ok:
             await interaction.followup.send(f"✅ Timezone set to **{res.timezone_name}** ({res.city} {res.flag})", ephemeral=True)
@@ -36,7 +34,6 @@ class SetTimezoneView(ui.View):
 
     @ui.button(label="⚙️ Settings", style=discord.ButtonStyle.primary, custom_id="settz_button")
     async def start_setup(self, interaction: discord.Interaction, button: ui.Button):
-        # Pass the original message so modal can delete it upon success if desired
         modal = TimezoneModal(self.onboarding_service)
         modal.origin_message = interaction.message
         await interaction.response.send_modal(modal)
@@ -46,7 +43,6 @@ class SetTimezoneView(ui.View):
         await self.onboarding_service.decline(
             user_id=interaction.user.id,
             platform=Platform.DISCORD,
-            author_name=interaction.user.display_name
         )
         await interaction.response.send_message(
             "Got it! I won't bother you again. Use `/tb_settz` if you change your mind.", 

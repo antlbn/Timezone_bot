@@ -72,18 +72,57 @@ class SQLiteStorage(StoragePort):
             row = await cursor.fetchone()
             return self._row_to_user_profile(row) if row else None
 
-    async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None, username: str | None = None) -> None:
+    async def create_user(self, user_id: int, platform: Platform, author_name: str) -> UserProfile:
+        """INSERT for first contact. Returns the inserted profile."""
+        db = await self._get_conn()
+        async with db.execute(
+            """
+            INSERT INTO users (user_id, platform, username)
+            VALUES (?, ?, ?)
+            RETURNING *
+            """,
+            (user_id, platform.value, author_name),
+        ) as cursor:
+            row = await cursor.fetchone()
+        await db.commit()
+        self._chat_members_cache.clear()
+        return self._row_to_user_profile(row)
+
+    async def update_username(self, user_id: int, platform: Platform, author_name: str) -> None:
+        """Update display name only when it has changed."""
+        db = await self._get_conn()
+        await db.execute(
+            "UPDATE users SET username = ? WHERE user_id = ? AND platform = ?",
+            (author_name, user_id, platform.value),
+        )
+        await db.commit()
+        self._chat_members_cache.clear()
+
+    async def ensure_user_metadata(self, user_id: int, platform: Platform, username: str) -> None:
         db = await self._get_conn()
         await db.execute(
             """
-            INSERT INTO users (user_id, platform, city, timezone, flag, username)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, platform) DO UPDATE SET city = ?, timezone = ?, flag = ?, username = ?
+            INSERT INTO users (user_id, platform, username)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET username = excluded.username
             """,
-            (user_id, platform.value, city, timezone, flag or "", username or "", city, timezone, flag or "", username or ""),
+            (user_id, platform.value, username),
         )
         await db.commit()
-        # clear basic cache
+        self._chat_members_cache.clear()
+
+    async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None) -> None:
+        """Set timezone/city/flag after successful onboarding. Username is managed by ensure_user."""
+        db = await self._get_conn()
+        await db.execute(
+            """
+            INSERT INTO users (user_id, platform, city, timezone, flag)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET city = ?, timezone = ?, flag = ?
+            """,
+            (user_id, platform.value, city, timezone, flag or "", city, timezone, flag or ""),
+        )
+        await db.commit()
         self._chat_members_cache.clear()
 
     async def get_chat_members(self, chat_id: str, platform: Platform) -> list[UserProfile]:
@@ -107,6 +146,21 @@ class SQLiteStorage(StoragePort):
             members = [self._row_to_user_profile(row) for row in rows]
             self._chat_members_cache[cache_key] = (now + 60.0, members)
             return members
+
+    async def get_chat_members_with_tz(self, chat_id: str, platform: Platform) -> list[UserProfile]:
+        """Fetch only members who have a timezone set. No cache for simplicity for now."""
+        db = await self._get_conn()
+        async with db.execute(
+            """
+            SELECT u.*
+            FROM chat_members cm
+            JOIN users u ON cm.user_id = u.user_id AND cm.platform = u.platform
+            WHERE cm.chat_id = ? AND cm.platform = ? AND u.timezone IS NOT NULL
+            """,
+            (chat_id, platform.value),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [self._row_to_user_profile(row) for row in rows]
 
     async def add_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
         db = await self._get_conn()
@@ -134,15 +188,16 @@ class SQLiteStorage(StoragePort):
         )
         await db.commit()
 
-    async def set_onboarding_declined(self, user_id: int, platform: Platform, username: str | None = None) -> None:
+    async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
+        """Mark as declined. Username was already synced by ensure_user/RegistrationStage."""
         db = await self._get_conn()
         await db.execute(
             """
-            INSERT INTO users (user_id, platform, onboarding_declined, username)
-            VALUES (?, ?, 1, ?)
-            ON CONFLICT(user_id, platform) DO UPDATE SET onboarding_declined = 1, username = COALESCE(?, username)
+            INSERT INTO users (user_id, platform, onboarding_declined)
+            VALUES (?, ?, 1)
+            ON CONFLICT(user_id, platform) DO UPDATE SET onboarding_declined = 1
             """,
-            (user_id, platform.value, username or "", username or ""),
+            (user_id, platform.value),
         )
         await db.commit()
 
@@ -150,4 +205,3 @@ class SQLiteStorage(StoragePort):
         if self._db:
             await self._db.close()
             self._db = None
-

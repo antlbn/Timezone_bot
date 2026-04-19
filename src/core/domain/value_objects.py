@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class TimePoint:
     time: str
     tz_city: str | None = None
+    tz_resolved: str | None = None   # IANA timezone resolved from tz_city by GeoResolveStage
     am_pm_clear: bool = True
     day_shift: int = 0
     event_title: str | None = None
@@ -36,7 +37,7 @@ class UserProfile:
 @dataclass(frozen=True)
 class PendingMessage:
     original_input: InputData
-    detection: DetectionResult  # Stored to skip re-detection on resume
+    detection: DetectionResult  # Checkpoint: detection was done, geo was resolved; store here to skip re-detection on replay
 
 @dataclass(frozen=True)
 class InputData:
@@ -55,16 +56,14 @@ class BotSettings:
     show_event_title: bool = True
     response_style: ResponseStyle = ResponseStyle.BLOCK
     max_age_fresh_secs: int = 30
-    max_age_pending_secs: int = 60
+    onboarding_cooldown_secs: int = 3600  # How long to wait before re-prompting an ignoring user
 
 @dataclass
 class MessageContext:
     input: InputData
-    detection: DetectionResult | None = None
+    detection: DetectionResult | None = None  # Set by DetectionStage (fresh) or pre-loaded from PendingMessage (replay)
     sender: UserProfile | None = None
     reply_text: str | None = None
     commands: list[Command] = field(default_factory=list)
     members: list[UserProfile] = field(default_factory=list)
     _stopped: bool = False
-    from_pending: bool = False  # True when re-processing a frozen pending message
-                                # after onboarding; Guard and Aging stages skip themselves

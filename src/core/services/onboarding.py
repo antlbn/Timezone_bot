@@ -1,14 +1,15 @@
 """
-OnboardingService — Application Service (core/services layer).
+OnboardingService — Application Service.
 
 Owns ALL orchestration for the onboarding completion flow:
   1. Resolve city → timezone via geocoding
   2. Persist user profile (storage)
   3. Fetch and delete pending messages
-  4. Replay each pending message through the main pipeline
-  5. Return ready-to-send dispatches — adapter executes them
+  4. Replay each pending message through the replay pipeline via MessageDispatcher
 
-Nothing here knows about Telegram, aiogram, or any UI framework.
+Nothing here knows about Telegram, aiogram, Discord, or any UI framework.
+author_name is NOT a parameter here — it is synced to the DB by RegistrationStage
+on every message that passes DetectionStage, before onboarding is ever triggered.
 """
 from __future__ import annotations
 
@@ -27,10 +28,6 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Result value objects (pure data, no behaviour)
 # ---------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class OnboardingDispatch:
-    """One outgoing message produced by replaying a pending message."""
 
 @dataclass(frozen=True)
 class OnboardingResult:
@@ -63,32 +60,27 @@ class OnboardingService:
         user_id: int,
         city_raw: str,
         platform: Platform,
-        author_name: str,
     ) -> OnboardingResult:
-        """
-        User submitted a city name.
-        """
+        """User submitted a city name. No author_name needed — already in DB from RegistrationStage."""
         location = await self._geo.resolve_city(city_raw)
         if location is None:
             return OnboardingResult(ok=False, error="city_not_found")
 
-        # Persist profile — from this point ResolveStage will find the user.
+        # Persist profile — from this point ResolveStage will find the user with a timezone.
         await self._storage.set_user(
             user_id,
             platform,
             location.timezone,
             location.city,
             location.flag,
-            author_name,
         )
 
         # Fetch and atomically delete all pending messages for this user.
         pending_messages = await self._pending.get_and_delete(user_id, platform)
 
-        # Messages from the pending queue — use original timestamp (honest data).
-        # from_pending=True tells Guard and Aging to skip themselves.
+        # Replay through the replay pipeline (Resolve → Format → Command).
+        # ctx.detection is pre-loaded from each PendingMessage checkpoint in MessageDispatcher.
         for pending in pending_messages:
-            # Rehydrate the pending message context with detection caching
             await self._dispatcher.process_pending(pending)
 
         return OnboardingResult(
@@ -98,11 +90,10 @@ class OnboardingService:
             flag=location.flag,
         )
 
-    async def decline(self, user_id: int, platform: Platform, author_name: str | None = None) -> None:
-        """
-        User pressed /skip.
-        Mark as declined so CommandFactoryStage emits NoOp in future.
+    async def decline(self, user_id: int, platform: Platform) -> None:
+        """User pressed /skip. author_name already in DB from RegistrationStage.
+        Mark as declined so OnboardingGateStage emits NoOp in future.
         Delete pending messages without replay.
         """
-        await self._storage.set_onboarding_declined(user_id, platform, author_name)
+        await self._storage.set_onboarding_declined(user_id, platform)
         await self._pending.get_and_delete(user_id, platform)

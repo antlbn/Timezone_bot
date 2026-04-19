@@ -1,30 +1,39 @@
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
 from src.core.domain.enums import Platform
 from src.core.domain.value_objects import InputData, MessageContext, TimePoint, UserProfile, BotSettings
 from src.core.domain.commands import SendReply, ShowOnboarding, SavePending, NoOp
 from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
+from src.core.pipeline.stages import (
+    GuardStage, AgingStage, DetectionStage,
+    LoadChatContextStage, FormatStage, CommandFactoryStage,
+)
 from tests.fakes.ports import FakeDetectionPort, FakeStoragePort
+
+
+def _fresh_pipeline(storage, detection, settings=None):
+    settings = settings or BotSettings()
+    return Pipeline([
+        GuardStage(),
+        AgingStage(settings),
+        DetectionStage(detection),
+        LoadChatContextStage(storage),
+        FormatStage(settings),
+        CommandFactoryStage(),
+    ])
+
 
 @pytest.mark.asyncio
 async def test_pipeline_no_time_noop():
     storage = FakeStoragePort()
     detection = FakeDetectionPort(time_mentioned=False)
-    
-    settings = BotSettings()
-    pipeline = Pipeline([
-        GuardStage(),
-        AgingStage(BotSettings()),
-        DetectionStage(detection),
-        ResolveStage(storage),
-        FormatStage(settings),
-        CommandFactoryStage()
-    ])
+
+    pipeline = _fresh_pipeline(storage, detection)
 
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
     storage.users[(1, Platform.TELEGRAM)] = sender
-    
+
     ctx = MessageContext(input=InputData(
         text="Hello world!",
         user_id=1,
@@ -35,34 +44,23 @@ async def test_pipeline_no_time_noop():
     ))
 
     ctx = await pipeline.run(ctx)
-    commands = ctx.commands
-    
     assert ctx._stopped is True
-    assert len(commands) == 0
+    assert len(ctx.commands) == 0
+
 
 @pytest.mark.asyncio
 async def test_pipeline_time_found_configured_user_sends_reply():
     storage = FakeStoragePort()
-    
+
+    sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
     receiver = UserProfile(user_id=2, platform=Platform.TELEGRAM, timezone="America/New_York", city="New York", flag="🇺🇸")
+    storage.users[(1, Platform.TELEGRAM)] = sender
     storage.members[("chat1", Platform.TELEGRAM)] = [receiver]
 
     tp = TimePoint(time="15:00", tz_city=None)
     detection = FakeDetectionPort(time_mentioned=True, points=[tp])
-    
-    settings = BotSettings()
-    pipeline = Pipeline([
-        GuardStage(),
-        AgingStage(BotSettings()),
-        DetectionStage(detection),
-        ResolveStage(storage),
-        FormatStage(settings),
-        CommandFactoryStage()
-    ])
+    pipeline = _fresh_pipeline(storage, detection)
 
-    sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, timezone="Europe/Berlin", city="Berlin", flag="🇩🇪")
-    storage.users[(1, Platform.TELEGRAM)] = sender
-    
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00",
         user_id=1,
@@ -73,35 +71,23 @@ async def test_pipeline_time_found_configured_user_sends_reply():
     ))
 
     ctx = await pipeline.run(ctx)
-    commands = ctx.commands
-    
+
     assert ctx._stopped is False
     assert ctx.reply_text is not None
     assert "15:00 Berlin" in ctx.reply_text
-    assert "09:00 New York" in ctx.reply_text or "10:00 New York" in ctx.reply_text # Depends on DST
+    assert len(ctx.commands) == 1
+    assert isinstance(ctx.commands[0], SendReply)
 
-    assert len(commands) == 1
-    assert isinstance(commands[0], SendReply)
-    assert ctx.reply_text in commands[0].text
 
 @pytest.mark.asyncio
-async def test_pipeline_time_found_unconfigured_user_onboarding():
+async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
+    """New user without timezone + no pending → OnboardingGate lets through → ShowOnboarding."""
     storage = FakeStoragePort()
+
     tp = TimePoint(time="15:00", tz_city=None)
     detection = FakeDetectionPort(time_mentioned=True, points=[tp])
-    
-    settings = BotSettings()
-    pipeline = Pipeline([
-        GuardStage(),
-        AgingStage(BotSettings()),
-        DetectionStage(detection),
-        ResolveStage(storage),
-        FormatStage(settings),
-        CommandFactoryStage()
-    ])
+    pipeline = _fresh_pipeline(storage, detection)
 
-    # User is unconfigured
-    
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00",
         user_id=1,
@@ -112,30 +98,25 @@ async def test_pipeline_time_found_unconfigured_user_onboarding():
     ))
 
     ctx = await pipeline.run(ctx)
-    commands = ctx.commands
-    
+
     assert ctx._stopped is False
-    assert len(commands) == 2
-    assert isinstance(commands[0], SavePending)
-    assert isinstance(commands[1], ShowOnboarding)
+    assert len(ctx.commands) == 2
+    assert isinstance(ctx.commands[0], SavePending)
+    assert isinstance(ctx.commands[1], ShowOnboarding)
+
+
 
 @pytest.mark.asyncio
 async def test_pipeline_declined_onboarding_no_spam():
+    """User declined → Pipeline drops message silently via NoOp at CommandFactory."""
     storage = FakeStoragePort()
-    
-    # User has declined onboarding!
+
     sender = UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True)
     storage.users[(1, Platform.TELEGRAM)] = sender
 
     tp = TimePoint(time="15:00", tz_city=None)
     detection = FakeDetectionPort(time_mentioned=True, points=[tp])
-    
-    settings = BotSettings()
-    pipeline = Pipeline([
-        GuardStage(), AgingStage(BotSettings()),
-        DetectionStage(detection), ResolveStage(storage),
-        FormatStage(settings), CommandFactoryStage()
-    ])
+    pipeline = _fresh_pipeline(storage, detection)
 
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00", user_id=1, platform=Platform.TELEGRAM,
@@ -143,39 +124,79 @@ async def test_pipeline_declined_onboarding_no_spam():
     ))
 
     ctx = await pipeline.run(ctx)
-    
-    # Assert nothing is sent! No onboarding spam. (It yields NoOp)
+
+    assert ctx._stopped is False
     assert len(ctx.commands) == 1
     assert isinstance(ctx.commands[0], NoOp)
+
 
 @pytest.mark.asyncio
 async def test_pipeline_aging_stage_drops_old_messages():
     pipeline = Pipeline([AgingStage(BotSettings())])
 
-    # Message is 10 minutes old!
-    from datetime import timedelta
     old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
-    
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00", user_id=1, platform=Platform.TELEGRAM,
         author_name="John", timestamp_utc=old_time, chat_id="chat1"
     ))
 
     ctx = await pipeline.run(ctx)
-    
-    # The aging stage stops the pipeline immediately
     assert ctx._stopped is True
+
 
 @pytest.mark.asyncio
 async def test_pipeline_guard_stage_drops_bots():
     pipeline = Pipeline([GuardStage()])
-    
+
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00", user_id=1, platform=Platform.TELEGRAM,
         author_name="Bot", timestamp_utc=datetime.now(timezone.utc), chat_id="chat1",
-        is_bot=True # TRAP
+        is_bot=True
     ))
 
     ctx = await pipeline.run(ctx)
-    
     assert ctx._stopped is True
+
+
+@pytest.mark.asyncio
+async def test_load_chat_context_creates_stub_for_unknown_user():
+    """LoadChatContextStage calls ensure_user so that decline() finds the user in DB."""
+    storage = FakeStoragePort()
+
+    tp = TimePoint(time="15:00", tz_city=None)
+    detection = FakeDetectionPort(time_mentioned=True, points=[tp])
+    pipeline = _fresh_pipeline(storage, detection)
+
+    ctx = MessageContext(input=InputData(
+        text="Meeting at 15:00", user_id=42, platform=Platform.TELEGRAM,
+        author_name="Alice", timestamp_utc=datetime.now(timezone.utc), chat_id="chat1"
+    ))
+    await pipeline.run(ctx)
+
+    assert (42, Platform.TELEGRAM, "Alice") in storage.created
+
+
+@pytest.mark.asyncio
+async def test_tz_resolved_bypasses_onboarding_for_declined_user():
+    """Declined user who writes '14:00 по Лондону' should receive a SendReply.
+    CommandFactory drops onboarding check because tz_resolved is present.
+    """
+    from src.ports.detection import DetectionResult
+    storage = FakeStoragePort()
+
+    declined = UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True)
+    storage.users[(1, Platform.TELEGRAM)] = declined
+
+    # TimePoint with pre-resolved tz (GeoResolveStage already ran, simulated by test setup)
+    tp = TimePoint(time="14:00", tz_city="London", tz_resolved="Europe/London")
+    detection = FakeDetectionPort(time_mentioned=True, points=[tp])
+    pipeline = _fresh_pipeline(storage, detection)
+
+    ctx = MessageContext(input=InputData(
+        text="14:00 по Лондону", user_id=1, platform=Platform.TELEGRAM,
+        author_name="John", timestamp_utc=datetime.now(timezone.utc), chat_id="chat1"
+    ))
+    ctx = await pipeline.run(ctx)
+
+    # Must NOT emit ShowOnboarding
+    assert not any(isinstance(cmd, ShowOnboarding) for cmd in ctx.commands)

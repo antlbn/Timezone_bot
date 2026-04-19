@@ -7,13 +7,25 @@ from src.ports.executor import CommandExecutorPort
 logger = logging.getLogger(__name__)
 
 class MessageDispatcher:
+    """Routes messages through the appropriate pipeline and dispatches resulting commands.
+
+    Two pipelines:
+      fresh_pipeline  — for new inbound messages (Guard → Aging → Detection → ... → Command)
+      replay_pipeline — for pending messages after onboarding (Resolve → Format → Command)
+
+    The replay pipeline receives a MessageContext with ctx.detection already populated
+    from the stored PendingMessage checkpoint. No HydrationStage needed — the caller
+    (OnboardingService) constructs the context correctly before handing it to this method.
+    """
     def __init__(
         self,
-        pipeline: Pipeline,
+        fresh_pipeline: Pipeline,
+        replay_pipeline: Pipeline,
         tg_executor: CommandExecutorPort | None,
         dc_executor: CommandExecutorPort | None,
     ):
-        self.pipeline = pipeline
+        self.fresh_pipeline = fresh_pipeline
+        self.replay_pipeline = replay_pipeline
         self.routes = {}
         if tg_executor:
             self.routes[Platform.TELEGRAM] = tg_executor
@@ -21,28 +33,30 @@ class MessageDispatcher:
             self.routes[Platform.DISCORD] = dc_executor
 
     async def process_input(self, data: InputData) -> None:
-        """Processes raw InputData through the pipeline and dispatches commands."""
-        ctx = MessageContext(input=data, from_pending=False)
-        await self._run_and_dispatch(ctx, data.platform)
+        """Process a fresh inbound message through the full pipeline."""
+        ctx = MessageContext(input=data)
+        ctx = await self.fresh_pipeline.run(ctx)
+        await self._dispatch(ctx, data.platform)
 
     async def process_pending(self, pending: PendingMessage) -> None:
-        """Processes a frozen PendingMessage, skipping guard, aging, and detection (using cache)."""
+        """Replay a pending message after onboarding completion.
+
+        The detection checkpoint stored in PendingMessage (including geo-resolved tz_resolved)
+        is injected into the context here — the replay pipeline starts at ResolveStage,
+        skipping Guard, Aging, Detection, GeoResolve, Registration entirely.
+        """
         ctx = MessageContext(
             input=pending.original_input,
-            from_pending=True,
-            detection=pending.detection,
+            detection=pending.detection,   # checkpoint: detection + geo already done
         )
-        await self._run_and_dispatch(ctx, pending.original_input.platform)
+        ctx = await self.replay_pipeline.run(ctx)
+        await self._dispatch(ctx, pending.original_input.platform)
 
-    async def _run_and_dispatch(self, ctx: MessageContext, platform: Platform) -> None:
-        ctx = await self.pipeline.run(ctx)
-        commands = ctx.commands
-        
-        if not commands:
+    async def _dispatch(self, ctx: MessageContext, platform: Platform) -> None:
+        if not ctx.commands:
             return
-
         executor = self.routes.get(platform)
         if executor:
-            await executor.execute(commands)
+            await executor.execute(ctx.commands)
         else:
             logger.warning(f"No executor configured for platform {platform}")

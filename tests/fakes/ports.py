@@ -1,3 +1,4 @@
+import dataclasses
 from src.core.domain.enums import Platform
 from src.core.domain.value_objects import UserProfile, PendingMessage, TimePoint
 from src.ports.storage import StoragePort
@@ -7,28 +8,84 @@ from src.ports.pending import PendingPort
 from src.ports.executor import CommandExecutorPort
 from src.core.domain.commands import Command
 
+
 class FakeStoragePort:
     def __init__(self):
-        self.users = {}
-        self.members = {}
+        self.users: dict[tuple[int, Platform], UserProfile] = {}
+        self.members: dict[tuple[str, Platform], list[UserProfile]] = {}
+        self.created: list[tuple[int, Platform, str]] = []   # (user_id, platform, name) on first contact
+        self.name_updates: list[tuple[int, Platform, str]] = []  # (user_id, platform, name) on name change
 
     async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:
         return self.users.get((user_id, platform))
 
+    async def create_user(self, user_id: int, platform: Platform, author_name: str) -> UserProfile:
+        profile = UserProfile(user_id=user_id, platform=platform, username=author_name)
+        self.users[(user_id, platform)] = profile
+        self.created.append((user_id, platform, author_name))
+        return profile
+
+    async def update_username(self, user_id: int, platform: Platform, author_name: str) -> None:
+        existing = self.users.get((user_id, platform))
+        if existing:
+            self.users[(user_id, platform)] = dataclasses.replace(existing, username=author_name)
+        self.name_updates.append((user_id, platform, author_name))
+
+    async def ensure_user_metadata(self, user_id: int, platform: Platform, username: str) -> None:
+        existing = self.users.get((user_id, platform))
+        if existing:
+            self.users[(user_id, platform)] = dataclasses.replace(existing, username=username)
+            self.name_updates.append((user_id, platform, username))
+        else:
+            self.users[(user_id, platform)] = UserProfile(user_id=user_id, platform=platform, username=username)
+            self.created.append((user_id, platform, username))
+
     async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None) -> None:
-        pass
+        existing = self.users.get((user_id, platform))
+        self.users[(user_id, platform)] = UserProfile(
+            user_id=user_id,
+            platform=platform,
+            username=existing.username if existing else None,
+            city=city,
+            timezone=timezone,
+            flag=flag,
+        )
+
+    async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
+        existing = self.users.get((user_id, platform))
+        self.users[(user_id, platform)] = UserProfile(
+            user_id=user_id,
+            platform=platform,
+            username=existing.username if existing else None,
+            city=existing.city if existing else None,
+            timezone=existing.timezone if existing else None,
+            flag=existing.flag if existing else None,
+            onboarding_declined=True,
+        )
 
     async def get_chat_members(self, chat_id: str, platform: Platform) -> list[UserProfile]:
         return self.members.get((chat_id, platform), [])
 
+    async def get_chat_members_with_tz(self, chat_id: str, platform: Platform) -> list[UserProfile]:
+        all_members = self.members.get((chat_id, platform), [])
+        return [m for m in all_members if m.timezone is not None]
+
     async def add_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
-        pass
+        members = self.members.setdefault((chat_id, platform), [])
+        if any(m.user_id == user_id for m in members):
+            return
+        
+        # In a real DB, joining chat ensures user exists. In fake, we try to find them.
+        profile = self.users.get((user_id, platform))
+        if profile:
+            members.append(profile)
 
     async def remove_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
         pass
 
     async def update_activity(self, chat_id: str, user_id: int, platform: Platform) -> None:
         pass
+
 
 class FakeDetectionPort:
     def __init__(self, time_mentioned: bool = True, points: list[TimePoint] = None):
@@ -41,32 +98,39 @@ class FakeDetectionPort:
             points=tuple(self._points)
         )
 
-class FakeGeoPort(GeoPort):
+
+class FakeGeoPort:
     def __init__(self, resolves_to: Location | None = None):
         self._resolves_to = resolves_to
 
     async def resolve_city(self, name: str) -> Location | None:
         return self._resolves_to
 
-class FakePendingPort(PendingPort):
-    def __init__(self):
-        self.messages = {}
 
-    async def save_pending(self, user_id: int, platform: Platform, message: PendingMessage) -> None:
-        key = (user_id, platform)
-        if key not in self.messages:
-            self.messages[key] = []
-        self.messages[key].append(message)
+class FakePendingPort:
+    def __init__(self, has_pending_result: bool = False):
+        self.messages: dict[tuple[int, str], list[PendingMessage]] = {}
+        self._has_pending_result = has_pending_result  # override for OnboardingGateStage tests
 
-    async def get_and_clear_pending(self, user_id: int, platform: Platform) -> list[PendingMessage]:
-        key = (user_id, platform)
+    async def save(self, user_id: int, platform: Platform, message: PendingMessage) -> None:
+        key = (user_id, platform.value)
+        self.messages.setdefault(key, []).append(message)
+
+    async def get_and_delete(self, user_id: int, platform: Platform) -> list[PendingMessage]:
+        key = (user_id, platform.value)
         msgs = self.messages.get(key, [])
         self.messages[key] = []
         return msgs
 
-class FakeCommandExecutorPort(CommandExecutorPort):
+    async def has_pending(self, user_id: int, platform: Platform) -> bool:
+        if self._has_pending_result:
+            return True
+        return bool(self.messages.get((user_id, platform.value), []))
+
+
+class FakeCommandExecutorPort:
     def __init__(self):
-        self.executed_commands = []
+        self.executed_commands: list[Command] = []
 
     async def execute(self, commands: list[Command]) -> None:
         self.executed_commands.extend(commands)

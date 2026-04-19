@@ -8,6 +8,8 @@ Responsibilities (adapter layer only):
   - Execute returned dispatches via bot.send_message
 
 This handler knows nothing about geocoding, storage, or the pipeline.
+author_name is NOT passed to OnboardingService — RegistrationStage already
+synced it to the DB when the original message was processed.
 """
 
 from aiogram import Router, F
@@ -53,7 +55,6 @@ async def on_skip(message: Message, state: FSMContext, container: "AppContainer"
     await container.onboarding_service.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
-        author_name=message.from_user.first_name,
     )
     await message.answer("Окей, не буду спрашивать 🙂 Если передумаешь — /start")
 
@@ -64,12 +65,10 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
     city_raw = message.text.strip()
     user_id = message.from_user.id
 
-    # ── call application service ──────────────────────────────────────────
     result = await container.onboarding_service.complete(
         user_id=user_id,
         city_raw=city_raw,
         platform=Platform.TELEGRAM,
-        author_name=message.from_user.first_name,
     )
 
     if not result.ok:
@@ -77,7 +76,6 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
             f"Не нашёл город «{city_raw}» 🤔\n"
             "Попробуй написать по-английски или /skip."
         )
-        # stay in waiting_city state so user can retry
         return
 
     await state.clear()

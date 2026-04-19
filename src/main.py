@@ -35,7 +35,8 @@ from src.ports.geocoding import GeoPort
 @dataclass
 class AppContainer:
     storage: StoragePort
-    pipeline: Pipeline
+    fresh_pipeline: Pipeline
+    replay_pipeline: Pipeline
     geocoder: GeoPort
     onboarding_service: OnboardingService
     profile_service: ProfileService
@@ -54,7 +55,11 @@ async def main():
     from src.adapters.inbound.telegram.commands_handler import router as tg_commands_router
     from src.adapters.inbound.discord.events import on_message as dc_on_message
     from src.adapters.inbound.discord.slash_commands import setup_slash_commands
-    from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage, CommandFactoryStage
+    from src.core.pipeline.stages import (
+        GuardStage, AgingStage, DetectionStage, GeoResolveStage,
+        RegistrationStage, HydrationStage, OnboardingGateStage,
+        FormatStage, CommandFactoryStage,
+    )
 
     load_dotenv()
     logging.basicConfig(level=logging.INFO)
@@ -75,8 +80,6 @@ async def main():
 
     detector = OpenAIDetector()
     geocoder = NominatimGeo()
-    pending = MemoryPending()
-
     # Load configuration
     config_path = Path("configuration.yaml")
     with open(config_path, "r") as f:
@@ -84,8 +87,7 @@ async def main():
 
     bot_config = config_data.get("bot", {})
     response_style_str = bot_config.get("response_style", "block")
-    
-    # Map string to Enum
+
     if response_style_str.lower() == "inline_sentence":
         style = ResponseStyle.INLINE
     else:
@@ -96,16 +98,29 @@ async def main():
         show_event_title=bot_config.get("show_event_title", True),
         response_style=style,
         max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
-        max_age_pending_secs=bot_config.get("max_age_pending_secs", 60),
+        onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
     )
 
-    pipeline = Pipeline([
+    pending = MemoryPending(ttl_seconds=settings.onboarding_cooldown_secs)
+
+    # Fresh pipeline: full processing flow for inbound messages
+    fresh_pipeline = Pipeline([
         GuardStage(),
         AgingStage(settings),
         DetectionStage(detector),
-        ResolveStage(storage),
+        GeoResolveStage(geocoder),
+        RegistrationStage(storage),
+        HydrationStage(storage),
         FormatStage(settings),
-        CommandFactoryStage()
+        CommandFactoryStage(),
+    ])
+
+    # Replay pipeline: resumed computation after onboarding completes.
+    # ctx.detection is pre-loaded from PendingMessage by MessageDispatcher.process_pending.
+    replay_pipeline = Pipeline([
+        HydrationStage(storage),
+        FormatStage(settings),
+        CommandFactoryStage(),
     ])
 
     tg_bot = None
@@ -126,7 +141,8 @@ async def main():
     dc_executor = DiscordCommandExecutor(pending_port=pending, client=dc_client) if dc_client else None
 
     dispatcher = MessageDispatcher(
-        pipeline=pipeline,
+        fresh_pipeline=fresh_pipeline,
+        replay_pipeline=replay_pipeline,
         tg_executor=tg_executor,
         dc_executor=dc_executor,
     )
@@ -145,7 +161,8 @@ async def main():
 
     container = AppContainer(
         storage=storage,
-        pipeline=pipeline,
+        fresh_pipeline=fresh_pipeline,
+        replay_pipeline=replay_pipeline,
         geocoder=geocoder,
         onboarding_service=onboarding_service,
         profile_service=profile_service,

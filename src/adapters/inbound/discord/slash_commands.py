@@ -15,7 +15,6 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
             user_id=interaction.user.id,
             city_raw=city,
             platform=Platform.DISCORD,
-            author_name=interaction.user.display_name
         )
         if not res.ok:
             await interaction.followup.send(f"❌ Could not resolve city: {city}", ephemeral=True)
@@ -39,7 +38,6 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
         await container.onboarding_service.decline(
             user_id=interaction.user.id,
             platform=Platform.DISCORD,
-            author_name=interaction.user.display_name
         )
         await interaction.response.send_message(
             "Got it! I won't prompt you for your timezone anymore. Use `/tb_settz` if you change your mind.",

@@ -58,25 +58,31 @@ def _join_city_labels(group: list[UserProfile], fallback_label: str) -> str:
 
 def _build_conversion_rows(
     original_time: str,
-    sender: UserProfile,
+    source_tz: str,
+    source_label: str,
+    source_flag: str,
     members: list[UserProfile],
 ) -> list[dict]:
-    if not sender.timezone:
-        raise ValueError("Sender must have a timezone")
+    """Build the list of display rows: source first (at source_tz), then all other
+    member timezones sorted by UTC offset.
 
+    source_tz, source_label, source_flag are resolved by the caller based on
+    whether tz_resolved or sender.timezone is the reference point.
+    """
     grouped_members = _group_members_by_timezone(members)
 
     source_group: list[UserProfile] = []
     other_groups: list[tuple[str, list[UserProfile]]] = []
 
     for tz, group in grouped_members:
-        if tz == sender.timezone:
+        if tz == source_tz:
             source_group = group
         else:
             other_groups.append((tz, group))
 
-    source_label = _join_city_labels(source_group, sender.city or sender.timezone)
-    source_flag = source_group[0].flag if source_group and source_group[0].flag else (sender.flag or "")
+    # Use a flag found in the source member group as fallback
+    if not source_flag and source_group and source_group[0].flag:
+        source_flag = source_group[0].flag
 
     rows = [{
         "displayed_time": normalize_time(original_time),
@@ -86,8 +92,7 @@ def _build_conversion_rows(
     }]
 
     for tz, group in other_groups:
-        converted_time, day_shift = convert_time(original_time, sender.timezone, tz)
-        
+        converted_time, day_shift = convert_time(original_time, source_tz, tz)
         rows.append({
             "displayed_time": _format_time_with_shift(converted_time, day_shift),
             "label": _join_city_labels(group, tz),
@@ -98,15 +103,48 @@ def _build_conversion_rows(
     return rows
 
 
+def _resolve_source(
+    point: TimePoint,
+    sender: UserProfile | None,
+) -> tuple[str, str, str] | None:
+    """Return (source_tz, source_label, source_flag) or None if no source is available.
+
+    Priority:
+      1. point.tz_resolved — explicit timezone referenced in the message ("по Лондону")
+      2. sender.timezone   — sender's configured timezone
+
+    When tz_resolved is present it wins regardless of sender timezone.
+    If sender also has a timezone, they appear as a regular member row (already in ctx.members).
+    """
+    if point.tz_resolved:
+        return (
+            point.tz_resolved,
+            point.tz_city or point.tz_resolved,
+            "",  # flag will be resolved from members in _build_conversion_rows
+        )
+    if sender and sender.timezone:
+        return (
+            sender.timezone,
+            sender.city or sender.timezone,
+            sender.flag or "",
+        )
+    return None
+
+
 def format_single_point(
     point: TimePoint,
-    sender: UserProfile,
+    sender: UserProfile | None,
     members: list[UserProfile],
     response_style: ResponseStyle,
     show_usernames: bool,
     show_event_title: bool,
 ) -> str:
-    rows = _build_conversion_rows(point.time, sender, members)
+    source = _resolve_source(point, sender)
+    if source is None:
+        return ""  # No reference timezone — nothing to format
+
+    source_tz, source_label, source_flag = source
+    rows = _build_conversion_rows(point.time, source_tz, source_label, source_flag, members)
 
     ambiguous_prefix = "" if point.am_pm_clear else "AM/PM?"
     title = point.event_title if point.event_title and show_event_title else ""
@@ -123,20 +161,20 @@ def format_single_point(
     lines = []
     if title:
         lines.append(title)
-    
+
     for i, row in enumerate(rows):
         parts = [row["displayed_time"], row["label"]]
         if row["flag"]:
             parts.append(row["flag"])
-        
+
         line = " ".join(parts)
         if i == 0 and ambiguous_prefix:
             line = f"{ambiguous_prefix} {line}"
-        
+
         names_str = _format_names(row["group"], show_usernames)
         if names_str:
             line = f"{line} {names_str}"
-        
+
         lines.append(line)
 
     return "\n".join(lines)
@@ -144,7 +182,7 @@ def format_single_point(
 
 def format_multi_conversion(
     points: tuple[TimePoint, ...],
-    sender: UserProfile,
+    sender: UserProfile | None,
     members: list[UserProfile],
     response_style: ResponseStyle = ResponseStyle.BLOCK,
     show_usernames: bool = False,
@@ -153,9 +191,13 @@ def format_multi_conversion(
     if not points:
         return ""
 
-    blocks = []
-    for point in points:
-        blocks.append(format_single_point(point, sender, members, response_style, show_usernames, show_event_title))
+    blocks = [
+        block for point in points
+        if (block := format_single_point(point, sender, members, response_style, show_usernames, show_event_title))
+    ]
+
+    if not blocks:
+        return ""
 
     if response_style == ResponseStyle.INLINE:
         res = "\n".join(blocks)
