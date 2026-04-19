@@ -16,25 +16,28 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         self.client = client
         self._onboarding_view_factory = onboarding_view_factory
 
-    async def _get_channel(self, thread_id: str | None) -> discord.abc.Messageable | None:
-        if not thread_id:
+    async def _get_channel(self, thread_id: str | None, chat_id: str) -> discord.abc.Messageable | None:
+        target_id = thread_id or chat_id
+        if not target_id:
             return None
-        channel = self.client.get_channel(int(thread_id))
+            
+        channel_id = int(target_id)
+        channel = self.client.get_channel(channel_id)
         if not channel:
             try:
-                channel = await self.client.fetch_channel(int(thread_id))
+                channel = await self.client.fetch_channel(channel_id)
             except discord.NotFound:
                 return None
             except discord.HTTPException as e:
-                logger.error(f"Discord HTTP error when fetching channel {thread_id}: {e}")
+                logger.error(f"Discord HTTP error when fetching channel {channel_id}: {e}")
                 return None
             except Exception as e:
-                logger.exception(f"Unexpected error fetching channel {thread_id}: {e}")
+                logger.exception(f"Unexpected error fetching channel {channel_id}: {e}")
                 return None
         return channel
 
     async def _handle_send_reply(self, cmd: SendReply) -> None:
-        channel = await self._get_channel(cmd.thread_id)
+        channel = await self._get_channel(cmd.thread_id, cmd.chat_id)
         if not channel:
             return
             
@@ -42,7 +45,7 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         await channel.send(embed=embed)
 
     async def _handle_show_onboarding(self, cmd: ShowOnboarding) -> None:
-        channel = await self._get_channel(cmd.thread_id)
+        channel = await self._get_channel(cmd.thread_id, cmd.chat_id)
         if not channel:
             return
             
