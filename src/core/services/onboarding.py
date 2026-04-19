@@ -46,6 +46,17 @@ class OnboardingResult:
 # ---------------------------------------------------------------------------
 
 class OnboardingCoordinator:
+    """Orchestrates the full onboarding lifecycle for a user.
+
+    As an Application Service this class intentionally coordinates multiple
+    ports (pending storage, chillout state, geocoding, profile storage,
+    replay pipeline, delivery).  The wide scope is a known SRP trade-off
+    accepted at this layer: the coordinator owns *workflow sequencing*, not
+    the individual concerns — each of those lives behind its own port/adapter.
+    If the workflow grows significantly, consider splitting into an
+    OnboardingWorkflow (steps 1-4) and keeping this class as a thin
+    orchestrator (steps 5-6).
+    """
     def __init__(
         self,
         storage_port: StoragePort,
