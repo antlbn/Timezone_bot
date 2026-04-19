@@ -130,8 +130,11 @@ async def main():
     fresh_pipeline, replay_pipeline = build_pipelines(storage, detector, geocoder, settings)
 
     tg_bot = None
+    tg_username = None
     if tg_token:
         tg_bot = TgBot(token=tg_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        me = await tg_bot.get_me()
+        tg_username = me.username
 
     dc_client = None
     tree = None
@@ -143,7 +146,7 @@ async def main():
 
     onboarding_coordinator: OnboardingCoordinator | None = None
 
-    tg_executor = TelegramCommandExecutor(bot=tg_bot) if tg_bot else None
+    tg_executor = TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username) if (tg_bot and tg_username) else None
 
     def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
         if onboarding_coordinator is None:

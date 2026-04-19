@@ -5,9 +5,10 @@ from core.domain.commands import SendReply, ShowOnboarding
 from aiogram import Bot
 
 class TelegramCommandExecutor(BaseCommandExecutor):
-    def __init__(self, bot: Bot):
+    def __init__(self, bot: Bot, bot_username: str):
         super().__init__()
         self.bot = bot
+        self._bot_username = bot_username
 
     async def _handle_send_reply(self, cmd: SendReply) -> None:
         await self.bot.send_message(
@@ -21,7 +22,7 @@ class TelegramCommandExecutor(BaseCommandExecutor):
             inline_keyboard=[[
                 InlineKeyboardButton(
                     text="⚙️ Указать город",
-                    url="https://t.me/TimezoneWizard?start=onboard",
+                    url=f"https://t.me/{self._bot_username}?start=onboard",
                 )
             ]]
         )
