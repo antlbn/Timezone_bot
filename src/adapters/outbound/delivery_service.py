@@ -3,11 +3,12 @@ import logging
 from core.domain.commands import Command
 from core.domain.enums import Platform
 from ports.executor import CommandExecutorPort
+from ports.delivery import DeliveryPort
 
 logger = logging.getLogger(__name__)
 
 
-class DeliveryService:
+class DeliveryService(DeliveryPort):
     """Routes user-facing delivery commands to the platform executor."""
 
     def __init__(

@@ -147,6 +147,14 @@ class FakeOnboardingChilloutStatePort:
         self.marked.append((user_id, platform))
 
 
+class FakeDeliveryPort:
+    def __init__(self):
+        self.delivered: list[tuple[Platform, list[Command]]] = []
+
+    async def deliver(self, platform: Platform, commands: list[Command]) -> None:
+        self.delivered.append((platform, commands))
+
+
 class FakeCommandExecutorPort:
     def __init__(self):
         self.executed_commands: list[Command] = []

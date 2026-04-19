@@ -15,7 +15,7 @@ from core.pipeline.stages import (
     GuardStage,
     HydrationStage,
 )
-from core.services.delivery import DeliveryService
+from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
 from core.services.onboarding import OnboardingCoordinator
 from ports.detection import DetectionResult

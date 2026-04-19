@@ -2,7 +2,7 @@ import pytest
 
 from core.domain.commands import SendReply
 from core.domain.enums import Platform
-from core.services.delivery import DeliveryService
+from adapters.outbound.delivery_service import DeliveryService
 from tests.fakes.ports import FakeCommandExecutorPort
 
 

@@ -8,7 +8,7 @@ from core.pipeline.pipeline import Pipeline
 from ports.storage import StoragePort
 
 if TYPE_CHECKING:
-    from core.services.delivery import DeliveryService
+    from ports.delivery import DeliveryPort
     from core.services.onboarding import OnboardingCoordinator
 
 
@@ -23,7 +23,7 @@ class MessageProcessingService:
         self,
         fresh_pipeline: Pipeline,
         storage_port: StoragePort,
-        delivery_service: "DeliveryService",
+        delivery_service: "DeliveryPort",
         onboarding_coordinator: "OnboardingCoordinator",
     ) -> None:
         self._fresh_pipeline = fresh_pipeline

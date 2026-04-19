@@ -27,7 +27,7 @@ from adapters.inbound.discord.ui import SetTimezoneView
 from core.pipeline.pipeline import Pipeline
 from core.domain.value_objects import BotSettings
 from core.domain.enums import ResponseStyle
-from core.services.delivery import DeliveryService
+from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
 from core.services.onboarding import OnboardingCoordinator
 from core.services.profile import ProfileService

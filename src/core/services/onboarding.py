@@ -21,7 +21,7 @@ from core.domain.commands import SendReply
 from core.domain.enums import Platform
 from core.domain.value_objects import MessageContext, OnboardingPendingMessage, BotSettings
 from core.pipeline.pipeline import Pipeline
-from core.services.delivery import DeliveryService
+from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
 from ports.onboarding_chillout_state import OnboardingChilloutStatePort
 from ports.pending import OnboardingPendingPort
@@ -53,7 +53,7 @@ class OnboardingCoordinator:
         chillout_state_port: OnboardingChilloutStatePort,
         geocoding_port: GeoPort,
         replay_pipeline: Pipeline,
-        delivery_service: DeliveryService,
+        delivery_service: DeliveryPort,
         settings: BotSettings,
     ) -> None:
         self._storage = storage_port

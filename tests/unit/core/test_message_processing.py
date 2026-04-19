@@ -9,7 +9,7 @@ from core.domain.commands import SendReply, ShowOnboarding
 from core.domain.enums import Platform
 from core.domain.value_objects import InputData, MessageContext, MessageDecision, OnboardingPendingMessage, TimePoint
 from core.pipeline.pipeline import Pipeline
-from core.services.delivery import DeliveryService
+from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
 from ports.detection import DetectionResult
 from tests.fakes.ports import (
