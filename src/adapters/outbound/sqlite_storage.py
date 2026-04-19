@@ -14,6 +14,9 @@ class SQLiteStorage(StoragePort):
         self._db: aiosqlite.Connection | None = None
         self._chat_members_cache: dict[tuple[str, Platform], tuple[float, list[UserProfile]]] = {}
 
+    async def initialize(self) -> None:
+        await self._get_conn()
+
     async def _get_conn(self) -> aiosqlite.Connection:
         if self._db is None:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)

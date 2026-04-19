@@ -117,7 +117,7 @@ async def main():
     # Infrastructure Setup
     db_path = Path("data/bot.db")
     storage = SQLiteStorage(db_path)
-    await storage._get_conn() 
+    await storage.initialize()
 
     detector = OpenAIDetector()
     geocoder = NominatimGeo()

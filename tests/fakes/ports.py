@@ -15,6 +15,9 @@ class FakeStoragePort:
         self.created: list[tuple[int, Platform, str]] = []   # (user_id, platform, name) on first contact
         self.name_updates: list[tuple[int, Platform, str]] = []  # (user_id, platform, name) on name change
 
+    async def initialize(self) -> None:
+        pass
+
     async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:
         return self.users.get((user_id, platform))
 

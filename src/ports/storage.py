@@ -3,6 +3,10 @@ from core.domain.value_objects import UserProfile
 from core.domain.enums import Platform
 
 class StoragePort(Protocol):
+    async def initialize(self) -> None:
+        """Prepare the storage for work (e.g. open connection, create tables)."""
+        ...
+
     async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:
         ...
 
