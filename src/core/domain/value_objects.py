@@ -71,6 +71,6 @@ class MessageContext:
     detection: DetectionResult | None = None  # Set by DetectionStage (fresh) or pre-loaded from OnboardingPendingMessage (replay)
     sender: UserProfile | None = None
     reply_text: str | None = None
-    members: list[UserProfile] = field(default_factory=list)
+    members: tuple[UserProfile, ...] = field(default_factory=tuple)
     decision: MessageDecision | None = None
     stop_processing: bool = False

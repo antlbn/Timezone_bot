@@ -35,32 +35,32 @@ def _ctx(
 async def test_decision_stage_reply_and_onboarding_decision():
     ctx = _ctx(reply_text="15:00 Berlin")
 
-    result = await DecisionStage().process(ctx)
+    await DecisionStage().process(ctx)
 
-    assert result.decision is not None
-    assert result.decision.reply_text == "15:00 Berlin"
-    assert result.decision.needs_onboarding is True
-    assert result.decision.pending_message is not None
-    assert result.decision.ignore is False
+    assert ctx.decision is not None
+    assert ctx.decision.reply_text == "15:00 Berlin"
+    assert ctx.decision.needs_onboarding is True
+    assert ctx.decision.pending_message is not None
+    assert ctx.decision.ignore is False
 
 
 @pytest.mark.asyncio
 async def test_decision_stage_onboarding_without_reply():
     ctx = _ctx()
 
-    result = await DecisionStage().process(ctx)
+    await DecisionStage().process(ctx)
 
-    assert result.decision is not None
-    assert result.decision.reply_text is None
-    assert result.decision.pending_message is not None
-    assert result.decision.needs_onboarding is True
+    assert ctx.decision is not None
+    assert ctx.decision.reply_text is None
+    assert ctx.decision.pending_message is not None
+    assert ctx.decision.needs_onboarding is True
 
 
 @pytest.mark.asyncio
 async def test_decision_stage_declined_user_gets_ignore_decision():
     ctx = _ctx(sender=UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True))
 
-    result = await DecisionStage().process(ctx)
+    await DecisionStage().process(ctx)
 
-    assert result.decision is not None
-    assert result.decision.ignore is True
+    assert ctx.decision is not None
+    assert ctx.decision.ignore is True

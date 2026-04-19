@@ -9,7 +9,7 @@ class DetectionRequest:
     text: str
     timestamp: datetime
 
-@dataclass
+@dataclass(frozen=True)
 class DetectionResult:
     time_mentioned: bool
     points: tuple[TimePoint, ...]
