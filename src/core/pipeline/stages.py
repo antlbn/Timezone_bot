@@ -142,7 +142,7 @@ class FormatStage:
 
     Uses tz_resolved (explicit city in message) as source timezone if present.
     Falls back to sender.timezone if no tz_resolved is available.
-    Drops silently if neither is available (OnboardingGate or CommandFactory will handle).
+    Drops silently if neither is available; CommandFactory will decide what to do next.
     """
     def __init__(self, settings: BotSettings):
         self.settings = settings
@@ -216,4 +216,3 @@ class CommandFactoryStage:
             ),
         ]
         return ctx
-

@@ -57,7 +57,7 @@ async def main():
     from adapters.inbound.discord.slash_commands import setup_slash_commands
     from core.pipeline.stages import (
         GuardStage, AgingStage, DetectionStage, GeoResolveStage,
-        RegistrationStage, HydrationStage, OnboardingGateStage,
+        RegistrationStage, HydrationStage,
         FormatStage, CommandFactoryStage,
     )
 

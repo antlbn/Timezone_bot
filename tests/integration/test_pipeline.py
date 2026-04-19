@@ -82,7 +82,7 @@ async def test_pipeline_time_found_configured_user_sends_reply():
 
 @pytest.mark.asyncio
 async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
-    """New user without timezone + no pending → OnboardingGate lets through → ShowOnboarding."""
+    """New user without timezone gets onboarding commands."""
     storage = FakeStoragePort()
 
     tp = TimePoint(time="15:00", tz_city=None)

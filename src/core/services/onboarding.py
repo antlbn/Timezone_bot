@@ -92,7 +92,7 @@ class OnboardingService:
 
     async def decline(self, user_id: int, platform: Platform) -> None:
         """User pressed /skip. author_name already in DB from RegistrationStage.
-        Mark as declined so OnboardingGateStage emits NoOp in future.
+        Mark as declined so future messages without a source timezone are ignored.
         Delete pending messages without replay.
         """
         await self._storage.set_onboarding_declined(user_id, platform)

@@ -4,12 +4,7 @@ from core.domain.value_objects import PendingMessage
 from ports.pending import PendingPort
 
 class MemoryPending(PendingPort):
-    """In-memory pending store with TTL.
-    The TTL doubles as the onboarding cooldown:
-    if a pending message exists (not yet expired), the user is within the cooldown window
-    and OnboardingGateStage will stop the pipeline (no re-prompt).
-    When the TTL expires, has_pending() returns False and the gate lets through again.
-    """
+    """In-memory pending store with TTL."""
     def __init__(self, ttl_seconds: int = 3600):
         # (user_id, platform_value) → list of (expires_at, message)
         self._store: dict[tuple[int, str], list[tuple[float, PendingMessage]]] = {}
@@ -33,8 +28,6 @@ class MemoryPending(PendingPort):
         return [msg for _, msg in items]
 
     async def has_pending(self, user_id: int, platform: Platform) -> bool:
-        """True if user has at least one non-expired pending message.
-        Used by OnboardingGateStage to detect cooldown window.
-        """
+        """True if user has at least one non-expired pending message."""
         self._cleanup()
         return (user_id, platform.value) in self._store

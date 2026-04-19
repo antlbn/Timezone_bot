@@ -22,7 +22,7 @@ from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeCommandExe
 
 
 def _make_fresh_pipeline(storage, detection):
-    """Minimal fresh pipeline for dispatcher tests (no Geo/OnboardingGate)."""
+    """Minimal fresh pipeline for dispatcher tests."""
     return Pipeline([
         GuardStage(),
         AgingStage(BotSettings()),

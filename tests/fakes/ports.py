@@ -110,7 +110,7 @@ class FakeGeoPort:
 class FakePendingPort:
     def __init__(self, has_pending_result: bool = False):
         self.messages: dict[tuple[int, str], list[PendingMessage]] = {}
-        self._has_pending_result = has_pending_result  # override for OnboardingGateStage tests
+        self._has_pending_result = has_pending_result
 
     async def save(self, user_id: int, platform: Platform, message: PendingMessage) -> None:
         key = (user_id, platform.value)

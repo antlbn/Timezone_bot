@@ -10,8 +10,5 @@ class PendingPort(Protocol):
         ...
 
     async def has_pending(self, user_id: int, platform: Platform) -> bool:
-        """Return True if there is at least one non-expired pending message for this user.
-        Used by OnboardingGateStage to enforce the cooldown window: if pending exists,
-        the user was already prompted and is currently ignoring — don't re-prompt yet.
-        """
+        """Return True if there is at least one non-expired pending message for this user."""
         ...
