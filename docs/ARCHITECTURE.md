@@ -90,7 +90,7 @@ graph TB
 
 ```mermaid
 graph LR
-    S1["🛡️ GuardStage"] --> S2["⏳ AgingStage"] --> S3["🤖 DetectionStage"] --> S4["🌍 ResolveStage"] --> S5["📝 FormatStage"] --> S6["🎯 CommandFactory"]
+    S1["🛡️ GuardStage"] --> S2["⏳ AgingStage"] --> S3["🤖 DetectionStage"] --> S4["🌍 GeoResolveStage"] --> S5["🧾 RegistrationStage"] --> S6["💧 HydrationStage"] --> S7["📝 FormatStage"] --> S8["🎯 CommandFactoryStage"]
 ```
 
 | Stage | Что делает | Ранний выход |
@@ -98,9 +98,11 @@ graph LR
 | GuardStage | Отсекает ботов, пустые, слишком длинные | ✅ |
 | AgingStage | Отсекает старые сообщения | ✅ |
 | DetectionStage | Вызывает LLM через порт, ищет упоминания времени | ✅ (нет времени) |
-| ResolveStage | Резолвит tz_city → IANA таймзону через порт | — |
+| GeoResolveStage | Резолвит `tz_city` → IANA таймзону через `GeoPort` | — |
+| RegistrationStage | Синхронизирует метаданные пользователя и membership в чате | — |
+| HydrationStage | Загружает профиль отправителя и участников чата с timezone | — |
 | FormatStage | Форматирует текст ответа | — |
-| CommandFactory | Собирает список Command-объектов (GoF) | — |
+| CommandFactoryStage | Собирает список Command-объектов (GoF) | — |
 
 ---
 
@@ -231,7 +233,7 @@ src/
 │   │   └── enums.py                   #    Platform, ResponseStyle (StrEnum)
 │   ├── pipeline/                      #    Pipe & Filters
 │   │   ├── pipeline.py                #    Pipeline.run(ctx) → ctx
-│   │   ├── stages.py                  #    GuardStage, AgingStage, DetectionStage, ResolveStage, FormatStage
+│   │   ├── stages.py                  #    GuardStage, AgingStage, DetectionStage, GeoResolveStage, RegistrationStage, HydrationStage, FormatStage, CommandFactoryStage
 │   │   ├── command_factory.py         #    CommandFactory — собирает list[Command] (GoF)
 │   │   └── contracts.py               #    Stage protocol
 │   └── services/                      #    Domain Services (DDD)

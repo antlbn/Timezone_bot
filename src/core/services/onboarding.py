@@ -66,7 +66,7 @@ class OnboardingService:
         if location is None:
             return OnboardingResult(ok=False, error="city_not_found")
 
-        # Persist profile — from this point ResolveStage will find the user with a timezone.
+        # Persist profile so replay hydration/formatting can use the new timezone immediately.
         await self._storage.set_user(
             user_id,
             platform,
@@ -78,7 +78,7 @@ class OnboardingService:
         # Fetch and atomically delete all pending messages for this user.
         pending_messages = await self._pending.get_and_delete(user_id, platform)
 
-        # Replay through the replay pipeline (Resolve → Format → Command).
+        # Replay through the replay pipeline (Hydration → Format → Command).
         # ctx.detection is pre-loaded from each PendingMessage checkpoint in MessageDispatcher.
         for pending in pending_messages:
             await self._dispatcher.process_pending(pending)

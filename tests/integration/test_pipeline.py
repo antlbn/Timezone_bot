@@ -7,7 +7,7 @@ from src.core.domain.commands import SendReply, ShowOnboarding, SavePending, NoO
 from src.core.pipeline.pipeline import Pipeline
 from src.core.pipeline.stages import (
     GuardStage, AgingStage, DetectionStage,
-    LoadChatContextStage, FormatStage, CommandFactoryStage,
+    RegistrationStage, HydrationStage, FormatStage, CommandFactoryStage,
 )
 from tests.fakes.ports import FakeDetectionPort, FakeStoragePort
 
@@ -18,7 +18,8 @@ def _fresh_pipeline(storage, detection, settings=None):
         GuardStage(),
         AgingStage(settings),
         DetectionStage(detection),
-        LoadChatContextStage(storage),
+        RegistrationStage(storage),
+        HydrationStage(storage),
         FormatStage(settings),
         CommandFactoryStage(),
     ])
@@ -160,7 +161,7 @@ async def test_pipeline_guard_stage_drops_bots():
 
 @pytest.mark.asyncio
 async def test_load_chat_context_creates_stub_for_unknown_user():
-    """LoadChatContextStage calls ensure_user so that decline() finds the user in DB."""
+    """RegistrationStage creates a stub user so later onboarding actions can find it."""
     storage = FakeStoragePort()
 
     tp = TimePoint(time="15:00", tz_city=None)

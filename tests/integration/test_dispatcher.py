@@ -7,7 +7,15 @@ from src.core.domain.commands import SendReply
 from src.ports.detection import DetectionResult
 
 from src.core.pipeline.pipeline import Pipeline
-from src.core.pipeline.stages import GuardStage, AgingStage, DetectionStage, LoadChatContextStage, FormatStage, CommandFactoryStage
+from src.core.pipeline.stages import (
+    GuardStage,
+    AgingStage,
+    DetectionStage,
+    RegistrationStage,
+    HydrationStage,
+    FormatStage,
+    CommandFactoryStage,
+)
 from src.core.services.dispatcher import MessageDispatcher
 
 from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeCommandExecutorPort, FakePendingPort
@@ -19,7 +27,8 @@ def _make_fresh_pipeline(storage, detection):
         GuardStage(),
         AgingStage(BotSettings()),
         DetectionStage(detection),
-        LoadChatContextStage(storage),
+        RegistrationStage(storage),
+        HydrationStage(storage),
         FormatStage(BotSettings()),
         CommandFactoryStage(),
     ])
@@ -27,7 +36,7 @@ def _make_fresh_pipeline(storage, detection):
 
 def _make_replay_pipeline(storage):
     return Pipeline([
-        LoadChatContextStage(storage),
+        HydrationStage(storage),
         FormatStage(BotSettings()),
         CommandFactoryStage(),
     ])

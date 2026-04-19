@@ -3,8 +3,18 @@
     "src",
     "tests"
   ],
+  "exclude": [
+    "legacy"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
   "extraPaths": [
     "."
+  ],
+  "executionEnvironments": [
+    {
+      "root": "."
+    }
   ],
   "typeCheckingMode": "basic"
 }

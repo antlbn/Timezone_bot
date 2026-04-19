@@ -28,6 +28,3 @@ dev = [
 
 [tool.pyright]
 extraPaths = ["."]
-executionEnvironments = [
-  { root = "." }
-]

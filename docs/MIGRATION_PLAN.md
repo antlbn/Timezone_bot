@@ -126,7 +126,9 @@ src/
 | `GuardStage` | бот? пустой? длина>4000? | ✅ |
 | `AgingStage` | старше N секунд? | ✅ |
 | `DetectionStage` | `DetectionPort.detect()` → `ctx.detection` | ✅ (нет времени) |
-| `ResolveStage` | `GeoPort.resolve_city()` + конвертации | — |
+| `GeoResolveStage` | `GeoPort.resolve_city()` для `tz_city` → `tz_resolved` | — |
+| `RegistrationStage` | `StoragePort.ensure_user_metadata()` + `add_chat_member()` | — |
+| `HydrationStage` | `StoragePort.get_user()` + `get_chat_members_with_tz()` | — |
 | `FormatStage` | `formatting.format_multi_conversion()` → `ctx.reply_text` | — |
 
 **`core/pipeline/command_factory.py`** (чистая функция):

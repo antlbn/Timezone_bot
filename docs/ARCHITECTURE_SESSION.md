@@ -37,7 +37,7 @@ graph TB
     end
 
     subgraph "🔴 Core"
-        PIPE["Pipeline: GuardStage → AgingStage → DetectionStage → ResolveStage → FormatStage → CommandFactory"]
+        PIPE["Pipeline: GuardStage → AgingStage → DetectionStage → GeoResolveStage → RegistrationStage → HydrationStage → FormatStage → CommandFactoryStage"]
         DOM["Domain: TimePoint, UserProfile"]
     end
 
@@ -64,7 +64,7 @@ graph TB
 
 ```mermaid
 graph LR
-    S1["🛡️ Guard"] --> S2["⏳ Aging"] --> S3["🤖 Detection"] --> S4["🌍 Resolve"] --> S5["📝 Format"] --> S6["🎯 CommandFactory"]
+    S1["🛡️ Guard"] --> S2["⏳ Aging"] --> S3["🤖 Detection"] --> S4["🌍 GeoResolve"] --> S5["🧾 Registration"] --> S6["💧 Hydration"] --> S7["📝 Format"] --> S8["🎯 CommandFactory"]
 ```
 
 Один объект `MessageContext` рождается → обогащается каждым Stage → на выходе `list[Command]`.
@@ -142,7 +142,7 @@ graph TB
 | Уровень | Что | Моки | Доля |
 |---------|-----|:----:|-----:|
 | Unit чистый | CommandFactory, Guard, Aging, ConversionService, Value Objects | Нет | 70% |
-| Unit + Fake Port | DetectionStage, ResolveStage | Fake | 20% |
+| Unit + Fake Port | DetectionStage, GeoResolveStage, HydrationStage | Fake | 20% |
 | Integration | Pipeline целиком | Все Fake Ports | 8% |
 | Executor | CommandExecutor | FakeMessage | 2% |
 
@@ -156,7 +156,7 @@ graph TB
 
 | Изменяется | Не изменяется |
 |:---:|:---:|
-| MessageContext (+1 поле) | Guard, Aging, Format, Resolve |
+| MessageContext (+1 поле) | Guard, Aging, Format, GeoResolve |
 | +1 Stage (ContextStage) | Оба адаптера |
 | StoragePort (+1 метод) | Detection/Geo порты |
 | SQLite (+1 запрос) | CommandFactory, Executors |
