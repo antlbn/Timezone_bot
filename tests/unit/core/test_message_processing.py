@@ -24,9 +24,8 @@ class StaticDecisionStage:
     detection: DetectionResult | None = None
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        ctx.detection = self.detection
-        ctx.decision = self.decision
-        return ctx
+        import dataclasses
+        return dataclasses.replace(ctx, detection=self.detection, decision=self.decision)
 
 
 class FakeOnboardingCoordinator:

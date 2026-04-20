@@ -31,4 +31,5 @@ def test_conversion_convert_time_returns_day_shift():
 
 def test_conversion_convert_time_invalid_raises_value_error():
     with pytest.raises(ValueError):
-        convert_time("bad", "Europe/Berlin", "Asia/Tokyo")
+        ref = datetime(2023, 1, 1, tzinfo=timezone.utc)
+        convert_time("bad", "Europe/Berlin", "Asia/Tokyo", reference_date=ref)

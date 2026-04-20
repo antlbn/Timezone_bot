@@ -24,8 +24,8 @@ class StaticReplayStage:
         self.decision = decision
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        ctx.decision = self.decision
-        return ctx
+        import dataclasses
+        return dataclasses.replace(ctx, decision=self.decision)
 
 
 def _pending_message(*, minutes_old: int = 0) -> OnboardingPendingMessage:

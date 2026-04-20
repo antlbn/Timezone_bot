@@ -1,4 +1,5 @@
 import logging
+import dataclasses
 from core.domain.value_objects import MessageContext, MessageDecision
 from core.pipeline.contracts import Stage
 
@@ -8,12 +9,9 @@ logger = logging.getLogger(__name__)
 class Pipeline:
     """Executes a linear sequence of stages for message processing.
 
-    This pipeline uses a 'Mutable Shell / Immutable Core' architecture:
-    - The `MessageContext` passed through the pipeline is mutated in-place by each stage.
-    - All data values inside the context (InputData, DetectionResult, UserProfile, MessageDecision)
-      are strictly immutable.
-      
-    This sequential mutation relies on stages behaving sequentially without async fan-out.
+    This pipeline uses a 'Functional Pipeline / Evolvable Shell' architecture:
+    - The `MessageContext` passed through the pipeline is replaced by each stage.
+    - All data values inside the context are strictly immutable.
     """
     
     def __init__(self, stages: list[Stage]):
@@ -22,7 +20,7 @@ class Pipeline:
     async def run(self, ctx: MessageContext) -> MessageContext:
         for stage in self.stages:
             try:
-                await stage.process(ctx)
+                ctx = await stage.process(ctx)
                 if ctx.stop_processing:
                     return ctx
             except Exception as e:
@@ -34,6 +32,5 @@ class Pipeline:
                     ctx.input.text[:50] if ctx.input.text else "",
                     e,
                 )
-                ctx.decision = MessageDecision(ignore=True)
-                return ctx
+                return dataclasses.replace(ctx, decision=MessageDecision(ignore=True))
         return ctx

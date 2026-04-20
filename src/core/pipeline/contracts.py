@@ -3,17 +3,13 @@ from core.domain.value_objects import MessageContext
 
 
 class Stage(Protocol):
-    """A pipeline stage that mutates ctx in-place.
+    """A pipeline stage that returns an updated context.
 
-    This implements a 'Mutable Shell / Immutable Core' pattern:
-    The MessageContext acts as a mutable shell that lives for a single pipeline run.
-    Stages write their results directly into this shell. However, the data inside
-    the shell (InputData, DetectionResult, UserProfile, etc.) are all strictly
-    immutable (frozen dataclasses or tuples).
-
-    This deliberate design choice avoids the overhead of constantly copying the context
-    while guaranteeing that individual data payloads cannot be tampered with.
-    It is valid as long as pipeline stages are executed sequentially (no async fan-out).
+    This implements a 'Functional Pipeline / Evolvable Shell' pattern:
+    The MessageContext acts as a shell that lives for a single pipeline run.
+    Stages return a new context (using dataclasses.replace) with their results.
+    The data inside the shell (InputData, DetectionResult, UserProfile, etc.)
+    are all strictly immutable, and the context itself is also immutable.
     """
-    async def process(self, ctx: MessageContext) -> None:
+    async def process(self, ctx: MessageContext) -> MessageContext:
         ...

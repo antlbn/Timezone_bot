@@ -69,7 +69,7 @@ class BotSettings:
     onboarding_cooldown_secs: int = 3600  # How long to wait before re-prompting an ignoring user
     onboarding_pending_ttl_secs: int = 3600
 
-@dataclass
+@dataclass(frozen=True)
 class MessageContext:
     input: InputData
     detection: DetectionResult | None = None  # Set by DetectionStage (fresh) or pre-loaded from OnboardingPendingMessage (replay)

@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timezone
 
 from core.domain.enums import Platform, ResponseStyle
 from core.domain.value_objects import TimePoint, UserProfile
@@ -51,7 +52,7 @@ def test_format_time_with_shift():
 
 def test_format_single_point_block(sender, members):
     point = TimePoint(time="15:00", event_title="Meeting")
-    result = format_single_point(point, sender, members, ResponseStyle.BLOCK, True, True)
+    result = format_single_point(point, sender, members, ResponseStyle.BLOCK, True, True, reference_date=datetime.now(timezone.utc))
 
     assert "Meeting" in result
     assert "15:00 Berlin 🇩🇪" in result
@@ -70,6 +71,7 @@ def test_format_multi_conversion_inline(sender, members):
         response_style=ResponseStyle.INLINE,
         show_usernames=False,
         show_event_title=True,
+        reference_date=datetime.now(timezone.utc),
     )
 
     assert result.startswith("It is")
@@ -84,6 +86,6 @@ def test_format_multi_conversion_no_points(sender, members):
 
 def test_format_single_point_ambiguous(sender, members):
     point = TimePoint(time="03:00".replace("03", "03"), am_pm_clear=False)
-    result = format_single_point(point, sender, members, ResponseStyle.BLOCK, False, False)
+    result = format_single_point(point, sender, members, ResponseStyle.BLOCK, False, False, reference_date=datetime.now(timezone.utc))
 
     assert result.startswith("AM/PM?")

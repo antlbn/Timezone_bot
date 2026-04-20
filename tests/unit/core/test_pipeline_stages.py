@@ -35,7 +35,7 @@ def _ctx(
 async def test_decision_stage_reply_and_onboarding_decision():
     ctx = _ctx(reply_text="15:00 Berlin")
 
-    await DecisionStage().process(ctx)
+    ctx = await DecisionStage().process(ctx)
 
     assert ctx.decision is not None
     assert ctx.decision.reply_text == "15:00 Berlin"
@@ -48,7 +48,7 @@ async def test_decision_stage_reply_and_onboarding_decision():
 async def test_decision_stage_onboarding_without_reply():
     ctx = _ctx()
 
-    await DecisionStage().process(ctx)
+    ctx = await DecisionStage().process(ctx)
 
     assert ctx.decision is not None
     assert ctx.decision.reply_text is None
@@ -60,7 +60,7 @@ async def test_decision_stage_onboarding_without_reply():
 async def test_decision_stage_declined_user_gets_ignore_decision():
     ctx = _ctx(sender=UserProfile(user_id=1, platform=Platform.TELEGRAM, onboarding_declined=True))
 
-    await DecisionStage().process(ctx)
+    ctx = await DecisionStage().process(ctx)
 
     assert ctx.decision is not None
     assert ctx.decision.ignore is True
