@@ -1,20 +1,3 @@
-"""
-OnboardingCoordinator — Application Service.
-
-Owns onboarding workflow and latest-pending replay:
-  1. Persist latest pending message when a sender has no timezone
-  2. Suppress repeated prompts during chillout
-  3. Resolve city → timezone on completion
-  4. Replay the latest pending message if it is still fresh
-  5. Clear pending state on completion/decline
-
-Nothing here knows about Telegram, aiogram, Discord, or any UI framework.
-author_name is NOT a parameter here — it is synced to the DB by MessageProcessingService
-on every message that passes DetectionStage, before onboarding is ever triggered.
-"""
-from __future__ import annotations
-
-from dataclasses import dataclass
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -24,14 +7,8 @@ from core.domain.value_objects import MessageContext, OnboardingPendingMessage, 
 from core.pipeline.pipeline import Pipeline
 from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
-from ports.onboarding_chillout_state import OnboardingChilloutStatePort
 from ports.pending import OnboardingPendingPort
 from ports.repositories import UserRepositoryPort
-
-
-# ---------------------------------------------------------------------------
-# Result value objects (pure data, no behaviour)
-# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class OnboardingResult:
@@ -41,28 +18,16 @@ class OnboardingResult:
     flag: str | None = None
     error: str | None = None  # "city_not_found"
 
-
-# ---------------------------------------------------------------------------
-# Application Service
-# ---------------------------------------------------------------------------
-
-class OnboardingCoordinator:
-    """Orchestrates the full onboarding lifecycle for a user.
-
-    As an Application Service this class intentionally coordinates multiple
-    ports (pending storage, chillout state, geocoding, profile storage,
-    replay pipeline, delivery).  The wide scope is a known SRP trade-off
-    accepted at this layer: the coordinator owns *workflow sequencing*, not
-    the individual concerns — each of those lives behind its own port/adapter.
-    If the workflow grows significantly, consider splitting into an
-    OnboardingWorkflow (steps 1-4) and keeping this class as a thin
-    orchestrator (steps 5-6).
+class OnboardingCompletionUseCase:
+    """Executes the final stage of onboarding.
+    
+    Resolves the provided city to a timezone, updates the user's profile,
+    and replays any pending messages if they are still fresh.
     """
     def __init__(
         self,
         users_repo: UserRepositoryPort,
         onboarding_pending_port: OnboardingPendingPort,
-        chillout_state_port: OnboardingChilloutStatePort,
         geocoding_port: GeoPort,
         replay_pipeline: Pipeline,
         delivery_service: DeliveryPort,
@@ -70,28 +35,10 @@ class OnboardingCoordinator:
     ) -> None:
         self._users = users_repo
         self._onboarding_pending = onboarding_pending_port
-        self._chillout_state = chillout_state_port
         self._geo = geocoding_port
         self._replay_pipeline = replay_pipeline
         self._delivery = delivery_service
         self._settings = settings
-
-    async def store_pending_and_should_prompt(
-        self,
-        user_id: int,
-        platform: Platform,
-        pending_message: OnboardingPendingMessage,
-    ) -> bool:
-        """Store the latest pending message and decide whether the onboarding prompt should be shown."""
-        await self._onboarding_pending.upsert(user_id, platform, pending_message)
-        return not await self._chillout_state.is_onboarding_in_chillout(
-            user_id,
-            platform,
-            self._settings.onboarding_cooldown_secs,
-        )
-
-    async def mark_prompt_shown(self, user_id: int, platform: Platform) -> None:
-        await self._chillout_state.mark_onboarding_shown(user_id, platform)
 
     async def complete(
         self,

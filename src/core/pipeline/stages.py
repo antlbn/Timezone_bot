@@ -32,7 +32,7 @@ class GuardStage:
 class AgingStage:
     """Drops messages that are too old to be worth processing.
     Only used in the fresh pipeline — replay pipeline skips aging entirely
-    because replaying is an intentional decision made by OnboardingCoordinator.
+    because replaying is an intentional decision made by OnboardingCompletionUseCase.
     """
     def __init__(self, settings: BotSettings):
         self._settings = settings

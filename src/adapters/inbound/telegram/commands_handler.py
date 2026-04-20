@@ -29,7 +29,7 @@ async def cmd_start_or_settz(message: Message, state: FSMContext) -> None:
 @router.message(Command("tb_skip", "skip"))
 async def cmd_skip(message: Message, state: FSMContext, container: "AppContainer") -> None:
     await state.clear()
-    await container.onboarding_coordinator.decline(
+    await container.onboarding_completion.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
     )

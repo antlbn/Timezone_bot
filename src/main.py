@@ -29,7 +29,7 @@ from core.domain.value_objects import BotSettings
 from core.domain.enums import ResponseStyle
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
-from core.services.onboarding import OnboardingCoordinator
+from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase
 from core.services.profile import ProfileService
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from ports.geocoding import GeoPort
@@ -41,7 +41,8 @@ class AppContainer:
     fresh_pipeline: Pipeline
     replay_pipeline: Pipeline
     geocoder: GeoPort
-    onboarding_coordinator: OnboardingCoordinator
+    onboarding_prompt: OnboardingPromptService
+    onboarding_completion: OnboardingCompletionUseCase
     profile_service: ProfileService
     message_processor: MessageProcessingService
 
@@ -82,13 +83,13 @@ def build_pipelines(storage, detector, geocoder, settings: BotSettings) -> tuple
         AgingStage(settings),
         DetectionStage(detector),
         GeoResolveStage(geocoder),
-        HydrationStage(storage),
+        HydrationStage(storage, storage),
         FormatStage(settings),
         DecisionStage(),
     ])
 
     replay_pipeline = Pipeline([
-        HydrationStage(storage),
+        HydrationStage(storage, storage),
         FormatStage(settings),
         DecisionStage(),
     ])
@@ -153,14 +154,14 @@ async def main():
         dc_client = discord.Client(intents=intents)
         tree = app_commands.CommandTree(dc_client)
 
-    onboarding_coordinator: OnboardingCoordinator | None = None
+    onboarding_completion: OnboardingCompletionUseCase | None = None
 
     tg_executor = TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username) if (tg_bot and tg_username) else None
 
     def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
-        if onboarding_coordinator is None:
-            raise RuntimeError("Onboarding coordinator is not initialized yet")
-        return SetTimezoneView(target_user_id, onboarding_coordinator)
+        if onboarding_completion is None:
+            raise RuntimeError("Onboarding completion use case is not initialized yet")
+        return SetTimezoneView(target_user_id, onboarding_completion)
 
     dc_executor = (
         DiscordCommandExecutor(
@@ -172,10 +173,15 @@ async def main():
 
     delivery_service = DeliveryService(tg_executor=tg_executor, dc_executor=dc_executor)
 
-    onboarding_coordinator = OnboardingCoordinator(
-        users_repo=storage,
+    onboarding_prompt = OnboardingPromptService(
         onboarding_pending_port=onboarding_pending_store,
         chillout_state_port=onboarding_chillout_state,
+        settings=settings,
+    )
+
+    onboarding_completion = OnboardingCompletionUseCase(
+        users_repo=storage,
+        onboarding_pending_port=onboarding_pending_store,
         geocoding_port=geocoder,
         replay_pipeline=replay_pipeline,
         delivery_service=delivery_service,
@@ -187,7 +193,7 @@ async def main():
         users_repo=storage,
         chats_repo=storage,
         delivery_service=delivery_service,
-        onboarding_coordinator=onboarding_coordinator,
+        onboarding_prompt=onboarding_prompt,
     )
 
     profile_service = ProfileService(users_repo=storage, chats_repo=storage)
@@ -198,7 +204,8 @@ async def main():
         fresh_pipeline=fresh_pipeline,
         replay_pipeline=replay_pipeline,
         geocoder=geocoder,
-        onboarding_coordinator=onboarding_coordinator,
+        onboarding_prompt=onboarding_prompt,
+        onboarding_completion=onboarding_completion,
         profile_service=profile_service,
         message_processor=message_processor,
     )

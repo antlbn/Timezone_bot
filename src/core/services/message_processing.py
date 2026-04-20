@@ -9,7 +9,7 @@ from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 
 if TYPE_CHECKING:
     from ports.delivery import DeliveryPort
-    from core.services.onboarding import OnboardingCoordinator
+from core.services.onboarding import OnboardingPromptService
 
 
 class MessageProcessingService:
@@ -25,13 +25,13 @@ class MessageProcessingService:
         users_repo: UserRepositoryPort,
         chats_repo: ChatRepositoryPort,
         delivery_service: "DeliveryPort",
-        onboarding_coordinator: "OnboardingCoordinator",
+        onboarding_prompt: "OnboardingPromptService",
     ) -> None:
         self._fresh_pipeline = fresh_pipeline
         self._users = users_repo
         self._chats = chats_repo
         self._delivery = delivery_service
-        self._onboarding = onboarding_coordinator
+        self._onboarding = onboarding_prompt
 
     async def process_input(self, data: InputData) -> None:
         ctx = MessageContext(input=data)

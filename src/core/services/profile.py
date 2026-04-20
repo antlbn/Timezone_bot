@@ -1,8 +1,6 @@
 from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from datetime import datetime
 from core.services.conversion import get_utc_offset
 
 class ProfileService:

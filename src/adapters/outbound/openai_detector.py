@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import re
 from openai import AsyncOpenAI
 

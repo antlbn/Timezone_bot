@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import datetime, time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 

@@ -28,7 +28,7 @@ class StaticDecisionStage:
         return dataclasses.replace(ctx, detection=self.detection, decision=self.decision)
 
 
-class FakeOnboardingCoordinator:
+class FakeOnboardingPromptService:
     def __init__(self, should_prompt: bool = False):
         self.should_prompt = should_prompt
         self.pending_calls: list[tuple[int, Platform, OnboardingPendingMessage]] = []
@@ -80,7 +80,7 @@ async def test_process_input_registers_and_sends_reply_for_detected_message():
         ]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
-        onboarding_coordinator=FakeOnboardingCoordinator(),
+        onboarding_prompt=FakeOnboardingPromptService(),
     )
 
     await service.process_input(data)
@@ -105,7 +105,7 @@ async def test_process_input_skips_registration_and_delivery_when_no_detection()
         ]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
-        onboarding_coordinator=FakeOnboardingCoordinator(),
+        onboarding_prompt=FakeOnboardingPromptService(),
     )
 
     await service.process_input(data)
@@ -119,7 +119,7 @@ async def test_process_input_updates_pending_and_marks_prompt_when_onboarding_sh
     data = _input()
     storage = FakeStoragePort()
     executor = FakeCommandExecutorPort()
-    onboarding = FakeOnboardingCoordinator(should_prompt=True)
+    onboarding = FakeOnboardingPromptService(should_prompt=True)
     pending = _pending_message(data)
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
@@ -130,7 +130,7 @@ async def test_process_input_updates_pending_and_marks_prompt_when_onboarding_sh
         ]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
-        onboarding_coordinator=onboarding,
+        onboarding_prompt=onboarding,
     )
 
     await service.process_input(data)
@@ -152,7 +152,7 @@ async def test_process_input_updates_pending_and_marks_prompt_when_onboarding_sh
 async def test_process_input_updates_pending_without_mark_when_chillout_active():
     data = _input()
     executor = FakeCommandExecutorPort()
-    onboarding = FakeOnboardingCoordinator(should_prompt=False)
+    onboarding = FakeOnboardingPromptService(should_prompt=False)
     pending = _pending_message(data)
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
@@ -163,7 +163,7 @@ async def test_process_input_updates_pending_without_mark_when_chillout_active()
         ]),
         users_repo=FakeStoragePort(), chats_repo=FakeStoragePort(),
         delivery_service=DeliveryService(tg_executor=executor),
-        onboarding_coordinator=onboarding,
+        onboarding_prompt=onboarding,
     )
 
     await service.process_input(data)

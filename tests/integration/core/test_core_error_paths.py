@@ -7,7 +7,7 @@ from core.domain.value_objects import BotSettings, InputData, MessageContext, On
 from core.pipeline.pipeline import Pipeline
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
-from core.services.onboarding import OnboardingCoordinator
+from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase
 from ports.detection import DetectionResult
 from ports.geocoding import Location
 from tests.fakes.ports import (
@@ -32,13 +32,9 @@ async def test_message_processing_ignores_pipeline_failure_without_side_effects(
         fresh_pipeline=Pipeline([ExplodingStage()]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
-        onboarding_coordinator=OnboardingCoordinator(
-            users_repo=storage,
+        onboarding_prompt=OnboardingPromptService(
             onboarding_pending_port=FakeOnboardingPendingPort(),
             chillout_state_port=FakeOnboardingChilloutStatePort(),
-            geocoding_port=FakeGeoPort(),
-            replay_pipeline=Pipeline([]),
-            delivery_service=DeliveryService(tg_executor=executor),
             settings=BotSettings(),
         ),
     )
@@ -63,10 +59,9 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
     storage = FakeStoragePort()
     pending = FakeOnboardingPendingPort()
     executor = FakeCommandExecutorPort()
-    coordinator = OnboardingCoordinator(
+    coordinator = OnboardingCompletionUseCase(
         users_repo=storage,
         onboarding_pending_port=pending,
-        chillout_state_port=FakeOnboardingChilloutStatePort(),
         geocoding_port=FakeGeoPort(
             resolves_to=Location(city="London", timezone="Europe/London", country_code="GB", flag="🇬🇧")
         ),

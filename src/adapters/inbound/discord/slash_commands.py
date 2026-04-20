@@ -11,7 +11,7 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
     async def tb_settz(interaction: discord.Interaction, city: str):
         # Defer to allow time for API call
         await interaction.response.defer(ephemeral=True)
-        res = await container.onboarding_coordinator.complete(
+        res = await container.onboarding_completion.complete(
             user_id=interaction.user.id,
             city_raw=city,
             platform=Platform.DISCORD,
@@ -35,7 +35,7 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
 
     @tree.command(name="tb_skip", description="Opt out of Timezone Bot features")
     async def tb_skip(interaction: discord.Interaction):
-        await container.onboarding_coordinator.decline(
+        await container.onboarding_completion.decline(
             user_id=interaction.user.id,
             platform=Platform.DISCORD,
         )

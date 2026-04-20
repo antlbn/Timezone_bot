@@ -17,7 +17,7 @@ from core.pipeline.stages import (
 )
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
-from core.services.onboarding import OnboardingCoordinator
+from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase
 from ports.detection import DetectionResult
 from tests.fakes.ports import (
     FakeCommandExecutorPort,
@@ -71,10 +71,14 @@ def _make_services(
     tg_executor = FakeCommandExecutorPort()
     delivery = DeliveryService(tg_executor=tg_executor)
     replay = _make_replay_pipeline(storage, settings)
-    onboarding_coordinator = OnboardingCoordinator(
-        users_repo=storage,
+    onboarding_prompt = OnboardingPromptService(
         onboarding_pending_port=pending,
         chillout_state_port=chillout,
+        settings=settings,
+    )
+    onboarding_completion = OnboardingCompletionUseCase(
+        users_repo=storage,
+        onboarding_pending_port=pending,
         geocoding_port=geo,
         replay_pipeline=replay,
         delivery_service=delivery,
@@ -84,9 +88,9 @@ def _make_services(
         fresh_pipeline=_make_fresh_pipeline(storage, detection, geo, settings),
         users_repo=storage, chats_repo=storage,
         delivery_service=delivery,
-        onboarding_coordinator=onboarding_coordinator,
+        onboarding_prompt=onboarding_prompt,
     )
-    return storage, pending, chillout, onboarding_coordinator, processor, tg_executor
+    return storage, pending, chillout, onboarding_prompt, onboarding_completion, processor, tg_executor
 
 
 @pytest.mark.asyncio
@@ -96,7 +100,7 @@ async def test_message_processor_routes_reply_to_correct_executor():
     storage.users[(1, Platform.TELEGRAM)] = sender
     storage.members[("chat1", Platform.TELEGRAM)] = [sender]
 
-    _, _, _, _, processor, tg_executor = _make_services(storage=storage)
+    _, _, _, _, _, processor, tg_executor = _make_services(storage=storage)
 
     await processor.process_input(
         InputData(
@@ -117,7 +121,7 @@ async def test_message_processor_routes_reply_to_correct_executor():
 async def test_fresh_message_without_timezone_saves_latest_pending_and_shows_prompt():
     pending = FakeOnboardingPendingPort()
     chillout = FakeOnboardingChilloutStatePort(in_chillout=False)
-    storage, _, _, _, processor, tg_executor = _make_services(pending=pending, chillout=chillout)
+    storage, _, _, _, _, processor, tg_executor = _make_services(pending=pending, chillout=chillout)
 
     data = InputData(
         text="Let's meet at 12:00",
@@ -140,7 +144,7 @@ async def test_fresh_message_without_timezone_saves_latest_pending_and_shows_pro
 async def test_fresh_message_during_chillout_updates_pending_without_prompt():
     pending = FakeOnboardingPendingPort()
     chillout = FakeOnboardingChilloutStatePort(in_chillout=True)
-    storage, _, _, _, processor, tg_executor = _make_services(pending=pending, chillout=chillout)
+    storage, _, _, _, _, processor, tg_executor = _make_services(pending=pending, chillout=chillout)
 
     data = InputData(
         text="Let's meet at 12:00",
@@ -169,7 +173,7 @@ async def test_complete_replays_latest_pending_and_clears_it():
         "country_code": "GB",
         "flag": "🇬🇧",
     })()
-    _, pending, _, onboarding_coordinator, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo)
+    _, pending, _, _, onboarding_completion, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo)
 
     receiver = UserProfile(user_id=2, platform=Platform.TELEGRAM, timezone="America/New_York", city="New York", flag="🇺🇸")
     storage.members[("chat1", Platform.TELEGRAM)] = [receiver]
@@ -187,7 +191,7 @@ async def test_complete_replays_latest_pending_and_clears_it():
     )
     await pending.upsert(1, Platform.TELEGRAM, pending_msg)
 
-    result = await onboarding_coordinator.complete(1, "London", Platform.TELEGRAM)
+    result = await onboarding_completion.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
     assert len(tg_executor.executed_commands) == 1
@@ -207,7 +211,7 @@ async def test_complete_drops_stale_pending_without_reply():
         "flag": "🇬🇧",
     })()
     settings = BotSettings(max_age_fresh_secs=30)
-    _, pending, _, onboarding_coordinator, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo, settings=settings)
+    _, pending, _, _, onboarding_completion, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo, settings=settings)
 
     stale_msg = OnboardingPendingMessage(
         original_input=InputData(
@@ -222,7 +226,7 @@ async def test_complete_drops_stale_pending_without_reply():
     )
     await pending.upsert(1, Platform.TELEGRAM, stale_msg)
 
-    result = await onboarding_coordinator.complete(1, "London", Platform.TELEGRAM)
+    result = await onboarding_completion.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
     assert tg_executor.executed_commands == []
@@ -233,7 +237,7 @@ async def test_complete_drops_stale_pending_without_reply():
 async def test_decline_marks_user_and_clears_pending():
     storage = FakeStoragePort()
     pending = FakeOnboardingPendingPort()
-    _, pending, _, onboarding_coordinator, _, _ = _make_services(storage=storage, pending=pending)
+    _, pending, _, _, onboarding_completion, _, _ = _make_services(storage=storage, pending=pending)
 
     await pending.upsert(
         1,
@@ -251,7 +255,7 @@ async def test_decline_marks_user_and_clears_pending():
         ),
     )
 
-    await onboarding_coordinator.decline(1, Platform.TELEGRAM)
+    await onboarding_completion.decline(1, Platform.TELEGRAM)
 
     assert storage.users[(1, Platform.TELEGRAM)].onboarding_declined is True
     assert await pending.get(1, Platform.TELEGRAM) is None
