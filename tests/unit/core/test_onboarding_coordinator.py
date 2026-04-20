@@ -143,3 +143,16 @@ async def test_complete_drops_stale_pending_without_delivery():
     assert result.ok is True
     assert executor.executed_commands == []
     assert await pending.get(1, Platform.TELEGRAM) is None
+
+
+@pytest.mark.asyncio
+async def test_decline_marks_storage_and_clears_pending():
+    """decline() → set_onboarding_declined called, pending deleted."""
+    pending = FakeOnboardingPendingPort()
+    await pending.upsert(1, Platform.TELEGRAM, _pending_message())
+    coordinator, storage, _ = _coordinator(pending=pending)
+
+    await coordinator.decline(1, Platform.TELEGRAM)
+
+    assert storage.users[(1, Platform.TELEGRAM)].onboarding_declined is True
+    assert await pending.get(1, Platform.TELEGRAM) is None

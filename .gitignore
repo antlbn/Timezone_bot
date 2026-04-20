@@ -10,6 +10,8 @@ data/
 # Caches
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # IDE
 .idea/

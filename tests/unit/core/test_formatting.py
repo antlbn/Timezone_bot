@@ -89,3 +89,22 @@ def test_format_single_point_ambiguous(sender, members):
     result = format_single_point(point, sender, members, ResponseStyle.BLOCK, False, False, reference_date=datetime.now(timezone.utc))
 
     assert result.startswith("AM/PM?")
+
+
+def test_format_single_point_uses_tz_resolved_as_source():
+    """TimePoint with tz_resolved='Europe/London', sender=None → valid output."""
+    point = TimePoint(time="15:00", tz_resolved="Europe/London")
+    # No sender timezone
+    sender_no_tz = UserProfile(user_id=1, platform=Platform.TELEGRAM)
+    
+    result = format_single_point(
+        point, 
+        sender_no_tz, 
+        [], 
+        ResponseStyle.INLINE, 
+        False, 
+        False, 
+        reference_date=datetime.now(timezone.utc)
+    )
+
+    assert "15:00 Europe/London" in result
