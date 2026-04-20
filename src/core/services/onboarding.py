@@ -26,7 +26,7 @@ from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
 from ports.onboarding_chillout_state import OnboardingChilloutStatePort
 from ports.pending import OnboardingPendingPort
-from ports.storage import StoragePort
+from ports.repositories import UserRepositoryPort
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ class OnboardingCoordinator:
     """
     def __init__(
         self,
-        storage_port: StoragePort,
+        users_repo: UserRepositoryPort,
         onboarding_pending_port: OnboardingPendingPort,
         chillout_state_port: OnboardingChilloutStatePort,
         geocoding_port: GeoPort,
@@ -68,7 +68,7 @@ class OnboardingCoordinator:
         delivery_service: DeliveryPort,
         settings: BotSettings,
     ) -> None:
-        self._storage = storage_port
+        self._users = users_repo
         self._onboarding_pending = onboarding_pending_port
         self._chillout_state = chillout_state_port
         self._geo = geocoding_port
@@ -105,7 +105,7 @@ class OnboardingCoordinator:
             return OnboardingResult(ok=False, error="city_not_found")
 
         # Persist profile so replay hydration/formatting can use the new timezone immediately.
-        await self._storage.set_user(
+        await self._users.set_user(
             user_id,
             platform,
             location.timezone,
@@ -133,7 +133,7 @@ class OnboardingCoordinator:
         Mark as declined so future messages without a source timezone are ignored.
         Delete pending messages without replay.
         """
-        await self._storage.set_onboarding_declined(user_id, platform)
+        await self._users.set_onboarding_declined(user_id, platform)
         await self._onboarding_pending.delete(user_id, platform)
 
     def _is_replay_stale(self, pending: OnboardingPendingMessage) -> bool:

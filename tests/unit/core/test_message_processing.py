@@ -78,7 +78,7 @@ async def test_process_input_registers_and_sends_reply_for_detected_message():
                 detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="15:00"),)),
             )
         ]),
-        storage_port=storage,
+        users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_coordinator=FakeOnboardingCoordinator(),
     )
@@ -103,7 +103,7 @@ async def test_process_input_skips_registration_and_delivery_when_no_detection()
         fresh_pipeline=Pipeline([
             StaticDecisionStage(decision=MessageDecision(ignore=True), detection=None)
         ]),
-        storage_port=storage,
+        users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_coordinator=FakeOnboardingCoordinator(),
     )
@@ -128,7 +128,7 @@ async def test_process_input_updates_pending_and_marks_prompt_when_onboarding_sh
                 detection=pending.detection,
             )
         ]),
-        storage_port=storage,
+        users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_coordinator=onboarding,
     )
@@ -161,7 +161,7 @@ async def test_process_input_updates_pending_without_mark_when_chillout_active()
                 detection=pending.detection,
             )
         ]),
-        storage_port=FakeStoragePort(),
+        users_repo=FakeStoragePort(), chats_repo=FakeStoragePort(),
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_coordinator=onboarding,
     )

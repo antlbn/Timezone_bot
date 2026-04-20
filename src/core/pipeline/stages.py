@@ -10,7 +10,7 @@ from core.domain.value_objects import (
     TimePoint,
 )
 from ports.detection import DetectionPort, DetectionRequest, DetectionResult
-from ports.storage import StoragePort
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from ports.geocoding import GeoPort
 from core.services.formatting import format_multi_conversion
 
@@ -94,17 +94,18 @@ class HydrationStage:
     """Loads domain context from storage. Strictly read-only.
     Populates ctx.sender and ctx.members (only those with timezones).
     """
-    def __init__(self, storage_port: StoragePort):
-        self._storage = storage_port
+    def __init__(self, users_repo: UserRepositoryPort, chats_repo: ChatRepositoryPort):
+        self._users = users_repo
+        self._chats = chats_repo
 
     async def process(self, ctx: MessageContext) -> MessageContext:
         # Load profile if it exists (has timezone, etc.)
-        sender = await self._storage.get_user(ctx.input.user_id, ctx.input.platform)
+        sender = await self._users.get_user(ctx.input.user_id, ctx.input.platform)
 
         # Load only members who can help with time conversion
         members = tuple()
         if ctx.input.chat_id:
-            fetched_members = await self._storage.get_chat_members_with_tz(
+            fetched_members = await self._chats.get_chat_members_with_tz(
                 ctx.input.chat_id, ctx.input.platform
             )
             members = tuple(fetched_members)

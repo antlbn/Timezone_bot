@@ -2,11 +2,7 @@ from typing import Protocol
 from core.domain.value_objects import UserProfile
 from core.domain.enums import Platform
 
-class StoragePort(Protocol):
-    async def initialize(self) -> None:
-        """Prepare the storage for work (e.g. open connection, create tables)."""
-        ...
-
+class UserRepositoryPort(Protocol):
     async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:
         ...
 
@@ -30,6 +26,8 @@ class StoragePort(Protocol):
         """Mark that user explicitly opted out of onboarding."""
         ...
 
+
+class ChatRepositoryPort(Protocol):
     async def get_chat_members(self, chat_id: str, platform: Platform) -> list[UserProfile]:
         """Fetch all members linked to this chat."""
         ...

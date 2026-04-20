@@ -31,12 +31,13 @@ from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
 from core.services.onboarding import OnboardingCoordinator
 from core.services.profile import ProfileService
-from ports.storage import StoragePort
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from ports.geocoding import GeoPort
 
 @dataclass
 class AppContainer:
-    storage: StoragePort
+    users_repo: UserRepositoryPort
+    chats_repo: ChatRepositoryPort
     fresh_pipeline: Pipeline
     replay_pipeline: Pipeline
     geocoder: GeoPort
@@ -172,7 +173,7 @@ async def main():
     delivery_service = DeliveryService(tg_executor=tg_executor, dc_executor=dc_executor)
 
     onboarding_coordinator = OnboardingCoordinator(
-        storage_port=storage,
+        users_repo=storage,
         onboarding_pending_port=onboarding_pending_store,
         chillout_state_port=onboarding_chillout_state,
         geocoding_port=geocoder,
@@ -183,15 +184,17 @@ async def main():
 
     message_processor = MessageProcessingService(
         fresh_pipeline=fresh_pipeline,
-        storage_port=storage,
+        users_repo=storage,
+        chats_repo=storage,
         delivery_service=delivery_service,
         onboarding_coordinator=onboarding_coordinator,
     )
 
-    profile_service = ProfileService(storage_port=storage)
+    profile_service = ProfileService(users_repo=storage, chats_repo=storage)
 
     container = AppContainer(
-        storage=storage,
+        users_repo=storage,
+        chats_repo=storage,
         fresh_pipeline=fresh_pipeline,
         replay_pipeline=replay_pipeline,
         geocoder=geocoder,

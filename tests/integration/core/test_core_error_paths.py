@@ -30,10 +30,10 @@ async def test_message_processing_ignores_pipeline_failure_without_side_effects(
     executor = FakeCommandExecutorPort()
     processor = MessageProcessingService(
         fresh_pipeline=Pipeline([ExplodingStage()]),
-        storage_port=storage,
+        users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_coordinator=OnboardingCoordinator(
-            storage_port=storage,
+            users_repo=storage,
             onboarding_pending_port=FakeOnboardingPendingPort(),
             chillout_state_port=FakeOnboardingChilloutStatePort(),
             geocoding_port=FakeGeoPort(),
@@ -64,7 +64,7 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
     pending = FakeOnboardingPendingPort()
     executor = FakeCommandExecutorPort()
     coordinator = OnboardingCoordinator(
-        storage_port=storage,
+        users_repo=storage,
         onboarding_pending_port=pending,
         chillout_state_port=FakeOnboardingChilloutStatePort(),
         geocoding_port=FakeGeoPort(

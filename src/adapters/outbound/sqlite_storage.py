@@ -1,14 +1,14 @@
 import aiosqlite
 import time
 from pathlib import Path
-from ports.storage import StoragePort
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
 
-class SQLiteStorage(StoragePort):
+class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self._db: aiosqlite.Connection | None = None

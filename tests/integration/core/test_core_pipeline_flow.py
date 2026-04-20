@@ -17,7 +17,7 @@ def _fresh_pipeline(storage, detection, settings=None):
         GuardStage(),
         AgingStage(settings),
         DetectionStage(detection),
-        HydrationStage(storage),
+        HydrationStage(users_repo=storage, chats_repo=storage),
         FormatStage(settings),
         DecisionStage(),
     ])

@@ -54,7 +54,7 @@ def _coordinator(
     executor = FakeCommandExecutorPort()
     storage = FakeStoragePort()
     coordinator = OnboardingCoordinator(
-        storage_port=storage,
+        users_repo=storage,
         onboarding_pending_port=pending or FakeOnboardingPendingPort(),
         chillout_state_port=chillout or FakeOnboardingChilloutStatePort(),
         geocoding_port=geo or FakeGeoPort(),

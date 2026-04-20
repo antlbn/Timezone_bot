@@ -7,8 +7,10 @@ from ports.detection import DetectionRequest, DetectionResult
 from ports.geocoding import Location
 from core.domain.commands import Command
 
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 
-class FakeStoragePort:
+
+class FakeStoragePort(UserRepositoryPort, ChatRepositoryPort):
     def __init__(self):
         self.users: dict[tuple[int, Platform], UserProfile] = {}
         self.members: dict[tuple[str, Platform], list[UserProfile]] = {}

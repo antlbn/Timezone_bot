@@ -37,7 +37,7 @@ def _make_fresh_pipeline(storage, detection, geo=None, settings=None):
         AgingStage(settings),
         DetectionStage(detection),
         GeoResolveStage(geo),
-        HydrationStage(storage),
+        HydrationStage(users_repo=storage, chats_repo=storage),
         FormatStage(settings),
         DecisionStage(),
     ])
@@ -46,7 +46,7 @@ def _make_fresh_pipeline(storage, detection, geo=None, settings=None):
 def _make_replay_pipeline(storage, settings=None):
     settings = settings or BotSettings()
     return Pipeline([
-        HydrationStage(storage),
+        HydrationStage(users_repo=storage, chats_repo=storage),
         FormatStage(settings),
         DecisionStage(),
     ])
@@ -72,7 +72,7 @@ def _make_services(
     delivery = DeliveryService(tg_executor=tg_executor)
     replay = _make_replay_pipeline(storage, settings)
     onboarding_coordinator = OnboardingCoordinator(
-        storage_port=storage,
+        users_repo=storage,
         onboarding_pending_port=pending,
         chillout_state_port=chillout,
         geocoding_port=geo,
@@ -82,7 +82,7 @@ def _make_services(
     )
     processor = MessageProcessingService(
         fresh_pipeline=_make_fresh_pipeline(storage, detection, geo, settings),
-        storage_port=storage,
+        users_repo=storage, chats_repo=storage,
         delivery_service=delivery,
         onboarding_coordinator=onboarding_coordinator,
     )

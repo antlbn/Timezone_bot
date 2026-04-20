@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from core.domain.commands import SendReply, ShowOnboarding
 from core.domain.value_objects import InputData, MessageContext, MessageDecision
 from core.pipeline.pipeline import Pipeline
-from ports.storage import StoragePort
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 
 if TYPE_CHECKING:
     from ports.delivery import DeliveryPort
@@ -22,12 +22,14 @@ class MessageProcessingService:
     def __init__(
         self,
         fresh_pipeline: Pipeline,
-        storage_port: StoragePort,
+        users_repo: UserRepositoryPort,
+        chats_repo: ChatRepositoryPort,
         delivery_service: "DeliveryPort",
         onboarding_coordinator: "OnboardingCoordinator",
     ) -> None:
         self._fresh_pipeline = fresh_pipeline
-        self._storage = storage_port
+        self._users = users_repo
+        self._chats = chats_repo
         self._delivery = delivery_service
         self._onboarding = onboarding_coordinator
 
@@ -42,14 +44,14 @@ class MessageProcessingService:
         if not ctx.detection or not ctx.detection.time_mentioned:
             return
 
-        await self._storage.ensure_user_metadata(
+        await self._users.ensure_user_metadata(
             ctx.input.user_id,
             ctx.input.platform,
             ctx.input.author_name,
         )
 
         if ctx.input.chat_id:
-            await self._storage.add_chat_member(
+            await self._chats.add_chat_member(
                 chat_id=ctx.input.chat_id,
                 user_id=ctx.input.user_id,
                 platform=ctx.input.platform,
