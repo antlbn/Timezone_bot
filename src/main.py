@@ -25,7 +25,7 @@ from adapters.executors.telegram_executor import TelegramCommandExecutor
 from adapters.executors.discord_executor import DiscordCommandExecutor
 from adapters.inbound.discord.ui import SetTimezoneView
 from core.pipeline.pipeline import Pipeline
-from core.domain.value_objects import BotSettings
+from core.domain.value_objects import BotSettings, LLMConfig, LLMModelConfig
 from core.domain.enums import ResponseStyle
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
@@ -125,11 +125,21 @@ async def main():
     storage = SQLiteStorage(db_path)
     await storage.initialize()
 
-    detector = OpenAIDetector(
-        api_key=os.getenv("LLM_FALLBACK_API_KEY"),
-        base_url=os.getenv("LLM_FALLBACK_BASE_URL"),
-        model=os.getenv("LLM_FALLBACK_MODEL", "gpt-4o-mini")
+    primary_llm = LLMModelConfig(
+        api_key=os.getenv("LLM_API_KEY"),
+        base_url=os.getenv("LLM_BASE_URL"),
+        model=os.getenv("LLM_MODEL", "gemini-3-flash-lite-preview")
     )
+    fallback_llm = None
+    if os.getenv("LLM_FALLBACK_API_KEY"):
+        fallback_llm = LLMModelConfig(
+            api_key=os.getenv("LLM_FALLBACK_API_KEY"),
+            base_url=os.getenv("LLM_FALLBACK_BASE_URL"),
+            model=os.getenv("LLM_FALLBACK_MODEL", "llama-3.1-8b-instant")
+        )
+    
+    llm_config = LLMConfig(primary=primary_llm, fallback=fallback_llm)
+    detector = OpenAIDetector(config=llm_config)
     geocoder = NominatimGeo()
     settings = build_settings(Path("configuration.yaml"))
 

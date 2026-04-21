@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 router = Router(name="commands")
 
-@router.message(Command("start", "tb_settz"))
+@router.message(Command("start", "tb_settz", "tz_settz"))
 async def cmd_start_or_settz(message: Message, state: FSMContext) -> None:
     # If in group, send them a deep link to start? 
     # Or just tell them to start the bot directly.
@@ -26,7 +26,7 @@ async def cmd_start_or_settz(message: Message, state: FSMContext) -> None:
         "Or type /skip to skip."
     )
 
-@router.message(Command("tb_skip", "skip"))
+@router.message(Command("tb_skip", "tz_skip", "skip"))
 async def cmd_skip(message: Message, state: FSMContext, container: "AppContainer") -> None:
     await state.clear()
     await container.onboarding_completion.decline(
@@ -35,7 +35,7 @@ async def cmd_skip(message: Message, state: FSMContext, container: "AppContainer
     )
     await message.answer("Got it! I won't ask you again. Use /tb_settz if you change your mind.")
 
-@router.message(Command("tb_me", "me"))
+@router.message(Command("tb_me", "tz_me", "me"))
 async def cmd_me(message: Message, container: "AppContainer") -> None:
     user = await container.profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
     if not user or not user.timezone:
@@ -46,7 +46,7 @@ async def cmd_me(message: Message, container: "AppContainer") -> None:
     city = user.city or "Unknown"
     await message.answer(f"{city} {flag} ({user.timezone})")
 
-@router.message(Command("tb_members", "members"))
+@router.message(Command("tb_members", "tz_members", "members"))
 async def cmd_members(message: Message, container: "AppContainer") -> None:
     if message.chat.type == "private":
         await message.answer("This command only works in groups.")
@@ -67,7 +67,7 @@ async def cmd_members(message: Message, container: "AppContainer") -> None:
 
     await message.answer("\n".join(lines))
 
-@router.message(Command("tb_help", "help"))
+@router.message(Command("tb_help", "tz_help", "help"))
 async def cmd_help(message: Message) -> None:
     await message.answer(
         "I detect time mentions and convert them for your chat members automatically! "

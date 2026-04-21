@@ -10,6 +10,17 @@ if TYPE_CHECKING:
     from ports.detection import DetectionResult
 
 @dataclass(frozen=True)
+class LLMModelConfig:
+    api_key: str
+    model: str
+    base_url: str | None = None
+
+@dataclass(frozen=True)
+class LLMConfig:
+    primary: LLMModelConfig
+    fallback: LLMModelConfig | None = None
+
+@dataclass(frozen=True)
 class TimePoint:
     time: str
     tz_city: str | None = None
