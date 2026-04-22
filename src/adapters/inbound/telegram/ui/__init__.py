@@ -21,6 +21,7 @@ from adapters.inbound.telegram.ui.texts import (
     get_city_not_found_text,
     get_completion_text,
     get_onboarding_prompt_text,
+    get_error_message_text,
 )
 from adapters.inbound.telegram.ui.keyboards import (
     get_settings_keyboard,
@@ -52,6 +53,7 @@ __all__ = [
     "get_city_not_found_text",
     "get_completion_text",
     "get_onboarding_prompt_text",
+    "get_error_message_text",
     "get_settings_keyboard",
     "get_onboarding_prompt_keyboard",
     "get_back_to_settings_keyboard",

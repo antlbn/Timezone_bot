@@ -120,9 +120,7 @@ async def cmd_delete_member(message: Message, profile_service: ProfileService, t
         reply = await message.answer(ui.get_member_removed_text(selected_member.username or selected_member.city or str(selected_member.user_id)))
     except ValueError:
         reply = await message.answer(ui.get_invalid_number_text())
-    except Exception as e:
-        logger.error(f"Failed to remove chat member: {e}")
-
+    
     if reply:
         await schedule_deletion(message, reply, delay=tg_config.delete_delay)
 

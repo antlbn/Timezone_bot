@@ -93,6 +93,9 @@ def get_completion_text(timezone_name: str, flag: str | None) -> str:
         "From now on, I will automatically convert time for you!"
     )
 
+def get_error_message_text() -> str:
+    return "❌ Something went wrong. Please try again later."
+
 def get_onboarding_prompt_text(author_name: str) -> str:
     return (
         f"👋 <b>{author_name}</b>, to convert your time correctly, "

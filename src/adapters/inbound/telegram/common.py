@@ -29,6 +29,7 @@ def parse_onboarding_payload(payload: str | None) -> OnboardingStartContext | No
     else:
         user_part, chat_part = rest, None
 
+    user_part = user_part.replace("_", "")
     if not user_part.isdigit():
         return None
         

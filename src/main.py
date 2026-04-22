@@ -257,6 +257,8 @@ async def main():
                 data["tg_config"] = tg_config
                 return await handler(event, data)
 
+        from adapters.inbound.telegram.middlewares import ErrorHandlingMiddleware
+        dp.update.outer_middleware(ErrorHandlingMiddleware())
         dp.update.outer_middleware(DependencyMiddleware())
 
         from adapters.inbound.telegram.callbacks_handler import router as tg_callbacks_router
