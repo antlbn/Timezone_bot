@@ -3,7 +3,6 @@ import logging
 from dataclasses import dataclass
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
-import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +23,21 @@ def parse_onboarding_payload(payload: str | None) -> OnboardingStartContext | No
     if not payload or not payload.startswith("onboard_"):
         return None
     
-    parts = payload.split("_")
-    if len(parts) not in (2, 3):
+    rest = payload[len("onboard_"):]
+    if "_" in rest:
+        user_part, chat_part = rest.rsplit("_", 1)
+    else:
+        user_part, chat_part = rest, None
+
+    if not user_part.isdigit():
         return None
-    
-    raw_user_id = parts[1]
-    if not raw_user_id.isdigit():
-        return None
-    
-    source_chat_id = None
-    if len(parts) == 3:
-        source_chat_id = parts[2]
-        if not source_chat_id or source_chat_id == "-":
-            return None
-            
+        
     return OnboardingStartContext(
-        target_user_id=int(raw_user_id),
-        source_chat_id=source_chat_id,
+        target_user_id=int(user_part),
+        source_chat_id=chat_part or None,
     )
+
+_pending_deletion_tasks: set[asyncio.Task] = set()
 
 async def schedule_deletion(*messages: Message | None, delay: int = 20):
     """Schedules messages for deletion after a specified delay.
@@ -51,7 +47,7 @@ async def schedule_deletion(*messages: Message | None, delay: int = 20):
     if delay <= 0:
         return
 
-    async def _delete():
+    async def deletion_task():
         await asyncio.sleep(delay)
         for message in messages:
             if not message:
@@ -61,7 +57,9 @@ async def schedule_deletion(*messages: Message | None, delay: int = 20):
             except TelegramAPIError as e:
                 logger.debug(f"Could not delete message {message.message_id}: {e}")
 
-    asyncio.create_task(_delete())
+    task = asyncio.create_task(deletion_task())
+    _pending_deletion_tasks.add(task)
+    task.add_done_callback(_pending_deletion_tasks.discard)
 
 async def safe_edit_text(callback: CallbackQuery, text: str, reply_markup: InlineKeyboardMarkup | None = None):
     """Safely edits message text, suppressing 'message is not modified' errors."""

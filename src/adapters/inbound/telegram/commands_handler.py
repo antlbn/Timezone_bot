@@ -1,14 +1,17 @@
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from core.domain.enums import Platform
-from adapters.inbound.telegram.onboarding_handler import on_start_onboard
+from adapters.inbound.telegram.onboarding_handler import start_onboarding_flow
 from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.common import schedule_deletion, generate_onboarding_link
 from core.services.profile import ProfileService
 from core.services.onboarding import OnboardingCompletionUseCase
 from adapters.inbound.telegram.config import TelegramConfig
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = Router(name="commands")
 
@@ -18,10 +21,11 @@ async def cmd_start_or_settz(
     message: Message, 
     state: FSMContext, 
     onboarding_completion: OnboardingCompletionUseCase,
-    profile_service: ProfileService
+    profile_service: ProfileService,
+    tg_config: TelegramConfig
 ) -> None:
     if message.chat.type == "private":
-        await on_start_onboard(message, state, onboarding_completion, profile_service)
+        await start_onboarding_flow(message, state, onboarding_completion, profile_service, tg_config)
         return
 
     bot_user = await message.bot.me()
@@ -31,10 +35,7 @@ async def cmd_start_or_settz(
         ui.get_onboarding_prompt_text(message.from_user.first_name),
         reply_markup=ui.get_onboarding_prompt_keyboard(url)
     )
-    
-    # tg_config is still passed via middleware, let's keep it if we need it or inject it
-    # For now, let's assume it's also available in data
-    # We can add it to signature if aiogram middleware puts it there.
+    await schedule_deletion(message, reply, delay=tg_config.delete_delay)
 
 @router.message(Command("tb_decline", "decline"), StateFilter("*"))
 async def cmd_decline(
@@ -97,34 +98,38 @@ async def cmd_delete_member(message: Message, profile_service: ProfileService, t
         await message.answer(ui.get_no_members_text(is_group=False))
         return
 
-    args = message.text.split()
-    if len(args) < 2:
+    command_parts = message.text.split()
+    if len(command_parts) < 2:
         text = ui.get_delete_member_usage_text(ui.format_chat_members(members))
         reply = await message.answer(text)
         await schedule_deletion(message, reply, delay=tg_config.delete_delay)
         return
 
+    reply = None
     try:
-        idx = int(args[1]) - 1
-        if idx < 0 or idx >= len(members):
+        member_position = int(command_parts[1]) - 1
+        if member_position < 0 or member_position >= len(members):
             raise ValueError()
         
-        target = members[idx]
+        selected_member = members[member_position]
         await profile_service.remove_chat_member(
             chat_id=str(message.chat.id),
-            user_id=target.user_id,
+            user_id=selected_member.user_id,
             platform=Platform.TELEGRAM
         )
-        reply = await message.answer(ui.get_member_removed_text(target.username or target.city or str(target.user_id)))
+        reply = await message.answer(ui.get_member_removed_text(selected_member.username or selected_member.city or str(selected_member.user_id)))
     except ValueError:
         reply = await message.answer(ui.get_invalid_number_text())
+    except Exception as e:
+        logger.error(f"Failed to remove chat member: {e}")
 
-    await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+    if reply:
+        await schedule_deletion(message, reply, delay=tg_config.delete_delay)
 
 
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
 async def cmd_help(message: Message, tg_config: TelegramConfig) -> None:
-    reply = await message.answer(ui.get_help_text(message.chat.type))
+    reply = await message.answer(ui.get_help_text())
     if message.chat.type != "private":
         await schedule_deletion(message, reply, delay=tg_config.delete_delay)
     else:

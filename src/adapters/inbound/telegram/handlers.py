@@ -7,6 +7,9 @@ from core.services.message_processing import MessageProcessingService
 logger = logging.getLogger(__name__)
 
 async def on_message(message: Message, message_processor: MessageProcessingService) -> None:
+    if not message.from_user:
+        return
+
     data = InputData(
         text=message.text or "",
         user_id=message.from_user.id,

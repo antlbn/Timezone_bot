@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
+from aiogram.types import CallbackQuery, ForceReply
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 import logging
@@ -36,12 +36,14 @@ async def cb_set_city(callback: CallbackQuery, callback_data: TelegramCallback, 
 async def cb_decline(
     callback: CallbackQuery, 
     callback_data: TelegramCallback, 
+    state: FSMContext,
     onboarding_completion: OnboardingCompletionUseCase
 ):
     if callback.from_user.id != callback_data.user_id:
         await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
+    await state.clear()
     await onboarding_completion.decline(
         user_id=callback_data.user_id,
         platform=Platform.TELEGRAM
@@ -92,7 +94,7 @@ async def cb_help(callback: CallbackQuery, callback_data: TelegramCallback):
 
     await safe_edit_text(
         callback,
-        get_help_text("private"),
+        get_help_text(),
         reply_markup=get_back_to_settings_keyboard(callback_data.user_id, callback_data.chat_id)
     )
     await callback.answer()
@@ -108,12 +110,12 @@ async def cb_settings(
         return
 
     user = await profile_service.get_user(callback_data.user_id, Platform.TELEGRAM)
-    has_tz = user is not None and user.timezone is not None
+    is_timezone_set = user is not None and user.timezone is not None
     
     await safe_edit_text(
         callback,
         ui.get_main_settings_text(),
-        reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=has_tz)
+        reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=is_timezone_set)
     )
     await callback.answer()
 

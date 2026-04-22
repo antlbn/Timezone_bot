@@ -8,16 +8,15 @@ Responsibilities (adapter layer only):
   - Execute returned dispatches via bot.send_message
 
 This handler knows nothing about geocoding, storage, or the pipeline.
-author_name is NOT passed to OnboardingCompletionUseCase — it was already
-synced to the DB when the original time message was processed.
+author_name is passed to OnboardingCompletionUseCase to ensure user metadata 
+is up to date during the completion stage.
 """
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 import logging
 
-from aiogram import Router, F, Bot
-from aiogram.filters import CommandObject, CommandStart, StateFilter
+from aiogram import Router, F
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ForceReply
@@ -25,12 +24,13 @@ from aiogram.types import Message, ForceReply
 from core.domain.enums import Platform
 from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.ui import get_settings_keyboard
-from adapters.inbound.telegram.common import parse_onboarding_payload, OnboardingStartContext, PRIVATE_CHAT_SENTINEL
+from adapters.inbound.telegram.config import TelegramConfig
+from adapters.inbound.telegram.common import parse_onboarding_payload, PRIVATE_CHAT_SENTINEL, schedule_deletion
 from core.services.onboarding import OnboardingCompletionUseCase
 from core.services.profile import ProfileService
 
 if TYPE_CHECKING:
-    from main import AppContainer
+    pass
 
 router = Router(name="onboarding")
 logger = logging.getLogger(__name__)
@@ -45,17 +45,19 @@ async def on_start_command(
     command: CommandObject, 
     state: FSMContext, 
     onboarding_completion: OnboardingCompletionUseCase,
-    profile_service: ProfileService
+    profile_service: ProfileService,
+    tg_config: TelegramConfig
 ) -> None:
     """Entry point for private onboarding, including validated deep links."""
-    await on_start_onboard(message, state, onboarding_completion, profile_service, command)
+    await start_onboarding_flow(message, state, onboarding_completion, profile_service, tg_config, command)
 
 
-async def on_start_onboard(
+async def start_onboarding_flow(
     message: Message, 
     state: FSMContext, 
     onboarding_completion: OnboardingCompletionUseCase,
     profile_service: ProfileService,
+    tg_config: TelegramConfig,
     command: CommandObject | None = None
 ) -> None:
     """Shared logic for starting onboarding from command or group redirect."""
@@ -73,15 +75,17 @@ async def on_start_onboard(
     user = await profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
     
     if user and user.timezone:
-        await message.answer(
+        reply = await message.answer(
             ui.get_already_set_text(user.city, user.flag, user.timezone),
             reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=True)
         )
     else:
-        await message.answer(
+        reply = await message.answer(
             ui.get_onboarding_greeting_text(message.from_user.first_name or 'there'),
             reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=False)
         )
+    
+    await schedule_deletion(reply, delay=tg_config.delete_delay)
 
 @router.message(OnboardingFSM.waiting_city, F.text)
 async def on_city_input(

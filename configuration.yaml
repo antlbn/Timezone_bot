@@ -23,8 +23,6 @@ bot:
   onboarding_cooldown_secs: 600
   # How long to keep the latest onboarding-pending message for replay
   onboarding_pending_ttl_secs: 120
-  # Auto-cleanup timeout for settings commands (tb_help, tb_me, etc.) in seconds. 0 = disabled.
-  settings_cleanup_timeout_seconds: 30
   # Auto-delete conversion results and setup prompts in group chats (seconds)
   group_auto_delete_delay_secs: 20
 
