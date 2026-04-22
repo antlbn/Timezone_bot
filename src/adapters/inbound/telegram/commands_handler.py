@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 router = Router(name="commands")
 
 
-def _build_group_settz_message(deep_link: str) -> str:
-    return f"Please message me privately to set your timezone: {deep_link}"
 
 
 
@@ -45,7 +43,16 @@ async def cmd_start_or_settz(message: Message, state: FSMContext, container: "Ap
 
     bot_user = await message.bot.me()
     deep_link = f"https://t.me/{bot_user.username}?start=onboard_{message.from_user.id}_{message.chat.id}"
-    await message.answer(_build_group_settz_message(deep_link))
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📍 Set up my timezone", url=deep_link)
+    ]])
+    
+    await message.answer(
+        "To set your timezone, please tap the button below and I'll help you in private chat! 👇",
+        reply_markup=kb
+    )
 
 @router.message(Command("tb_decline", "decline"), StateFilter("*"))
 async def cmd_decline(message: Message, state: FSMContext, container: "AppContainer") -> None:
