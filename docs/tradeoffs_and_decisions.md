@@ -1,35 +1,35 @@
-# Журнал архитектурных решений и Trade-offs (Handover)
+# Architecture Decision Log & Trade-offs (Handover)
 
-Этот документ фиксирует осознанные технические компромиссы (trade-offs), допущения и открытые архитектурные вопросы на текущий момент. Таблица помогает понять, **почему** было принято то или иное решение, в чем его риск, и **при каких условиях** это решение перестанет работать и потребует рефакторинга (Phase Transition).
+This document records conscious technical trade-offs, assumptions, and open architectural questions. This table explains **why** a decision was made, what the risks are, and **when** it should be refactored (Phase Transition).
 
-## 1. Активные компромиссы (Accepted Risks & Trade-offs)
+## 1. Active Compromises (Accepted Risks & Trade-offs)
 
-| Решение / Компромисс | В чем проблема? | Когда пора переделывать? | На что менять? |
+| Decision / Trade-off | What is the problem? | When to refactor? | What to change it to? |
 | :--- | :--- | :--- | :--- |
-| **Стейт онбординга в памяти (In-memory)** | При рестарте бота теряются сессии пользователей (зависает окно ввода). | Выход в прод / >10 активных чатов / >50 новых юзеров в неделю. | Заменить на **Redis**. Интерфейсы для этого уже готовы. |
-| **Автокоммиты вместо транзакций (Нет Unit of Work)** | При ошибке часть данных может записаться в БД, а часть нет. | Масштабирование (несколько воркеров бота) или перенос кэша в отдельную базу (Redis). | Внедрить полноценные транзакции на весь сценарий. Сейчас это не критично: частичные записи в кэш просто "прокиснут" по таймеру. |
-| **Текст собирается в простую строку** | Сложно делать сложную визуальную разметку (жирный текст, разные кнопки) специфично для Telegram и Discord. | Появление сложных элементов UI внутри текстовых сообщений. | Вместо строки отдавать из ядра объект-шаблон (`PresentationModel`), а адаптер мессенджера сам решит, как его отрисовать. Пока так проще (YAGNI). |
-| **Анемичная модель данных (ФП стиль)** | Датаклассы только хранят данные, вся логика "размазана" по сервисам. Это не совсем ООП. | Сильное усложнение бизнес-правил и валидации. | Перенести методы и логику внутрь самих сущностей (Rich Model). Текущий подход выбран осознанно — новичку так проще думать и читать код. |
+| **In-memory Onboarding State** | User sessions are lost upon bot restart (frozen input state). | Production release / >10 active chats / >50 new users per week. | Replace with **Redis**. Interfaces for this are already fully prepared. |
+| **Auto-commits instead of transactions (No Unit of Work)** | On error, partial data might be written to the DB. | Scaling (multiple bot workers) or moving cache to a separate DB (Redis). | Implement full transactions per scenario. Currently acceptable: partial cache entries simply expire via TTL. |
+| **Text is assembled into a raw string** | Hard to implement complex visual formatting (bold text, buttons) specifically for Telegram and Discord. | Need for complex UI elements inside text messages. | Return an abstract `PresentationModel` object from the core instead of a string, letting the adapter decide how to render it. Kept simple for now (YAGNI). |
+| **Anemic Domain Model (FP style)** | Dataclasses only store data, logic is spread across services. Not quite OOP. | Significant complication of business rules and validation. | Move methods and logic inside the entities themselves (Rich Model). Current approach is intentional: easier for beginners to reason about. |
 
-*Примечание: Динамическая настройка бота под каждый чат через UI осознанно оставлена **Out of Scope** для текущего MVP.*
+*Note: Dynamic chat-based bot configuration via UI is consciously left **Out of Scope** for the current MVP.*
 
-## 2. Ключевые архитектурные решения и паттерны
+## 2. Key Architectural Decisions and Patterns
 
-| Паттерн | Суть (Как работает) | Профит (Зачем это нужно) |
+| Pattern | How it works (Concept) | Benefit (Why we need it) |
 | :--- | :--- | :--- |
-| **Гексагональная архитектура (Ports & Adapters)** | Ядро изолировано от внешнего мира (Telegram, БД, LLM) абстрактными интерфейсами. | 100% тестируемость логики без интернета. Легко добавить новую платформу (Discord) без правок в ядре. |
-| **Пайплайн (Pipes & Filters)** | Сообщение летит по "трубе" через независимые шаги-фильтры (Guard -> Detection -> Format). | Код не превращается в "лапшу". Каждый шаг изолирован, легко читать и добавлять новые проверки. |
-| **Паттерн Command (Decision vs Execution)** | Ядро только "думает" и отдает объекты-намерения (`SendReply`) | Бизнес-логика защищена от сетевых падений. Ядро решает *что* сделать, адаптеры — *как*. |
-| **Dependency Injection (Composition Root)** | Нет глобальных переменных. Все сервисы собираются как Lego в `main.py` и прокидываются через `__init__`. | Исключает скрытые связи в коде. Явные зависимости. Легко подсовывать фейки (моки) в тестах. |
+| **Hexagonal Architecture (Ports & Adapters)** | The core is isolated from the outside world (Telegram, DB, LLM) via abstract interfaces. | 100% testability without network. Easy to add a new platform (Discord) without changing the core. |
+| **Pipes & Filters (Pipeline)** | A message flies through a "pipe" of independent filter stages (Guard -> Detection -> Format). | Prevents spaghetti code. Each step is isolated, easy to read, and easy to add new checks. |
+| **Command Pattern (Decision vs Execution)** | The core only "thinks" and returns intent objects (`SendReply`), it never makes HTTP requests itself. | Business logic is protected from network failures. Core decides *what* to do, adapters decide *how*. |
+| **Dependency Injection (Composition Root)** | No global variables. All services are wired together like Lego in `main.py` and passed via `__init__`. | Prevents hidden coupling. Explicit dependencies. Easy to pass fakes (mocks) in tests. |
 
-## 3. Принципы SOLID в проекте
+## 3. SOLID Principles in the Project
 
-Архитектура проекта строго следует принципам SOLID. Вот как это выглядит на практике:
+The architecture strictly follows SOLID principles. Here is how it looks in practice:
 
-| Принцип | Расшифровка | Как применено у нас |
+| Principle | Meaning | How it is applied here |
 | :--- | :--- | :--- |
-| **S** - Single Responsibility | У класса должна быть только одна причина для изменения. | Каждая стадия пайплайна делает ровно одну вещь (только детекция или только форматирование). "God Object" онбординга распилен на два узких сервиса. |
-| **O** - Open/Closed | Открыт для расширения, закрыт для изменения. | Чтобы добавить Discord или новую LLM, нам не нужно переписывать ядро. Мы просто пишем новый Адаптер (расширяем), не трогая старый код. |
-| **L** - Liskov Substitution | Объекты должны заменяться их наследниками без поломки программы. | Тестовый `FakeTimePort` или `MemoryUserRepository` встраиваются вместо реальных `RealTimeAdapter` и `SQLiteUserRepository`, и ядро работает абсолютно так же, ничего не подозревая. |
-| **I** - Interface Segregation | Много узких интерфейсов лучше, чем один толстый. | Интерфейсы (Порты) крошечные. У `TimePort` только один метод `now()`. У `CommandExecutorPort` только метод `execute()`. |
-| **D** - Dependency Inversion | Зависимость от абстракций, а не от конкретики. | Это основа всей нашей Гексагоналки. Домен не импортирует `aiosqlite` или `aiogram`. Он импортирует абстрактные классы из `src/ports/`. Низкоуровневые детали зависят от высокоуровневых абстракций. |
+| **S** - Single Responsibility | A class should have only one reason to change. | Each pipeline stage does exactly one thing. The onboarding "God Object" was split into two narrow services. |
+| **O** - Open/Closed | Open for extension, closed for modification. | To add Discord, we didn`t rewrite the core. We just wrote a new Adapter (extended), without touching old code. |
+| **L** - Liskov Substitution | Objects should be replaceable by their subtypes without breaking the program. | A fake `FakeTimePort` plugs in instead of the real `RealTimeAdapter`, and the core works exactly the same. |
+| **I** - Interface Segregation | Many narrow interfaces are better than one fat interface. | Interfaces (Ports) are tiny. `TimePort` has only one method: `now()`. |
+| **D** - Dependency Inversion | Depend on abstractions, not concrete implementations. | Domain does not import `aiogram` or `aiosqlite`. It imports abstractions from `src/ports/`. Details depend on abstractions. |

@@ -188,10 +188,20 @@ Why:
 - This branch does not use multi-message LLM context in the canonical flow.
 - Telegram and Discord use different UX surfaces, but they are expected to preserve the same core business rules.
 
-## 5. If I Had More Time
+## 5. Roadmap / If I Had More Time
 
-- I would evaluate alternative geocoding strategies/providers instead of treating the current choice as final.
-- I would revisit richer multi-message detection, but only if it improved accuracy enough to justify the extra runtime complexity. That line of thinking already led to a separate LangGraph-based branch; it was intentionally not merged into this simpler MVP path.
+For whoever continues developing the project, here is the list of top-priority product improvements:
+
+1. **Interactive AM/PM Clarification:** 
+   * Currently, if the LLM cannot infer from the context whether it is morning or evening (`am_pm_clear=False`), the bot simply appends an `AM/PM?` annotation to the reply.
+   * *Plan:* Implement a flow where the bot pauses the conversion to explicitly ask the user ("Did you mean 08:00 AM or 08:00 PM?"). This will require adding new FSM states (similar to onboarding) and holding the message in `pending`.
+
+2. **Multi-Message Context for LLM:**
+   * The detector currently operates strictly in a `one-shot / one-message` mode. Messages are analyzed in isolation.
+   * *Plan:* Create a mode that pulls a few previous messages from the chat history to enrich the LLM context. This will drastically improve accuracy (e.g., if a user types "let's do 3", but the previous message mentioned "tomorrow evening"). There were earlier attempts to do this via LangGraph in a separate branch, but for the current architecture, a simple history buffer in the chat repository should be implemented.
+
+3. **Evaluate Geocoding Providers:**
+   * The current city-to-timezone resolution mechanism (`GeoResolveStage`) should be treated as a baseline. Alternative strategies and providers should be evaluated in the future.
 
 ## 6. Canonical Specs
 

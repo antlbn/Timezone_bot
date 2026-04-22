@@ -1,58 +1,69 @@
-# Архитектурные принципы и оценка Timezone Bot
+# Architecture Evaluation & Principles (Timezone Bot)
 
-Ниже приведены ответы на три ключевых вопроса об архитектуре проекта, а также общая оценка текущего состояния кодовой базы на основе этих ответов.
+Below are the answers to three key architectural questions, along with a general evaluation of the codebase.
 
-## 1. Что домен, что транспорт?
+## 1. What is the Domain, what is the Transport?
 
-*   **Домен (Domain / Core)** — это "сердце" приложения, чистая бизнес-логика. Он находится в папке `src/core`. 
-    *   **Включает в себя:** Структуры данных без привязки к платформам (`InputData`, `MessageContext`, `MessageDecision`), пайплайн обработки сообщений (`GuardStage`, `DetectionStage`, `FormatStage` и т.д.), а также сервисы оркестрации (`MessageProcessingService`, `OnboardingCompletionUseCase`).
-    *   **Особенность:** Домен абсолютно ничего не знает о Telegram, Discord, SQLite или конкретном LLM-провайдере. Он общается с внешним миром исключительно через абстрактные интерфейсы (Порты).
-*   **Транспорт (Infrastructure / Adapters)** — это механизмы ввода/вывода, связывающие домен с реальным миром. Они находятся в папке `src/adapters`.
-    *   **Inbound (Входящий транспорт):** Фреймворки `aiogram` (Telegram) и `discord.py` (Discord). Они слушают Webhooks/Polling, преобразуют JSON в доменные объекты `InputData` и вызывают сервисы домена.
-    *   **Outbound (Исходящий транспорт):** Реализация портов. Отправка сообщений (`TelegramCommandExecutor`), обращение к БД (`SQLiteUserRepository`), вызовы LLM (`LiteLLMDetectionAdapter`) и даже получение системного времени (`RealTimeAdapter`).
+*   **Domain (Core)** — The heart of the application, pure business logic. Located in `src/core`. 
+    *   **Includes:** Platform-agnostic data structures (`InputData`, `MessageContext`, `MessageDecision`), message processing pipeline (`GuardStage`, `DetectionStage`, `FormatStage`, etc.), and orchestration services (`MessageProcessingService`, `OnboardingCompletionUseCase`).
+    *   **Key Feature:** The domain knows absolutely nothing about Telegram, Discord, SQLite, or specific LLM providers. It communicates with the outside world exclusively through abstract interfaces (Ports).
+*   **Transport (Infrastructure / Adapters)** — Input/output mechanisms linking the domain to the real world. Located in `src/adapters`.
+    *   **Inbound:** `aiogram` (Telegram) and `discord.py` (Discord) frameworks. They listen to Webhooks/Polling, convert JSON to `InputData` domain objects, and invoke domain services.
+    *   **Outbound:** Port implementations. Sending messages (`TelegramCommandExecutor`), DB access (`SQLiteUserRepository`), LLM calls (`LiteLLMDetectionAdapter`), and getting system time (`RealTimeAdapter`).
 
-## 2. Кто владеет состоянием и как оно уничтожается?
+## 2. Who owns the state and how is it destroyed?
 
-В проекте существует два принципиально разных типа состояния:
+The project has two fundamentally different types of state:
 
-*   **Persistent State (Долгосрочное состояние):**
-    *   *Что это:* Настройки пользователей, их таймзоны, флаги отказа от онбординга (`onboarding_declined`), привязки к чатам.
-    *   *Владелец:* Репозитории (например, `SQLiteUserRepository`).
-    *   *Жизненный цикл:* Существует постоянно. Обновляется при прохождении онбординга или отмене, не уничтожается (кроме ручной чистки БД).
-*   **Workflow State (Краткосрочное состояние онбординга):**
-    *   *Что это:* Сохраненное исходное сообщение (`pending_message`), пока пользователь выбирает таймзону, и блокировка спама (`chillout_state`).
-    *   *Владелец:* In-memory репозитории (`MemoryOnboardingPendingRepository`, `MemoryOnboardingChilloutStateRepository`).
-    *   *Жизненный цикл:*
-        *   **Создание:** При детекции времени у пользователя без настроек.
-        *   **Явное уничтожение:** Сервис `OnboardingCompletionUseCase` явно удаляет сообщение из памяти после того, как "проиграет" его (replay) с новой таймзоной, либо если пользователь нажмет "Отмена".
-        *   **Неявное уничтожение (TTL / Staleness):** При попытке "проиграть" старое сообщение (например, юзер нажал кнопку спустя 3 дня), пайплайн проверяет возраст через `TimePort`. Если `age > max_age_fresh_secs`, сообщение отбрасывается без ответа, а запись из памяти удаляется. Также состояние полностью уничтожается при перезапуске контейнера (что является осознанным Trade-off).
+*   **Persistent State:**
+    *   *What it is:* User settings, timezones, declined onboarding flags, chat associations.
+    *   *Owner:* Repositories (e.g., `SQLiteUserRepository`).
+    *   *Lifecycle:* Exists permanently. Updated upon onboarding completion or decline, never destroyed (except manual DB cleanup).
+*   **Workflow State (Onboarding):**
+    *   *What it is:* Saved original message (`pending_message`) while the user selects a timezone, and spam protection (`chillout_state`).
+    *   *Owner:* In-memory repositories (`MemoryOnboardingPendingRepository`).
+    *   *Lifecycle:*
+        *   **Creation:** When time is detected for an unconfigured user.
+        *   **Explicit Destruction:** `OnboardingCompletionUseCase` explicitly deletes the message from memory after "replaying" it with the new timezone, or if the user clicks "Cancel".
+        *   **Implicit Destruction (TTL/Staleness):** During a replay attempt, the pipeline checks age via `TimePort`. If `age > max_age_fresh_secs`, the message is discarded without reply and the record is cleared. Also completely destroyed on container restart.
 
-## 3. Что принимает решения, что их исполняет?
+## 3. What makes decisions, what executes them?
 
-Архитектура строго следует паттерну **Functional Core, Imperative Shell** (или Пайплайн + Команда).
+The architecture strictly follows the **Functional Core, Imperative Shell** (Pipeline + Command) pattern.
 
-*   **Принятие решений (Decision Making):**
-    *   Осуществляется исключительно внутри **Домена**. 
-    *   Стадии пайплайна (в частности `DecisionStage`) анализируют обогащенный `MessageContext` и формируют структуру `MessageDecision` (например: "нужен онбординг" или "нужно ответить текстом X"). 
-    *   Сервисы (`MessageProcessingService`) берут это решение и превращают его в паттерн **Command** (`SendReply`, `ShowOnboarding`).
-    *   *Важно:* Домен только формирует намерение, но не делает ни одного сетевого вызова.
-*   **Исполнение решений (Execution):**
-    *   Осуществляется во внешнем слое (**Адаптерах**).
-    *   `DeliveryService` забирает сгенерированные команды и маршрутизирует их в нужный `CommandExecutor` в зависимости от платформы (Telegram или Discord).
-    *   Именно экзекуторы берут команду `SendReply` и выполняют реальный HTTP-запрос к API мессенджера (`bot.send_message`).
+*   **Decision Making:**
+    *   Done exclusively inside the **Domain**. 
+    *   Pipeline stages (`DecisionStage`) analyze the enriched `MessageContext` and form a `MessageDecision` (e.g., "needs onboarding" or "reply with text X"). 
+    *   Services (`MessageProcessingService`) take this decision and turn it into a **Command** pattern (`SendReply`, `ShowOnboarding`).
+    *   *Important:* The domain only forms intent, it makes zero network calls.
+*   **Execution:**
+    *   Done in the external layer (**Adapters**).
+    *   `DeliveryService` routes generated commands to the correct `CommandExecutor` based on the platform.
+    *   The executors take the `SendReply` command and perform the actual HTTP request to the messenger API.
 
 ---
 
-## Оценка проекта на основе этой архитектуры
+## Response to Previous Review Critique
 
-Ответы на эти три вопроса позволяют поставить текущей архитектуре **очень высокую оценку**.
+The current architecture is a direct response to the critique of the previous (MVP) version. Here is how the three fundamental issues were resolved:
 
-**Сильные стороны:**
-1.  **Максимальная тестируемость:** Благодаря строгому разделению Decision и Execution, бизнес-логика покрывается Unit-тестами на 100% без моков HTTP-клиентов или Telegram API. Мы проверяем вход (`InputData`) и выход (объект `SendReply`).
-2.  **Заменяемость (Plug-and-Play):** Жесткое разделение Домена и Транспорта означает, что добавление поддержки Slack или WhatsApp не потребует ни единого изменения в папке `src/core`. Нужно будет написать только новый адаптер.
-3.  **Безопасная работа со временем:** Использование `TimePort` для расчета возраста сообщений и сдвигов DST устраняет класс "плавающих" багов, характерных для ботов, которые читают `datetime.now()` напрямую.
-4.  **Отсутствие "God Object":** Ответственность размазана четко и атомарно: Пайплайн думает, Сервисы дирижируют, Экзекуторы работают руками.
+### 1. No domain layer and too many `dict`s
+**Was:** Behavior instead of interfaces, `dict` used as the main data transfer method, blurred boundaries between transport and logic.
+**Now:** 
+* A `src/core/domain/` folder was added containing strict types (`UserProfile`, `Platform`, `DetectionResult`, `MessageContext`).
+* A strict Boundary was established via interfaces (`src/ports/`). The domain no longer accepts raw LLM responses or DB rows — adapters must parse `aiosqlite.Row` or LLM JSON into domain dataclasses *before* passing them to the pipeline.
 
-**Потенциальные слабые места (Trade-offs):**
-1.  **In-memory состояние для Pending сообщений:** На данный момент это оправдано (YAGNI), но при масштабировании бота на несколько параллельных инстансов (Kubernetes/Docker Swarm), In-memory хранилище придется заменить на Redis-адаптер (благодаря портам это будет безболезненно).
-2.  **Высокий порог входа:** Использование паттернов *Hexagonal Architecture*, *Pipe & Filters* и *Command* требует написания boilerplate-кода. Для новой и простой фичи может казаться, что мы пишем "слишком много кода". Это классическая плата за поддерживаемость на длинной дистанции.
+### 2. Python + dict + defensive style
+**Was:** Defensive programming with `.get(key, default)`, weak typing, no schema confidence.
+**Now:**
+* Total rejection of passing dictionaries between layers.
+* Using `dataclasses` (and `pydantic` at the LLM parsing layer) guarantees field presence. Optional fields are explicitly marked with `| None`. 
+* Type drift is now caught by static analysis (`ruff`).
+
+### 3. Forced MVP without phase transition
+**Was:** Module-level global variables, tight coupling, making it hard to add a second adapter (Discord).
+**Now:**
+* A **full phase transition** was executed. 
+* **Dependency Injection** was introduced: all dependencies are assembled in the container inside `main.py` (Composition Root).
+* Global variables were completely destroyed.
+* The project proved its orthogonality: adding the Discord adapter required zero changes in `src/core`, as the core is abstracted from the transport.
