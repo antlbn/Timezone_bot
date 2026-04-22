@@ -156,8 +156,6 @@ def format_single_point(
         row_text = ", ".join(f"{row['displayed_time']} {row['label']}" for row in rows)
         if ambiguous_prefix:
             row_text = f"{ambiguous_prefix} {row_text}"
-        if title:
-            return f"{title}\n{row_text}"
         return row_text
 
     # Block format
@@ -201,16 +199,35 @@ def format_multi_conversion(
     if not points or not reference_date:
         return ""
 
-    blocks = [
-        block for point in points
-        if (block := format_single_point(point, sender, members, response_style, show_usernames, show_event_title, reference_date))
-    ]
+    # Build (point, block) pairs for points that successfully format
+    valid_results = []
+    for point in points:
+        block = format_single_point(point, sender, members, response_style, show_usernames, show_event_title, reference_date)
+        if block:
+            valid_results.append((point, block))
 
-    if not blocks:
+    if not valid_results:
         return ""
 
     if response_style == ResponseStyle.INLINE:
-        res = "\n".join(blocks)
-        return f"It is\n{res}" if len(blocks) > 1 else f"It is {res}"
+        if len(valid_results) == 1:
+            point, body = valid_results[0]
+            title = point.event_title if point.event_title and show_event_title else ""
+            if title:
+                return f"It is {title} at {body}"
+            return f"It is {body}"
+        else:
+            # Multi-point inline: "Title at:\nTime"
+            res_blocks = []
+            for point, body in valid_results:
+                # format_single_point for INLINE now ignores show_event_title, 
+                # so 'body' is always clean.
+                title = point.event_title if point.event_title and show_event_title else ""
+                if title:
+                    res_blocks.append(f"{title} at:\n{body}")
+                else:
+                    res_blocks.append(body)
+            return "\n".join(res_blocks)
 
-    return "\n\n".join(blocks)
+    # Block format
+    return "\n\n".join(block for _, block in valid_results)
