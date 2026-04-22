@@ -6,6 +6,7 @@ from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile
 from adapters.inbound.telegram.onboarding_handler import OnboardingFSM
 from adapters.inbound.telegram.ui import get_help_text
+from adapters.inbound.telegram.utils import schedule_deletion
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -49,10 +50,14 @@ async def cmd_start_or_settz(message: Message, state: FSMContext, container: "Ap
         InlineKeyboardButton(text="📍 Set up my timezone", url=deep_link)
     ]])
     
-    await message.answer(
+    reply = await message.answer(
         "To set your timezone, please tap the button below and I'll help you in private chat! 👇",
         reply_markup=kb
     )
+    
+    if message.chat.type != "private":
+        await schedule_deletion(message)
+        await schedule_deletion(reply)
 
 @router.message(Command("tb_decline", "decline"), StateFilter("*"))
 async def cmd_decline(message: Message, state: FSMContext, container: "AppContainer") -> None:
@@ -61,7 +66,11 @@ async def cmd_decline(message: Message, state: FSMContext, container: "AppContai
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
     )
-    await message.answer("Got it! I won't ask you again. Use /tb_settz if you change your mind.")
+    reply = await message.answer("Got it! I won't ask you again. Use /tb_settz if you change your mind.")
+    
+    if message.chat.type != "private":
+        await schedule_deletion(message)
+        await schedule_deletion(reply)
 
 @router.message(Command("tb_me", "tz_me", "me"), StateFilter("*"))
 async def cmd_me(message: Message, container: "AppContainer") -> None:
@@ -70,7 +79,10 @@ async def cmd_me(message: Message, container: "AppContainer") -> None:
         await message.answer("Your timezone is not set yet. Use /tb_settz.")
         return
 
-    await message.answer(_format_user_timezone(user))
+    reply = await message.answer(_format_user_timezone(user))
+    if message.chat.type != "private":
+        await schedule_deletion(message)
+        await schedule_deletion(reply)
 
 @router.message(Command("tb_members", "tz_members", "members"), StateFilter("*"))
 async def cmd_members(message: Message, container: "AppContainer") -> None:
@@ -84,8 +96,13 @@ async def cmd_members(message: Message, container: "AppContainer") -> None:
         await message.answer("No members registered here yet. Use /tb_settz in private chat.")
         return
 
-    await message.answer(_format_chat_members(members))
+    reply = await message.answer(_format_chat_members(members))
+    await schedule_deletion(message)
+    await schedule_deletion(reply)
 
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
 async def cmd_help(message: Message) -> None:
-    await message.answer(get_help_text(message.chat.type))
+    reply = await message.answer(get_help_text(message.chat.type))
+    if message.chat.type != "private":
+        await schedule_deletion(message)
+        await schedule_deletion(reply)
