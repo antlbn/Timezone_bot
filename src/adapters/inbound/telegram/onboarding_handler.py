@@ -23,15 +23,15 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ForceReply
 
 from core.domain.enums import Platform
+from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.ui import get_settings_keyboard
+from adapters.inbound.telegram.common import parse_onboarding_payload, OnboardingStartContext, PRIVATE_CHAT_SENTINEL
 
 if TYPE_CHECKING:
     from main import AppContainer
 
 router = Router(name="onboarding")
 logger = logging.getLogger(__name__)
-
-from adapters.inbound.telegram.common import parse_onboarding_payload, OnboardingStartContext
 
 class OnboardingFSM(StatesGroup):
     waiting_city = State()
@@ -46,10 +46,10 @@ async def on_start_onboard(
     """Entry point for private onboarding, including validated deep links."""
     start_context = parse_onboarding_payload(command.args if command else None)
     if start_context is not None and message.from_user.id != start_context.target_user_id:
-        await message.answer("This setup link belongs to another user.")
+        await message.answer(ui.get_wrong_user_link_text())
         return
 
-    chat_id = "0"
+    chat_id = PRIVATE_CHAT_SENTINEL
     if start_context is not None and start_context.source_chat_id:
         chat_id = start_context.source_chat_id
         await state.update_data(source_chat_id=chat_id)
@@ -59,19 +59,12 @@ async def on_start_onboard(
     
     if user and user.timezone:
         await message.answer(
-            f"✅ Your timezone is set to: <b>{user.city} {user.flag or ''}</b> ({user.timezone})\n"
-            "\nYou can manage your settings here:",
+            ui.get_already_set_text(user.city, user.flag, user.timezone),
             reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=True)
         )
     else:
-        text = (
-            f"👋 Hi {message.from_user.first_name or 'there'}!\n\n"
-            "I'm a bot that converts times for chat members across different cities and time zones. "
-            "To show your local time to others, I need to know your city.\n\n"
-            "Ready? Tap <b>Set my city</b> below 👇"
-        )
         await message.answer(
-            text,
+            ui.get_onboarding_greeting_text(message.from_user.first_name or 'there'),
             reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=False)
         )
 
@@ -91,15 +84,13 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
 
     if not result.ok:
         await message.answer(
-            f"Could not find city «{city_raw}» 🤔\n"
-            "Try writing in English or use /tb_decline to skip.",
+            ui.get_city_not_found_text(city_raw),
             reply_markup=ForceReply(selective=True)
         )
         return
 
     await state.clear()
     await message.answer(
-        f"✅ Set to: <b>{result.timezone_name}</b> {result.flag or ''}\n\n"
-        "From now on, I will automatically convert time for you!",
-        reply_markup=get_settings_keyboard(user_id, state_data.get("source_chat_id", "0"), has_timezone=True)
+        ui.get_completion_text(result.timezone_name, result.flag),
+        reply_markup=get_settings_keyboard(user_id, state_data.get("source_chat_id", PRIVATE_CHAT_SENTINEL), has_timezone=True)
     )

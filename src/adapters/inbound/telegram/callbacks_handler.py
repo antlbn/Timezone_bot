@@ -6,7 +6,9 @@ import logging
 
 from core.domain.enums import Platform
 from adapters.inbound.telegram.onboarding_handler import OnboardingFSM
+from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.ui import TelegramCallback, get_settings_keyboard, get_help_text, get_back_to_settings_keyboard
+from adapters.inbound.telegram.common import safe_edit_text, safe_delete_message, PRIVATE_CHAT_SENTINEL
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -18,26 +20,24 @@ logger = logging.getLogger(__name__)
 @router.callback_query(TelegramCallback.filter(F.action == "set_city"), StateFilter("*"))
 async def cb_set_city(callback: CallbackQuery, callback_data: TelegramCallback, state: FSMContext):
     if callback.from_user.id != callback_data.user_id:
-        await callback.answer("This button is not for you! 😊", show_alert=True)
+        await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
     await state.set_state(OnboardingFSM.waiting_city)
-    if callback_data.chat_id and callback_data.chat_id != "0":
+    if callback_data.chat_id and callback_data.chat_id != PRIVATE_CHAT_SENTINEL:
         await state.update_data(source_chat_id=callback_data.chat_id)
 
     await callback.message.answer(
-        "Great! Tell me your city so I can show your local time to others.\n"
-        "\n"
-        "💡 Write city: e.g. <code>Paris</code> for France, or specify <code>Paris, Texas</code> for USA.",
+        ui.get_city_prompt_text(),
         reply_markup=ForceReply(selective=True)
     )
-    await callback.message.delete()
+    await safe_delete_message(callback.message)
     await callback.answer()
 
 @router.callback_query(TelegramCallback.filter(F.action == "decline"), StateFilter("*"))
 async def cb_decline(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
     if callback.from_user.id != callback_data.user_id:
-        await callback.answer("This button is not for you! 😊", show_alert=True)
+        await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
     await container.onboarding_completion.decline(
@@ -45,8 +45,9 @@ async def cb_decline(callback: CallbackQuery, callback_data: TelegramCallback, c
         platform=Platform.TELEGRAM
     )
     
-    await callback.message.edit_text(
-        "Got it! I won't nag you again. If you change your mind, use /tb_settz.",
+    await safe_edit_text(
+        callback,
+        ui.get_decline_confirmation_text(),
         reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=False)
     )
     await callback.answer("Bot services declined.")
@@ -54,7 +55,7 @@ async def cb_decline(callback: CallbackQuery, callback_data: TelegramCallback, c
 @router.callback_query(TelegramCallback.filter(F.action == "remove"), StateFilter("*"))
 async def cb_remove(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
     if callback.from_user.id != callback_data.user_id:
-        await callback.answer("This button is not for you! 😊", show_alert=True)
+        await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
     await container.profile_service.remove_timezone(
@@ -63,8 +64,9 @@ async def cb_remove(callback: CallbackQuery, callback_data: TelegramCallback, co
         username=callback.from_user.first_name
     )
     
-    await callback.message.edit_text(
-        "🗑️ Your timezone has been removed. I'll no longer convert times for you.",
+    await safe_edit_text(
+        callback,
+        ui.get_timezone_removed_text(),
         reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=False)
     )
     await callback.answer("Timezone removed.")
@@ -72,18 +74,18 @@ async def cb_remove(callback: CallbackQuery, callback_data: TelegramCallback, co
 @router.callback_query(TelegramCallback.filter(F.action == "privacy"), StateFilter("*"))
 async def cb_privacy(callback: CallbackQuery):
     await callback.answer(
-        "Data is stored locally and used only for time conversion. "
-        "User profiles are automatically deleted after 30 days of inactivity.",
+        ui.get_privacy_text(),
         show_alert=True
     )
 
 @router.callback_query(TelegramCallback.filter(F.action == "help"), StateFilter("*"))
 async def cb_help(callback: CallbackQuery, callback_data: TelegramCallback):
     if callback.from_user.id != callback_data.user_id:
-        await callback.answer("This button is not for you! 😊", show_alert=True)
+        await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
-    await callback.message.edit_text(
+    await safe_edit_text(
+        callback,
         get_help_text("private"),
         reply_markup=get_back_to_settings_keyboard(callback_data.user_id, callback_data.chat_id)
     )
@@ -92,14 +94,15 @@ async def cb_help(callback: CallbackQuery, callback_data: TelegramCallback):
 @router.callback_query(TelegramCallback.filter(F.action == "settings"), StateFilter("*"))
 async def cb_settings(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
     if callback.from_user.id != callback_data.user_id:
-        await callback.answer("This button is not for you! 😊", show_alert=True)
+        await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
     user = await container.profile_service.get_user(callback_data.user_id, Platform.TELEGRAM)
     has_tz = user is not None and user.timezone is not None
     
-    await callback.message.edit_text(
-        "<b>Main Settings</b>\nManage your timezone and preferences here:",
+    await safe_edit_text(
+        callback,
+        ui.get_main_settings_text(),
         reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=has_tz)
     )
     await callback.answer()
@@ -109,7 +112,6 @@ async def cb_fallback(callback: CallbackQuery):
     """Log unhandled callbacks to help debug legacy interaction issues."""
     logger.warning(f"Unhandled callback data: {callback.data} from user {callback.from_user.id}")
     await callback.answer(
-        "This button belongs to an older version of the bot and is no longer active. "
-        "Please use /tb_settz to get a new menu.",
+        ui.get_legacy_callback_text(),
         show_alert=True
     )

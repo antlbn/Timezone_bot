@@ -35,3 +35,7 @@ class ProfileService:
             flag=None,
             username=username
         )
+
+    async def remove_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
+        """Remove a user from a specific chat's list."""
+        await self._chats.remove_chat_member(chat_id, user_id, platform)
