@@ -26,6 +26,8 @@ from core.domain.enums import Platform
 from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.ui import get_settings_keyboard
 from adapters.inbound.telegram.common import parse_onboarding_payload, OnboardingStartContext, PRIVATE_CHAT_SENTINEL
+from core.services.onboarding import OnboardingCompletionUseCase
+from core.services.profile import ProfileService
 
 if TYPE_CHECKING:
     from main import AppContainer
@@ -36,14 +38,27 @@ logger = logging.getLogger(__name__)
 class OnboardingFSM(StatesGroup):
     waiting_city = State()
 
-@router.message(CommandStart(), F.chat.type == "private", StateFilter("*"))
-async def on_start_onboard(
-    message: Message,
-    state: FSMContext,
-    container: "AppContainer",
-    command: CommandObject | None = None,
+
+@router.message(CommandStart())
+async def on_start_command(
+    message: Message, 
+    command: CommandObject, 
+    state: FSMContext, 
+    onboarding_completion: OnboardingCompletionUseCase,
+    profile_service: ProfileService
 ) -> None:
     """Entry point for private onboarding, including validated deep links."""
+    await on_start_onboard(message, state, onboarding_completion, profile_service, command)
+
+
+async def on_start_onboard(
+    message: Message, 
+    state: FSMContext, 
+    onboarding_completion: OnboardingCompletionUseCase,
+    profile_service: ProfileService,
+    command: CommandObject | None = None
+) -> None:
+    """Shared logic for starting onboarding from command or group redirect."""
     start_context = parse_onboarding_payload(command.args if command else None)
     if start_context is not None and message.from_user.id != start_context.target_user_id:
         await message.answer(ui.get_wrong_user_link_text())
@@ -55,7 +70,7 @@ async def on_start_onboard(
         await state.update_data(source_chat_id=chat_id)
 
     # Check if user already exists
-    user = await container.profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
+    user = await profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
     
     if user and user.timezone:
         await message.answer(
@@ -69,13 +84,17 @@ async def on_start_onboard(
         )
 
 @router.message(OnboardingFSM.waiting_city, F.text)
-async def on_city_input(message: Message, state: FSMContext, container: "AppContainer") -> None:
+async def on_city_input(
+    message: Message, 
+    state: FSMContext, 
+    onboarding_completion: OnboardingCompletionUseCase
+) -> None:
     """User typed a city name."""
     city_raw = message.text.strip()
     user_id = message.from_user.id
     state_data = await state.get_data()
 
-    result = await container.onboarding_completion.complete(
+    result = await onboarding_completion.complete(
         user_id=user_id,
         city_raw=city_raw,
         platform=Platform.TELEGRAM,

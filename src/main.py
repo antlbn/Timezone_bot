@@ -244,18 +244,20 @@ async def main():
         dp = Dispatcher(storage=MemoryStorage())  # FSM needs a storage backend
 
         # Middleware: injects `container` into every handler that declares it
-        class ContainerMiddleware(BaseMiddleware):
+        class DependencyMiddleware(BaseMiddleware):
             async def __call__(
                 self,
                 handler,
                 event: TelegramObject,
                 data: dict[str, Any],
             ) -> Any:
-                data["container"] = container
+                data["onboarding_completion"] = container.onboarding_completion
+                data["profile_service"] = container.profile_service
+                data["message_processor"] = container.message_processor
                 data["tg_config"] = tg_config
                 return await handler(event, data)
 
-        dp.update.outer_middleware(ContainerMiddleware())
+        dp.update.outer_middleware(DependencyMiddleware())
 
         from adapters.inbound.telegram.callbacks_handler import router as tg_callbacks_router
         
@@ -268,8 +270,8 @@ async def main():
         # The general message handler (pipeline) must be LAST so it doesn't swallow commands
         pipeline_router = Router(name="pipeline")
         @pipeline_router.message()
-        async def wrapped_tg_on_message(message: Message):
-            await tg_on_message(message, container)
+        async def wrapped_tg_on_message(message: Message, message_processor: MessageProcessingService):
+            await tg_on_message(message, message_processor)
         
         dp.include_router(pipeline_router)
 
@@ -280,11 +282,11 @@ async def main():
 
         @dc_client.event
         async def on_message(message):
-            await dc_on_message(message, container)
+            await dc_on_message(message, container.message_processor)
 
         @dc_client.event
         async def on_ready():
-            setup_slash_commands(tree, container)
+            setup_slash_commands(tree, container.onboarding_completion, container.profile_service)
             try:
                 await tree.sync()
                 logger.info(f"Discord slash commands synced. Logged in as {dc_client.user}")

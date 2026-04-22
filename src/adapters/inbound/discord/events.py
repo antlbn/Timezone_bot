@@ -1,12 +1,9 @@
 import discord
 from core.domain.value_objects import InputData
 from core.domain.enums import Platform
-from typing import TYPE_CHECKING
+from core.services.message_processing import MessageProcessingService
 
-if TYPE_CHECKING:
-    from main import AppContainer
-
-async def on_message(message: discord.Message, container: 'AppContainer') -> None:
+async def on_message(message: discord.Message, message_processor: MessageProcessingService) -> None:
     if message.author.bot or not message.guild:
         return
 
@@ -21,4 +18,4 @@ async def on_message(message: discord.Message, container: 'AppContainer') -> Non
         is_bot=message.author.bot
     )
     
-    await container.message_processor.process_input(data)
+    await message_processor.process_input(data)

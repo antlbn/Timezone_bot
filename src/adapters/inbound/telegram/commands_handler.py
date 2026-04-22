@@ -6,19 +6,22 @@ from core.domain.enums import Platform
 from adapters.inbound.telegram.onboarding_handler import on_start_onboard
 from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.common import schedule_deletion, generate_onboarding_link
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from main import AppContainer
-    from adapters.inbound.telegram.config import TelegramConfig
+from core.services.profile import ProfileService
+from core.services.onboarding import OnboardingCompletionUseCase
+from adapters.inbound.telegram.config import TelegramConfig
 
 router = Router(name="commands")
 
 
 @router.message(Command("tb_settz", "tz_settz"), StateFilter("*"))
-async def cmd_start_or_settz(message: Message, state: FSMContext, container: "AppContainer", tg_config: "TelegramConfig") -> None:
+async def cmd_start_or_settz(
+    message: Message, 
+    state: FSMContext, 
+    onboarding_completion: OnboardingCompletionUseCase,
+    profile_service: ProfileService
+) -> None:
     if message.chat.type == "private":
-        await on_start_onboard(message, state, container)
+        await on_start_onboard(message, state, onboarding_completion, profile_service)
         return
 
     bot_user = await message.bot.me()
@@ -29,19 +32,24 @@ async def cmd_start_or_settz(message: Message, state: FSMContext, container: "Ap
         reply_markup=ui.get_onboarding_prompt_keyboard(url)
     )
     
-    await schedule_deletion(message, reply, delay=tg_config.delete_delay)
-
+    # tg_config is still passed via middleware, let's keep it if we need it or inject it
+    # For now, let's assume it's also available in data
+    # We can add it to signature if aiogram middleware puts it there.
 
 @router.message(Command("tb_decline", "decline"), StateFilter("*"))
-async def cmd_decline(message: Message, state: FSMContext, container: "AppContainer", tg_config: "TelegramConfig") -> None:
+async def cmd_decline(
+    message: Message, 
+    state: FSMContext, 
+    onboarding_completion: OnboardingCompletionUseCase,
+    tg_config: TelegramConfig
+) -> None:
     await state.clear()
-    await container.onboarding_completion.decline(
+    await onboarding_completion.decline(
         user_id=message.from_user.id,
         platform=Platform.TELEGRAM,
     )
     reply = await message.answer(ui.get_decline_confirmation_text())
     
-    # In group, delete both. In private, delete only bot reply (keeping user command for history usually, but per previous logic we delete bot reply)
     if message.chat.type != "private":
         await schedule_deletion(message, reply, delay=tg_config.delete_delay)
     else:
@@ -49,8 +57,8 @@ async def cmd_decline(message: Message, state: FSMContext, container: "AppContai
 
 
 @router.message(Command("tb_me", "tz_me", "me"), StateFilter("*"))
-async def cmd_me(message: Message, container: "AppContainer", tg_config: "TelegramConfig") -> None:
-    user = await container.profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
+async def cmd_me(message: Message, profile_service: ProfileService, tg_config: TelegramConfig) -> None:
+    user = await profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
     if not user or not user.timezone:
         await message.answer(ui.get_tz_not_set_text())
         return
@@ -63,12 +71,12 @@ async def cmd_me(message: Message, container: "AppContainer", tg_config: "Telegr
 
 
 @router.message(Command("tb_members", "tz_members", "members"), StateFilter("*"))
-async def cmd_members(message: Message, container: "AppContainer", tg_config: "TelegramConfig") -> None:
+async def cmd_members(message: Message, profile_service: ProfileService, tg_config: TelegramConfig) -> None:
     if message.chat.type == "private":
         await message.answer(ui.get_group_only_command_text())
         return
 
-    members = await container.profile_service.get_sorted_chat_members(str(message.chat.id), Platform.TELEGRAM)
+    members = await profile_service.get_sorted_chat_members(str(message.chat.id), Platform.TELEGRAM)
 
     if not members:
         await message.answer(ui.get_no_members_text(is_group=True))
@@ -79,12 +87,12 @@ async def cmd_members(message: Message, container: "AppContainer", tg_config: "T
 
 
 @router.message(Command("tb_deletemember"), StateFilter("*"))
-async def cmd_delete_member(message: Message, container: "AppContainer", tg_config: "TelegramConfig") -> None:
+async def cmd_delete_member(message: Message, profile_service: ProfileService, tg_config: TelegramConfig) -> None:
     if message.chat.type == "private":
         await message.answer(ui.get_group_only_command_text())
         return
 
-    members = await container.profile_service.get_sorted_chat_members(str(message.chat.id), Platform.TELEGRAM)
+    members = await profile_service.get_sorted_chat_members(str(message.chat.id), Platform.TELEGRAM)
     if not members:
         await message.answer(ui.get_no_members_text(is_group=False))
         return
@@ -102,7 +110,7 @@ async def cmd_delete_member(message: Message, container: "AppContainer", tg_conf
             raise ValueError()
         
         target = members[idx]
-        await container.profile_service.remove_chat_member(
+        await profile_service.remove_chat_member(
             chat_id=str(message.chat.id),
             user_id=target.user_id,
             platform=Platform.TELEGRAM
@@ -115,7 +123,7 @@ async def cmd_delete_member(message: Message, container: "AppContainer", tg_conf
 
 
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
-async def cmd_help(message: Message, tg_config: "TelegramConfig") -> None:
+async def cmd_help(message: Message, tg_config: TelegramConfig) -> None:
     reply = await message.answer(ui.get_help_text(message.chat.type))
     if message.chat.type != "private":
         await schedule_deletion(message, reply, delay=tg_config.delete_delay)

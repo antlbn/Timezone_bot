@@ -9,10 +9,8 @@ from adapters.inbound.telegram.onboarding_handler import OnboardingFSM
 from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.ui import TelegramCallback, get_settings_keyboard, get_help_text, get_back_to_settings_keyboard
 from adapters.inbound.telegram.common import safe_edit_text, safe_delete_message, PRIVATE_CHAT_SENTINEL
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from main import AppContainer
+from core.services.profile import ProfileService
+from core.services.onboarding import OnboardingCompletionUseCase
 
 router = Router(name="callbacks")
 logger = logging.getLogger(__name__)
@@ -35,12 +33,16 @@ async def cb_set_city(callback: CallbackQuery, callback_data: TelegramCallback, 
     await callback.answer()
 
 @router.callback_query(TelegramCallback.filter(F.action == "decline"), StateFilter("*"))
-async def cb_decline(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
+async def cb_decline(
+    callback: CallbackQuery, 
+    callback_data: TelegramCallback, 
+    onboarding_completion: OnboardingCompletionUseCase
+):
     if callback.from_user.id != callback_data.user_id:
         await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
-    await container.onboarding_completion.decline(
+    await onboarding_completion.decline(
         user_id=callback_data.user_id,
         platform=Platform.TELEGRAM
     )
@@ -53,12 +55,16 @@ async def cb_decline(callback: CallbackQuery, callback_data: TelegramCallback, c
     await callback.answer("Bot services declined.")
 
 @router.callback_query(TelegramCallback.filter(F.action == "remove"), StateFilter("*"))
-async def cb_remove(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
+async def cb_remove(
+    callback: CallbackQuery, 
+    callback_data: TelegramCallback, 
+    profile_service: ProfileService
+):
     if callback.from_user.id != callback_data.user_id:
         await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
-    await container.profile_service.remove_timezone(
+    await profile_service.remove_timezone(
         user_id=callback_data.user_id,
         platform=Platform.TELEGRAM,
         username=callback.from_user.first_name
@@ -92,12 +98,16 @@ async def cb_help(callback: CallbackQuery, callback_data: TelegramCallback):
     await callback.answer()
 
 @router.callback_query(TelegramCallback.filter(F.action == "settings"), StateFilter("*"))
-async def cb_settings(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
+async def cb_settings(
+    callback: CallbackQuery, 
+    callback_data: TelegramCallback, 
+    profile_service: ProfileService
+):
     if callback.from_user.id != callback_data.user_id:
         await callback.answer(ui.get_not_your_button_text(), show_alert=True)
         return
 
-    user = await container.profile_service.get_user(callback_data.user_id, Platform.TELEGRAM)
+    user = await profile_service.get_user(callback_data.user_id, Platform.TELEGRAM)
     has_tz = user is not None and user.timezone is not None
     
     await safe_edit_text(

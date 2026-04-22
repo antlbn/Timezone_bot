@@ -2,14 +2,11 @@ from aiogram.types import Message
 from core.domain.value_objects import InputData
 from core.domain.enums import Platform
 import logging
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from main import AppContainer
+from core.services.message_processing import MessageProcessingService
 
 logger = logging.getLogger(__name__)
 
-async def on_message(message: Message, container: 'AppContainer') -> None:
+async def on_message(message: Message, message_processor: MessageProcessingService) -> None:
     data = InputData(
         text=message.text or "",
         user_id=message.from_user.id,
@@ -21,4 +18,4 @@ async def on_message(message: Message, container: 'AppContainer') -> None:
         is_bot=message.from_user.is_bot
     )
     
-    await container.message_processor.process_input(data)
+    await message_processor.process_input(data)

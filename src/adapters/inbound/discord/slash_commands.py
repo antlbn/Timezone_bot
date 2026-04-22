@@ -2,16 +2,22 @@ import discord
 from discord import app_commands
 from core.domain.enums import Platform
 import logging
+from core.services.onboarding import OnboardingCompletionUseCase
+from core.services.profile import ProfileService
 
 logger = logging.getLogger(__name__)
 
-def setup_slash_commands(tree: app_commands.CommandTree, container):
+def setup_slash_commands(
+    tree: app_commands.CommandTree, 
+    onboarding_completion: OnboardingCompletionUseCase,
+    profile_service: ProfileService
+):
     @tree.command(name="tb_settz", description="Set your timezone")
     @app_commands.describe(city="Your city (e.g., Paris, New York)")
     async def tb_settz(interaction: discord.Interaction, city: str):
         # Defer to allow time for API call
         await interaction.response.defer(ephemeral=True)
-        res = await container.onboarding_completion.complete(
+        res = await onboarding_completion.complete(
             user_id=interaction.user.id,
             city_raw=city,
             platform=Platform.DISCORD,
@@ -35,7 +41,7 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
 
     @tree.command(name="tb_skip", description="Opt out of Timezone Bot features")
     async def tb_skip(interaction: discord.Interaction):
-        await container.onboarding_completion.decline(
+        await onboarding_completion.decline(
             user_id=interaction.user.id,
             platform=Platform.DISCORD,
         )
@@ -46,7 +52,7 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
 
     @tree.command(name="tb_me", description="Show your current timezone")
     async def tb_me(interaction: discord.Interaction):
-        user = await container.profile_service.get_user(interaction.user.id, Platform.DISCORD)
+        user = await profile_service.get_user(interaction.user.id, Platform.DISCORD)
         if not user or not user.timezone:
             await interaction.response.send_message("Not set. Use `/tb_settz`", ephemeral=True)
             return
@@ -61,7 +67,7 @@ def setup_slash_commands(tree: app_commands.CommandTree, container):
             await interaction.response.send_message("Server only", ephemeral=True)
             return
 
-        members = await container.profile_service.get_sorted_chat_members(str(interaction.guild.id), Platform.DISCORD)
+        members = await profile_service.get_sorted_chat_members(str(interaction.guild.id), Platform.DISCORD)
 
         if not members:
             await interaction.response.send_message("No members yet. Use `/tb_settz`", ephemeral=True)
