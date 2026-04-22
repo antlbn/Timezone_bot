@@ -16,6 +16,7 @@ from tests.fakes.ports import (
     FakeOnboardingChilloutStatePort,
     FakeOnboardingPendingPort,
     FakeStoragePort,
+    FakeTimePort,
 )
 
 
@@ -37,6 +38,7 @@ async def test_message_processing_ignores_pipeline_failure_without_side_effects(
             chillout_state_port=FakeOnboardingChilloutStatePort(),
             settings=BotSettings(),
         ),
+        settings=BotSettings(),
     )
 
     await processor.process_input(
@@ -69,6 +71,7 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
         replay_pipeline=Pipeline([ExplodingStage()]),
         delivery_service=DeliveryService(tg_executor=executor),
         settings=BotSettings(),
+        time_port=FakeTimePort(),
     )
 
     await pending.upsert(

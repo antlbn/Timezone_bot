@@ -71,7 +71,7 @@ def build_tg_config(config_data: dict) -> TelegramConfig:
     )
 
 
-def build_pipelines(storage, detector, geocoder, settings: BotSettings) -> tuple[Pipeline, Pipeline]:
+def build_pipelines(storage, detector, geocoder, settings: BotSettings, time_port) -> tuple[Pipeline, Pipeline]:
     from core.pipeline.stages import (
         GuardStage,
         AgingStage,
@@ -84,7 +84,7 @@ def build_pipelines(storage, detector, geocoder, settings: BotSettings) -> tuple
 
     fresh_pipeline = Pipeline([
         GuardStage(),
-        AgingStage(settings),
+        AgingStage(settings, time_port),
         DetectionStage(detector),
         GeoResolveStage(geocoder),
         HydrationStage(storage, storage),
@@ -124,10 +124,14 @@ async def main():
         logger.error("No bot tokens found. Neither Telegram nor Discord can be started. Exiting.")
         return
 
+    from adapters.outbound.real_time import RealTimeAdapter
+
     # Infrastructure Setup
     db_path = Path("data/bot.db")
     storage = SQLiteStorage(db_path)
     await storage.initialize()
+
+    time_port = RealTimeAdapter()
 
     primary_llm = LLMModelConfig(
         api_key=os.getenv("LLM_API_KEY"),
@@ -155,7 +159,7 @@ async def main():
         ttl_seconds=settings.onboarding_pending_ttl_secs
     )
     onboarding_chillout_state = MemoryOnboardingChilloutState()
-    fresh_pipeline, replay_pipeline = build_pipelines(storage, detector, geocoder, settings)
+    fresh_pipeline, replay_pipeline = build_pipelines(storage, detector, geocoder, settings, time_port)
 
     tg_bot = None
     tg_username = None
@@ -212,6 +216,7 @@ async def main():
         replay_pipeline=replay_pipeline,
         delivery_service=delivery_service,
         settings=settings,
+        time_port=time_port,
     )
 
     message_processor = MessageProcessingService(
@@ -223,7 +228,7 @@ async def main():
         settings=settings,
     )
 
-    profile_service = ProfileService(users_repo=storage, chats_repo=storage)
+    profile_service = ProfileService(users_repo=storage, chats_repo=storage, time_port=time_port)
 
     container = AppContainer(
         users_repo=storage,

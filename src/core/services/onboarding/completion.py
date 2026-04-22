@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from core.domain.commands import SendReply
 from core.domain.enums import Platform
@@ -9,6 +8,7 @@ from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
 from ports.pending import OnboardingPendingPort
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
+from ports.time import TimePort
 
 @dataclass(frozen=True)
 class OnboardingResult:
@@ -33,6 +33,7 @@ class OnboardingCompletionUseCase:
         replay_pipeline: Pipeline,
         delivery_service: DeliveryPort,
         settings: BotSettings,
+        time_port: TimePort,
     ) -> None:
         self._users = users_repo
         self._chats = chats_repo
@@ -41,6 +42,7 @@ class OnboardingCompletionUseCase:
         self._replay_pipeline = replay_pipeline
         self._delivery = delivery_service
         self._settings = settings
+        self._time = time_port
 
     async def complete(
         self,
@@ -98,7 +100,7 @@ class OnboardingCompletionUseCase:
         await self._onboarding_pending.delete(user_id, platform)
 
     def _is_replay_stale(self, pending: OnboardingPendingMessage) -> bool:
-        age_seconds = (datetime.now(timezone.utc) - pending.original_input.timestamp_utc).total_seconds()
+        age_seconds = (self._time.now_utc() - pending.original_input.timestamp_utc).total_seconds()
         return age_seconds > self._settings.max_age_fresh_secs
 
     async def _replay_latest_pending(self, pending: OnboardingPendingMessage) -> None:

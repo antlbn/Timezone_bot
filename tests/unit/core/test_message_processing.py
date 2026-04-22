@@ -7,7 +7,7 @@ import pytest
 
 from core.domain.commands import SendReply, ShowOnboarding
 from core.domain.enums import Platform
-from core.domain.value_objects import InputData, MessageContext, MessageDecision, OnboardingPendingMessage, TimePoint
+from core.domain.value_objects import BotSettings, InputData, MessageContext, MessageDecision, OnboardingPendingMessage, TimePoint
 from core.pipeline.pipeline import Pipeline
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
@@ -81,6 +81,7 @@ async def test_process_input_registers_and_sends_reply_for_detected_message():
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_prompt=FakeOnboardingPromptService(),
+        settings=BotSettings(),
     )
 
     await service.process_input(data)
@@ -106,6 +107,7 @@ async def test_process_input_skips_registration_and_delivery_when_no_detection()
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_prompt=FakeOnboardingPromptService(),
+        settings=BotSettings(),
     )
 
     await service.process_input(data)
@@ -131,6 +133,7 @@ async def test_process_input_updates_pending_and_marks_prompt_when_onboarding_sh
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_prompt=onboarding,
+        settings=BotSettings(),
     )
 
     await service.process_input(data)
@@ -164,6 +167,7 @@ async def test_process_input_updates_pending_without_mark_when_chillout_active()
         users_repo=FakeStoragePort(), chats_repo=FakeStoragePort(),
         delivery_service=DeliveryService(tg_executor=executor),
         onboarding_prompt=onboarding,
+        settings=BotSettings(),
     )
 
     await service.process_input(data)

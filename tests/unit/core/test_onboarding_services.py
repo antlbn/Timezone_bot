@@ -7,7 +7,7 @@ from core.domain.enums import Platform
 from core.domain.value_objects import BotSettings, InputData, MessageContext, MessageDecision, OnboardingPendingMessage, TimePoint
 from core.pipeline.pipeline import Pipeline
 from adapters.outbound.delivery_service import DeliveryService
-from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase, OnboardingResult
+from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase
 from ports.detection import DetectionResult
 from ports.geocoding import Location
 from tests.fakes.ports import (
@@ -16,6 +16,7 @@ from tests.fakes.ports import (
     FakeOnboardingChilloutStatePort,
     FakeOnboardingPendingPort,
     FakeStoragePort,
+    FakeTimePort,
 )
 
 class StaticReplayStage:
@@ -81,7 +82,8 @@ async def test_completion_use_case_returns_error_if_city_not_found():
         geocoding_port=geo,
         replay_pipeline=Pipeline([]),
         delivery_service=DeliveryService(tg_executor=FakeCommandExecutorPort()),
-        settings=BotSettings()
+        settings=BotSettings(),
+        time_port=FakeTimePort(),
     )
     
     result = await use_case.complete(1, "UnknownCity", Platform.TELEGRAM)
@@ -107,7 +109,8 @@ async def test_completion_use_case_replays_pending_and_clears_it():
         geocoding_port=geo,
         replay_pipeline=Pipeline([StaticReplayStage(MessageDecision(reply_text="15:00 London"))]),
         delivery_service=DeliveryService(tg_executor=executor),
-        settings=BotSettings()
+        settings=BotSettings(),
+        time_port=FakeTimePort(),
     )
     
     result = await use_case.complete(1, "London", Platform.TELEGRAM)
@@ -133,7 +136,8 @@ async def test_completion_use_case_drops_stale_pending():
         geocoding_port=FakeGeoPort(resolves_to=Location(city="L", timezone="T", country_code="C", flag="F")),
         replay_pipeline=Pipeline([]),
         delivery_service=DeliveryService(tg_executor=executor),
-        settings=BotSettings(max_age_fresh_secs=30)
+        settings=BotSettings(max_age_fresh_secs=30),
+        time_port=FakeTimePort(),
     )
     
     result = await use_case.complete(1, "London", Platform.TELEGRAM)
@@ -155,7 +159,8 @@ async def test_completion_use_case_decline():
         geocoding_port=FakeGeoPort(),
         replay_pipeline=Pipeline([]),
         delivery_service=DeliveryService(tg_executor=FakeCommandExecutorPort()),
-        settings=BotSettings()
+        settings=BotSettings(),
+        time_port=FakeTimePort(),
     )
     
     await use_case.decline(1, Platform.TELEGRAM)

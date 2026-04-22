@@ -1,4 +1,3 @@
-import pytest
 from adapters.inbound.telegram.common import parse_onboarding_payload, OnboardingStartContext
 
 def test_parse_onboarding_payload_simple() -> None:

@@ -38,12 +38,12 @@ def _format_names(group: list[UserProfile], show_usernames: bool) -> str:
     return f"{names[0]}, {names[1]}, +{len(names) - 2} more"
 
 
-def _group_members_by_timezone(members: list[UserProfile]) -> list[tuple[str, list[UserProfile]]]:
+def _group_members_by_timezone(members: list[UserProfile], reference_date: datetime) -> list[tuple[str, list[UserProfile]]]:
     tz_groups = defaultdict(list)
     for m in members:
         if m.timezone:
             tz_groups[m.timezone].append(m)
-    return sorted(tz_groups.items(), key=lambda item: get_utc_offset(item[0]))
+    return sorted(tz_groups.items(), key=lambda item: get_utc_offset(item[0], now=reference_date))
 
 
 def _join_city_labels(group: list[UserProfile], fallback_label: str) -> str:
@@ -71,7 +71,7 @@ def _build_conversion_rows(
     source_tz, source_label, source_flag are resolved by the caller based on
     whether tz_resolved or sender.timezone is the reference point.
     """
-    grouped_members = _group_members_by_timezone(members)
+    grouped_members = _group_members_by_timezone(members, reference_date)
 
     source_group: list[UserProfile] = []
     other_groups: list[tuple[str, list[UserProfile]]] = []

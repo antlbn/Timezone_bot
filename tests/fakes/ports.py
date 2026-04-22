@@ -8,6 +8,20 @@ from ports.geocoding import Location
 from core.domain.commands import Command
 
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
+from ports.time import TimePort
+from datetime import datetime, timezone
+
+
+class FakeTimePort(TimePort):
+    def __init__(self, now: datetime | None = None):
+        self._now = now or datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+
+    def now_utc(self) -> datetime:
+        return self._now
+
+    def now_tz(self, tz_name: str) -> datetime:
+        from zoneinfo import ZoneInfo
+        return self._now.astimezone(ZoneInfo(tz_name))
 
 
 class FakeStoragePort(UserRepositoryPort, ChatRepositoryPort):

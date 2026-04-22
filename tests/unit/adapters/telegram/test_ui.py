@@ -1,4 +1,3 @@
-import pytest
 from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile
 from adapters.inbound.telegram import ui

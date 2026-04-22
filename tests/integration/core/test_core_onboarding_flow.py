@@ -26,15 +26,17 @@ from tests.fakes.ports import (
     FakeOnboardingChilloutStatePort,
     FakeOnboardingPendingPort,
     FakeStoragePort,
+    FakeTimePort,
 )
 
 
-def _make_fresh_pipeline(storage, detection, geo=None, settings=None):
+def _make_fresh_pipeline(storage, detection, geo=None, settings=None, time_port=None):
     settings = settings or BotSettings()
     geo = geo or FakeGeoPort()
+    time_port = time_port or FakeTimePort()
     return Pipeline([
         GuardStage(),
-        AgingStage(settings),
+        AgingStage(settings, time_port),
         DetectionStage(detection),
         GeoResolveStage(geo),
         HydrationStage(users_repo=storage, chats_repo=storage),
@@ -60,6 +62,7 @@ def _make_services(
     chillout=None,
     geo=None,
     settings=None,
+    time_port=None,
 ):
     storage = storage or FakeStoragePort()
     detection = detection or FakeDetectionPort(time_mentioned=True, points=[TimePoint(time="12:00")])
@@ -67,6 +70,7 @@ def _make_services(
     chillout = chillout or FakeOnboardingChilloutStatePort()
     geo = geo or FakeGeoPort()
     settings = settings or BotSettings()
+    time_port = time_port or FakeTimePort()
 
     tg_executor = FakeCommandExecutorPort()
     delivery = DeliveryService(tg_executor=tg_executor)
@@ -84,12 +88,14 @@ def _make_services(
         replay_pipeline=replay,
         delivery_service=delivery,
         settings=settings,
+        time_port=time_port,
     )
     processor = MessageProcessingService(
-        fresh_pipeline=_make_fresh_pipeline(storage, detection, geo, settings),
+        fresh_pipeline=_make_fresh_pipeline(storage, detection, geo, settings, time_port),
         users_repo=storage, chats_repo=storage,
         delivery_service=delivery,
         onboarding_prompt=onboarding_prompt,
+        settings=settings,
     )
     return storage, pending, chillout, onboarding_prompt, onboarding_completion, processor, tg_executor
 
@@ -211,8 +217,12 @@ async def test_complete_drops_stale_pending_without_reply():
         "country_code": "GB",
         "flag": "🇬🇧",
     })()
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    time_port = FakeTimePort(now=now)
     settings = BotSettings(max_age_fresh_secs=30)
-    _, pending, _, _, onboarding_completion, _, tg_executor = _make_services(storage=storage, pending=pending, geo=geo, settings=settings)
+    _, pending, _, _, onboarding_completion, _, tg_executor = _make_services(
+        storage=storage, pending=pending, geo=geo, settings=settings, time_port=time_port
+    )
 
     stale_msg = OnboardingPendingMessage(
         original_input=InputData(
@@ -220,7 +230,7 @@ async def test_complete_drops_stale_pending_without_reply():
             user_id=1,
             platform=Platform.TELEGRAM,
             author_name="Alice",
-            timestamp_utc=datetime.now(timezone.utc) - timedelta(minutes=10),
+            timestamp_utc=now - timedelta(minutes=10),
             chat_id="chat1",
         ),
         detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="12:00"),)),

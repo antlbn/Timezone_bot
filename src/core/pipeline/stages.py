@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 import dataclasses
 
 from core.domain.value_objects import (
@@ -13,6 +12,8 @@ from ports.detection import DetectionPort, DetectionRequest, DetectionResult
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from ports.geocoding import GeoPort
 from core.services.formatting import format_multi_conversion
+
+from ports.time import TimePort
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,12 @@ class AgingStage:
     Only used in the fresh pipeline — replay pipeline skips aging entirely
     because replaying is an intentional decision made by OnboardingCompletionUseCase.
     """
-    def __init__(self, settings: BotSettings):
+    def __init__(self, settings: BotSettings, time_port: TimePort):
         self._settings = settings
+        self._time = time_port
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        age_seconds = (datetime.now(timezone.utc) - ctx.input.timestamp_utc).total_seconds()
+        age_seconds = (self._time.now_utc() - ctx.input.timestamp_utc).total_seconds()
         if age_seconds > self._settings.max_age_fresh_secs:
             return dataclasses.replace(ctx, stop_processing=True)
         return ctx

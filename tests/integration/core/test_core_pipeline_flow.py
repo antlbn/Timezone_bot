@@ -8,14 +8,15 @@ from core.pipeline.stages import (
     GuardStage, AgingStage, DetectionStage,
     HydrationStage, FormatStage, DecisionStage,
 )
-from tests.fakes.ports import FakeDetectionPort, FakeStoragePort
+from tests.fakes.ports import FakeDetectionPort, FakeStoragePort, FakeTimePort
 
 
-def _fresh_pipeline(storage, detection, settings=None):
+def _fresh_pipeline(storage, detection, settings=None, time_port=None):
     settings = settings or BotSettings()
+    time_port = time_port or FakeTimePort()
     return Pipeline([
         GuardStage(),
-        AgingStage(settings),
+        AgingStage(settings, time_port),
         DetectionStage(detection),
         HydrationStage(users_repo=storage, chats_repo=storage),
         FormatStage(settings),
@@ -132,9 +133,11 @@ async def test_pipeline_declined_onboarding_no_spam():
 
 @pytest.mark.asyncio
 async def test_pipeline_aging_stage_drops_old_messages():
-    pipeline = Pipeline([AgingStage(BotSettings())])
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    time_port = FakeTimePort(now=now)
+    pipeline = Pipeline([AgingStage(BotSettings(max_age_fresh_secs=30), time_port)])
 
-    old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+    old_time = now - timedelta(minutes=10)
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00", user_id=1, platform=Platform.TELEGRAM,
         author_name="John", timestamp_utc=old_time, chat_id="chat1"
