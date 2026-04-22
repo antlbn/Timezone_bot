@@ -5,6 +5,7 @@ from aiogram.types import Message
 from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile
 from adapters.inbound.telegram.onboarding_handler import OnboardingFSM
+from adapters.inbound.telegram.ui import get_help_text
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,36 +14,9 @@ if TYPE_CHECKING:
 router = Router(name="commands")
 
 
-def _build_private_setup_prompt() -> str:
-    return (
-        "🌍 <b>Type your city</b> so I can deduce your timezone.\n"
-        "Or type /skip to skip."
-    )
-
-
 def _build_group_settz_message(deep_link: str) -> str:
     return f"Please message me privately to set your timezone: {deep_link}"
 
-
-def _build_help_text(chat_type: str) -> str:
-    if chat_type == "private":
-        return (
-            "<b>Timezone Bot Help</b>\n\n"
-            "Personal commands:\n"
-            "• /tb_me — show your current timezone\n"
-            "• /tb_settz — set or change your timezone\n\n"
-            "Group commands:\n"
-            "• /tb_members — list tracked members in the current chat\n\n"
-            "Mention a time in a group chat and I'll convert it for known members automatically."
-        )
-
-    return (
-        "<b>Timezone Bot</b>\n\n"
-        "To set your personal timezone, open a private chat with me.\n\n"
-        "Group commands:\n"
-        "• /tb_members — list tracked members in this chat\n\n"
-        "I automatically convert time mentions for members with saved timezones."
-    )
 
 
 def _format_user_timezone(user: UserProfile) -> str:
@@ -73,8 +47,8 @@ async def cmd_start_or_settz(message: Message, state: FSMContext, container: "Ap
     deep_link = f"https://t.me/{bot_user.username}?start=onboard_{message.from_user.id}_{message.chat.id}"
     await message.answer(_build_group_settz_message(deep_link))
 
-@router.message(Command("tb_skip", "tz_skip", "skip"), StateFilter("*"))
-async def cmd_skip(message: Message, state: FSMContext, container: "AppContainer") -> None:
+@router.message(Command("tb_decline", "decline"), StateFilter("*"))
+async def cmd_decline(message: Message, state: FSMContext, container: "AppContainer") -> None:
     await state.clear()
     await container.onboarding_completion.decline(
         user_id=message.from_user.id,
@@ -107,4 +81,4 @@ async def cmd_members(message: Message, container: "AppContainer") -> None:
 
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
 async def cmd_help(message: Message) -> None:
-    await message.answer(_build_help_text(message.chat.type))
+    await message.answer(get_help_text(message.chat.type))

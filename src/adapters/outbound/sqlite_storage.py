@@ -192,13 +192,17 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
         await db.commit()
 
     async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
-        """Mark as declined. Username was already synced in the message processing flow."""
+        """Mark as declined and clear any existing timezone data."""
         db = await self._get_conn()
         await db.execute(
             """
-            INSERT INTO users (user_id, platform, onboarding_declined)
-            VALUES (?, ?, 1)
-            ON CONFLICT(user_id, platform) DO UPDATE SET onboarding_declined = 1
+            INSERT INTO users (user_id, platform, onboarding_declined, city, timezone, flag)
+            VALUES (?, ?, 1, NULL, NULL, NULL)
+            ON CONFLICT(user_id, platform) DO UPDATE SET 
+                onboarding_declined = 1,
+                city = NULL,
+                timezone = NULL,
+                flag = NULL
             """,
             (user_id, platform.value),
         )

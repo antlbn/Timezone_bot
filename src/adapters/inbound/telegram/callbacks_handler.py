@@ -6,7 +6,7 @@ import logging
 
 from core.domain.enums import Platform
 from adapters.inbound.telegram.onboarding_handler import OnboardingFSM
-from adapters.inbound.telegram.ui import TelegramCallback, get_settings_keyboard
+from adapters.inbound.telegram.ui import TelegramCallback, get_settings_keyboard, get_help_text, get_back_to_settings_keyboard
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,7 +27,8 @@ async def cb_set_city(callback: CallbackQuery, callback_data: TelegramCallback, 
 
     await callback.message.answer(
         "Great! Tell me your city so I can show your local time to others.\n"
-        "💡 Write city: e.g. <code>Paris</code> or <code>Paris, Texas</code>.",
+        "\n"
+        "💡 Write city: e.g. <code>Paris</code> for France, or specify <code>Paris, Texas</code> for USA.",
         reply_markup=ForceReply(selective=True)
     )
     await callback.message.delete()
@@ -48,7 +49,7 @@ async def cb_decline(callback: CallbackQuery, callback_data: TelegramCallback, c
         "Got it! I won't nag you again. If you change your mind, use /tb_settz.",
         reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=False)
     )
-    await callback.answer("Onboarding declined.")
+    await callback.answer("Bot services declined.")
 
 @router.callback_query(TelegramCallback.filter(F.action == "remove"), StateFilter("*"))
 async def cb_remove(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
@@ -75,6 +76,33 @@ async def cb_privacy(callback: CallbackQuery):
         "User profiles are automatically deleted after 30 days of inactivity.",
         show_alert=True
     )
+
+@router.callback_query(TelegramCallback.filter(F.action == "help"), StateFilter("*"))
+async def cb_help(callback: CallbackQuery, callback_data: TelegramCallback):
+    if callback.from_user.id != callback_data.user_id:
+        await callback.answer("This button is not for you! 😊", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        get_help_text("private"),
+        reply_markup=get_back_to_settings_keyboard(callback_data.user_id, callback_data.chat_id)
+    )
+    await callback.answer()
+
+@router.callback_query(TelegramCallback.filter(F.action == "settings"), StateFilter("*"))
+async def cb_settings(callback: CallbackQuery, callback_data: TelegramCallback, container: "AppContainer"):
+    if callback.from_user.id != callback_data.user_id:
+        await callback.answer("This button is not for you! 😊", show_alert=True)
+        return
+
+    user = await container.profile_service.get_user(callback_data.user_id, Platform.TELEGRAM)
+    has_tz = user is not None and user.timezone is not None
+    
+    await callback.message.edit_text(
+        "<b>Main Settings</b>\nManage your timezone and preferences here:",
+        reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=has_tz)
+    )
+    await callback.answer()
 
 @router.callback_query()
 async def cb_fallback(callback: CallbackQuery):

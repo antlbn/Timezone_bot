@@ -88,8 +88,8 @@ async def on_start_onboard(
     else:
         text = (
             f"👋 Hi {message.from_user.first_name or 'there'}!\n\n"
-            "Я бот, который конвертирует время для участников чата. "
-            "Чтобы я мог показывать твое локальное время остальным, мне нужно знать твой город.\n\n"
+            "I'm a bot that converts times for chat members across different cities and time zones. "
+            "To show your local time to others, I need to know your city.\n\n"
             "Ready? Tap <b>Set my city</b> below 👇"
         )
         await message.answer(
@@ -113,15 +113,15 @@ async def on_city_input(message: Message, state: FSMContext, container: "AppCont
 
     if not result.ok:
         await message.answer(
-            f"Не нашёл город «{city_raw}» 🤔\n"
-            "Попробуй написать по-английски или нажми /skip.",
+            f"Could not find city «{city_raw}» 🤔\n"
+            "Try writing in English or use /tb_decline to skip.",
             reply_markup=ForceReply(selective=True)
         )
         return
 
     await state.clear()
     await message.answer(
-        f"✅ Установлено: <b>{result.timezone_name}</b> {result.flag or ''}\n\n"
-        "Теперь я буду автоматически конвертировать время для тебя!",
+        f"✅ Set to: <b>{result.timezone_name}</b> {result.flag or ''}\n\n"
+        "From now on, I will automatically convert time for you!",
         reply_markup=get_settings_keyboard(user_id, state_data.get("source_chat_id", "0"), has_timezone=True)
     )
