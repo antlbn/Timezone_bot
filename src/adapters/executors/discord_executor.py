@@ -49,13 +49,15 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         if not channel:
             return
             
+        from adapters.inbound.discord import ui
+        
         embed = discord.Embed(
-            title=f"👋 Welcome to Timezone Bot, {cmd.author_name}!",
-            description="I've detected a time mention, but I don't know your timezone yet.\n\n"
-                        "Tap the button below to quickly set it up! (Only you will see the next steps)",
+            title=ui.get_onboarding_embed_title(cmd.author_name),
+            description=ui.get_onboarding_embed_description(),
             color=discord.Color.gold(),
         )
         await channel.send(
+
             content=f"<@{cmd.user_id}>",
             embed=embed,
             view=self._onboarding_view_factory(cmd.user_id),

@@ -15,7 +15,8 @@ async def on_message(message: discord.Message, message_processor: MessageProcess
         timestamp_utc=message.created_at,
         chat_id=str(message.guild.id),
         thread_id=str(message.channel.id),
-        is_bot=message.author.bot
+        is_bot=False
     )
     
     await message_processor.process_input(data)
+

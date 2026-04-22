@@ -289,13 +289,32 @@ async def main():
         @dc_client.event
         async def on_ready():
             setup_slash_commands(tree, container.onboarding_completion, container.profile_service)
+
+            # Global Discord Error Handler (Our "Middleware")
+            @tree.error
+            async def on_tree_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+                if isinstance(error, app_commands.CommandOnCooldown):
+                    await interaction.response.send_message(
+                        f"⏳ Slow down! Try again in {error.retry_after:.1f}s.", 
+                        ephemeral=True
+                    )
+                else:
+                    logger.error(f"Discord Slash Command Error: {error}", exc_info=True)
+                    if not interaction.response.is_done():
+                        await interaction.response.send_message(
+                            "❌ An unexpected error occurred. Please try again later.", 
+                            ephemeral=True
+                        )
+
             try:
+
                 await tree.sync()
                 logger.info(f"Discord slash commands synced. Logged in as {dc_client.user}")
             except Exception as e:
                 logger.error(f"Failed to sync slash commands: {e}")
 
         tasks.append(asyncio.create_task(dc_client.start(dc_token)))
+
 
     # Custom Signal Handling
     stop_event = asyncio.Event()

@@ -95,8 +95,16 @@ async def on_city_input(
 ) -> None:
     """User typed a city name."""
     city_raw = message.text.strip()
+    
+    # Check for cancellation intent
+    if city_raw.lower() in ("cancel", "stop", "отмена", "стоп", "exit"):
+        await state.clear()
+        await message.answer("Setup cancelled. You can start again with /tb_settz anytime!")
+        return
+
     user_id = message.from_user.id
     state_data = await state.get_data()
+
 
     result = await onboarding_completion.complete(
         user_id=user_id,
