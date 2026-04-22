@@ -45,3 +45,37 @@ async def test_profile_service_handles_invalid_timezone_by_sorting_it_first():
     members = await service.get_sorted_chat_members("chat1", Platform.TELEGRAM)
 
     assert [m.city for m in members] == ["Unknown", "Berlin"]
+import pytest
+
+from core.domain.enums import Platform
+from core.domain.value_objects import UserProfile
+from core.services.profile import ProfileService
+from tests.fakes.ports import FakeStoragePort
+
+
+@pytest.mark.asyncio
+async def test_get_sorted_chat_members_keeps_members_without_timezone_last() -> None:
+    storage = FakeStoragePort()
+    storage.members[("chat1", Platform.TELEGRAM)] = [
+        UserProfile(
+            user_id=2,
+            platform=Platform.TELEGRAM,
+            username="bob",
+            city="Unknown",
+            timezone=None,
+        ),
+        UserProfile(
+            user_id=1,
+            platform=Platform.TELEGRAM,
+            username="alice",
+            city="Vienna",
+            timezone="Europe/Vienna",
+            flag="🇦🇹",
+        ),
+    ]
+
+    service = ProfileService(users_repo=storage, chats_repo=storage)
+
+    members = await service.get_sorted_chat_members("chat1", Platform.TELEGRAM)
+
+    assert [member.user_id for member in members] == [1, 2]

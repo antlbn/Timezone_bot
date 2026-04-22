@@ -16,5 +16,22 @@ class ProfileService:
         if not members:
             return []
 
-        # sort by timezone offset
-        return sorted(members, key=lambda m: get_utc_offset(m.timezone))
+        return sorted(members, key=self._member_sort_key)
+
+    @staticmethod
+    def _member_sort_key(member: UserProfile) -> tuple[int, float, str]:
+        """Sort configured members by UTC offset and keep unconfigured users at the end."""
+        if not member.timezone:
+            return (1, 0.0, member.city or member.username or "")
+
+        return (0, get_utc_offset(member.timezone), member.city or member.username or "")
+    async def remove_timezone(self, user_id: int, platform: Platform, username: str = "") -> None:
+        """Clear the user's timezone/city/flag."""
+        await self._users.set_user(
+            user_id=user_id,
+            platform=platform,
+            timezone=None,
+            city=None,
+            flag=None,
+            username=username
+        )

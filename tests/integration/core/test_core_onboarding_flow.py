@@ -78,6 +78,7 @@ def _make_services(
     )
     onboarding_completion = OnboardingCompletionUseCase(
         users_repo=storage,
+        chats_repo=storage,
         onboarding_pending_port=pending,
         geocoding_port=geo,
         replay_pipeline=replay,

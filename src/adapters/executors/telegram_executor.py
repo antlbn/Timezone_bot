@@ -22,7 +22,7 @@ class TelegramCommandExecutor(BaseCommandExecutor):
             inline_keyboard=[[
                 InlineKeyboardButton(
                     text="⚙️ Указать город",
-                    url=f"https://t.me/{self._bot_username}?start=onboard",
+                    url=f"https://t.me/{self._bot_username}?start=onboard_{cmd.user_id}_{cmd.chat_id}",
                 )
             ]]
         )

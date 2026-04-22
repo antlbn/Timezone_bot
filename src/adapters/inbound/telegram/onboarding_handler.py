@@ -12,73 +12,116 @@ author_name is NOT passed to OnboardingCompletionUseCase — it was already
 synced to the DB when the original time message was processed.
 """
 
-from aiogram import Router, F
-from aiogram.filters import CommandStart
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+import logging
+
+from aiogram import Router, F, Bot
+from aiogram.filters import CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import Message, ForceReply
+
 from core.domain.enums import Platform
-from typing import TYPE_CHECKING
+from adapters.inbound.telegram.ui import get_settings_keyboard
 
 if TYPE_CHECKING:
     from main import AppContainer
 
 router = Router(name="onboarding")
+logger = logging.getLogger(__name__)
 
+@dataclass(frozen=True)
+class OnboardingStartContext:
+    target_user_id: int
+    source_chat_id: str | None = None
 
-# ---------------------------------------------------------------------------
-# FSM States
-# ---------------------------------------------------------------------------
+def parse_onboarding_start_context(payload: str | None) -> OnboardingStartContext | None:
+    if not payload or not payload.startswith("onboard_"):
+        return None
+    parts = payload.split("_")
+    if len(parts) not in (2, 3):
+        return None
+    raw_user_id = parts[1]
+    if not raw_user_id.isdigit():
+        return None
+    source_chat_id = None
+    if len(parts) == 3:
+        source_chat_id = parts[2]
+        if not source_chat_id or source_chat_id == "-":
+            return None
+    return OnboardingStartContext(
+        target_user_id=int(raw_user_id),
+        source_chat_id=source_chat_id,
+    )
 
 class OnboardingFSM(StatesGroup):
     waiting_city = State()
 
+@router.message(CommandStart(), F.chat.type == "private", StateFilter("*"))
+async def on_start_onboard(
+    message: Message,
+    state: FSMContext,
+    container: "AppContainer",
+    command: CommandObject | None = None,
+) -> None:
+    """Entry point for private onboarding, including validated deep links."""
+    start_context = parse_onboarding_start_context(command.args if command else None)
+    if start_context is not None and message.from_user.id != start_context.target_user_id:
+        await message.answer("This setup link belongs to another user.")
+        return
 
-# ---------------------------------------------------------------------------
-# Handlers
-# ---------------------------------------------------------------------------
+    chat_id = "0"
+    if start_context is not None and start_context.source_chat_id:
+        chat_id = start_context.source_chat_id
+        await state.update_data(source_chat_id=chat_id)
 
-@router.message(CommandStart(deep_link=True, magic=F.args == "onboard"))
-async def on_start_onboard(message: Message, state: FSMContext) -> None:
-    """Entry point: user tapped the deep-link button from a group chat."""
-    await state.set_state(OnboardingFSM.waiting_city)
-    await message.answer(
-        "🌍 <b>Напиши свой город</b> — я определю часовой пояс.\n"
-        "Или /skip, чтобы пропустить."
-    )
-
-
-@router.message(OnboardingFSM.waiting_city, F.text.startswith("/skip"))
-async def on_skip(message: Message, state: FSMContext, container: "AppContainer") -> None:
-    """User chose not to provide location."""
-    await state.clear()
-    await container.onboarding_completion.decline(
-        user_id=message.from_user.id,
-        platform=Platform.TELEGRAM,
-    )
-    await message.answer("Окей, не буду спрашивать 🙂 Если передумаешь — /start")
-
+    # Check if user already exists
+    user = await container.profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
+    
+    if user and user.timezone:
+        await message.answer(
+            f"✅ Your timezone is set to: <b>{user.city} {user.flag or ''}</b> ({user.timezone})\n"
+            "\nYou can manage your settings here:",
+            reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=True)
+        )
+    else:
+        text = (
+            f"👋 Hi {message.from_user.first_name or 'there'}!\n\n"
+            "Я бот, который конвертирует время для участников чата. "
+            "Чтобы я мог показывать твое локальное время остальным, мне нужно знать твой город.\n\n"
+            "Ready? Tap <b>Set my city</b> below 👇"
+        )
+        await message.answer(
+            text,
+            reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=False)
+        )
 
 @router.message(OnboardingFSM.waiting_city, F.text)
 async def on_city_input(message: Message, state: FSMContext, container: "AppContainer") -> None:
     """User typed a city name."""
     city_raw = message.text.strip()
     user_id = message.from_user.id
+    state_data = await state.get_data()
 
     result = await container.onboarding_completion.complete(
         user_id=user_id,
         city_raw=city_raw,
         platform=Platform.TELEGRAM,
+        author_name=message.from_user.first_name,
     )
 
     if not result.ok:
         await message.answer(
             f"Не нашёл город «{city_raw}» 🤔\n"
-            "Попробуй написать по-английски или /skip."
+            "Попробуй написать по-английски или нажми /skip.",
+            reply_markup=ForceReply(selective=True)
         )
         return
 
     await state.clear()
     await message.answer(
-        f"✅ Установлено: <b>{result.timezone_name}</b> {result.flag or ''}"
+        f"✅ Установлено: <b>{result.timezone_name}</b> {result.flag or ''}\n\n"
+        "Теперь я буду автоматически конвертировать время для тебя!",
+        reply_markup=get_settings_keyboard(user_id, state_data.get("source_chat_id", "0"), has_timezone=True)
     )

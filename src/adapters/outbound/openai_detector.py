@@ -31,7 +31,12 @@ class OpenAIDetector(DetectionPort):
                 continue
 
             try:
-                client = AsyncOpenAI(api_key=m_cfg.api_key, base_url=m_cfg.base_url, timeout=10.0)
+                client = AsyncOpenAI(
+                    api_key=m_cfg.api_key, 
+                    base_url=m_cfg.base_url, 
+                    timeout=5.0,
+                    max_retries=0
+                )
                 
                 # Legacy Prompt v5 — robust extraction and natural language handling
                 system_prompt = """JSON only. Start with { end with }. No extra text.

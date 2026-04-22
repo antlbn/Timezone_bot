@@ -8,7 +8,7 @@ from core.pipeline.pipeline import Pipeline
 from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
 from ports.pending import OnboardingPendingPort
-from ports.repositories import UserRepositoryPort
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 
 @dataclass(frozen=True)
 class OnboardingResult:
@@ -27,6 +27,7 @@ class OnboardingCompletionUseCase:
     def __init__(
         self,
         users_repo: UserRepositoryPort,
+        chats_repo: ChatRepositoryPort,
         onboarding_pending_port: OnboardingPendingPort,
         geocoding_port: GeoPort,
         replay_pipeline: Pipeline,
@@ -34,6 +35,7 @@ class OnboardingCompletionUseCase:
         settings: BotSettings,
     ) -> None:
         self._users = users_repo
+        self._chats = chats_repo
         self._onboarding_pending = onboarding_pending_port
         self._geo = geocoding_port
         self._replay_pipeline = replay_pipeline
@@ -45,8 +47,12 @@ class OnboardingCompletionUseCase:
         user_id: int,
         city_raw: str,
         platform: Platform,
+        author_name: str | None = None,
     ) -> OnboardingResult:
-        """User submitted a city name. No author_name needed — already synced in application flow."""
+        """User submitted a city name."""
+        if author_name:
+            await self._users.ensure_user_metadata(user_id, platform, author_name)
+
         location = await self._geo.resolve_city(city_raw)
         if location is None:
             return OnboardingResult(ok=False, error="city_not_found")
@@ -62,6 +68,14 @@ class OnboardingCompletionUseCase:
 
         pending_message = await self._onboarding_pending.get(user_id, platform)
         if pending_message:
+            # Sync chat membership if we have chat context
+            if pending_message.original_input.chat_id:
+                await self._chats.add_chat_member(
+                    chat_id=pending_message.original_input.chat_id,
+                    user_id=user_id,
+                    platform=platform,
+                )
+            
             if self._is_replay_stale(pending_message):
                 await self._onboarding_pending.delete(user_id, platform)
             else:

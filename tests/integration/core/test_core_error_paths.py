@@ -61,6 +61,7 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
     executor = FakeCommandExecutorPort()
     coordinator = OnboardingCompletionUseCase(
         users_repo=storage,
+        chats_repo=storage,
         onboarding_pending_port=pending,
         geocoding_port=FakeGeoPort(
             resolves_to=Location(city="London", timezone="Europe/London", country_code="GB", flag="🇬🇧")

@@ -5,12 +5,12 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from aiogram import Bot as TgBot, Dispatcher
+from aiogram import Bot as TgBot, Dispatcher, Router
 from aiogram import BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import TelegramObject
+from aiogram.types import TelegramObject, Message
 import discord
 import yaml
 from discord import app_commands
@@ -191,6 +191,7 @@ async def main():
 
     onboarding_completion = OnboardingCompletionUseCase(
         users_repo=storage,
+        chats_repo=storage,
         onboarding_pending_port=onboarding_pending_store,
         geocoding_port=geocoder,
         replay_pipeline=replay_pipeline,
@@ -239,13 +240,21 @@ async def main():
 
         dp.update.outer_middleware(ContainerMiddleware())
 
-        # Onboarding FSM router — must be registered BEFORE the catch-all
-        dp.include_router(onboarding_router)
+        from adapters.inbound.telegram.callbacks_handler import router as tg_callbacks_router
+        
+        # We must include routers in order of priority. 
+        # Commands and Onboarding have priority.
         dp.include_router(tg_commands_router)
+        dp.include_router(onboarding_router)
+        dp.include_router(tg_callbacks_router)
 
-        @dp.message()
-        async def wrapped_tg_on_message(message):
+        # The general message handler (pipeline) must be LAST so it doesn't swallow commands
+        pipeline_router = Router(name="pipeline")
+        @pipeline_router.message()
+        async def wrapped_tg_on_message(message: Message):
             await tg_on_message(message, container)
+        
+        dp.include_router(pipeline_router)
 
         tasks.append(asyncio.create_task(dp.start_polling(tg_bot, handle_signals=False)))
 

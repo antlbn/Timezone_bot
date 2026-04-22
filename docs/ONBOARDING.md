@@ -36,8 +36,8 @@ cd Timezone_bot
 
     Add these values to `.env`:
 
-    - `TELEGRAM_TOKEN` for Telegram runtime
-    - `DISCORD_TOKEN` for Discord runtime
+    - `TELEGRAM_BOT_TOKEN` for Telegram runtime
+    - `DISCORD_BOT_TOKEN` for Discord runtime
     - `LLM_API_KEY` for the primary LLM provider
     - `LLM_FALLBACK_API_KEY` for the optional fallback provider
     - `LLM_BASE_URL` *(optional)* — override the primary endpoint without editing `configuration.yaml`
@@ -55,7 +55,7 @@ cd Timezone_bot
     - the canonical LLM contract is exactly two endpoints and two keys: primary + fallback,
 
 > [!TIP]
-> **Startup Logic**: Each bot checks its own token. If `TELEGRAM_TOKEN` is set — Telegram bot starts. If `DISCORD_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
+> **Startup Logic**: Each bot checks its own token. If `TELEGRAM_BOT_TOKEN` is set — Telegram bot starts. If `DISCORD_BOT_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
 
 ---
 

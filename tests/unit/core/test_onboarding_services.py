@@ -76,6 +76,7 @@ async def test_completion_use_case_returns_error_if_city_not_found():
     storage = FakeStoragePort()
     use_case = OnboardingCompletionUseCase(
         users_repo=storage,
+        chats_repo=storage,
         onboarding_pending_port=FakeOnboardingPendingPort(),
         geocoding_port=geo,
         replay_pipeline=Pipeline([]),
@@ -101,6 +102,7 @@ async def test_completion_use_case_replays_pending_and_clears_it():
     
     use_case = OnboardingCompletionUseCase(
         users_repo=storage,
+        chats_repo=storage,
         onboarding_pending_port=pending_port,
         geocoding_port=geo,
         replay_pipeline=Pipeline([StaticReplayStage(MessageDecision(reply_text="15:00 London"))]),
@@ -122,9 +124,11 @@ async def test_completion_use_case_drops_stale_pending():
     pending_port = FakeOnboardingPendingPort()
     await pending_port.upsert(1, Platform.TELEGRAM, _pending_message(minutes_old=10))
     executor = FakeCommandExecutorPort()
+    storage_port = FakeStoragePort()
     
     use_case = OnboardingCompletionUseCase(
-        users_repo=FakeStoragePort(),
+        users_repo=storage_port,
+        chats_repo=storage_port,
         onboarding_pending_port=pending_port,
         geocoding_port=FakeGeoPort(resolves_to=Location(city="L", timezone="T", country_code="C", flag="F")),
         replay_pipeline=Pipeline([]),
@@ -146,6 +150,7 @@ async def test_completion_use_case_decline():
     
     use_case = OnboardingCompletionUseCase(
         users_repo=storage,
+        chats_repo=storage,
         onboarding_pending_port=pending_port,
         geocoding_port=FakeGeoPort(),
         replay_pipeline=Pipeline([]),
