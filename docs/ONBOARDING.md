@@ -115,11 +115,13 @@ Runtime behavior is configured via `configuration.yaml`. All sections and their 
 
 | Key | Default | Description |
 | :--- | :--- | :--- |
-| `bot.show_usernames` | `false` | Append names to each timezone row: `13:00 Berlin 🇩🇪 @alice, Bob`. |
+| `bot.show_usernames` | `true` | Append names to each timezone row: `13:00 Berlin 🇩🇪 @alice, Bob`. |
 | `bot.show_event_title` | `true` | Show `event_title` above a block when the LLM explicitly extracted it. If `false`, titles are always suppressed. |
 | `bot.response_style` | `inline_sentence` | Reply layout. `block` — one timezone per line with flags and optional names; `inline_sentence` — compact flag-free inline rows. |
-| `bot.reply_to_original_message` | `false` | Post the conversion as a thread reply to the triggering message. |
-| `bot.settings_cleanup_timeout_seconds` | `30` | Auto-delete TTL (in seconds) for short-lived bot messages (`/tb_help`, timezone prompts, etc.) in shared chats. Set `0` to disable. |
+| `bot.max_age_fresh_secs` | `30` | Messages older than this are skipped before processing. |
+| `bot.onboarding_cooldown_secs` | `600` | How long to wait before showing onboarding again. |
+| `bot.onboarding_pending_ttl_secs` | `120` | How long to keep the latest onboarding-pending message for replay. |
+| `bot.group_auto_delete_delay_secs` | `20` | Auto-delete conversion results and setup prompts in group chats (seconds). |
 
 > [!TIP]
 > `show_event_title` reads what the LLM returned — it never invents a title. Turning it `off` suppresses all titles regardless of LLM output.
@@ -167,12 +169,10 @@ By tweaking `configuration.yaml`, you can radically change how the bot looks in 
 | :--- | :--- | :--- |
 | `llm.model` | `gemini-3.1-flash-lite-preview` | Primary model identifier. |
 | `llm.temperature` | `0.1` | Low temperature keeps detection deterministic. |
-| `llm.base_url` | Gemini OpenAI-compat endpoint | Default primary endpoint. Override via `.env` with `LLM_BASE_URL`. |
-| `llm.api_key_env` | `LLM_API_KEY` | Name of the env var holding the primary provider key. |
+| `llm.base_url` | `https://generativelanguage.googleapis.com/...` | Default primary endpoint. |
 | `llm.fallback.enabled` | `true` | Enable automatic retry on the fallback model when the primary fails. |
 | `llm.fallback.model` | `llama-3.1-8b-instant` | Fallback model identifier. |
-| `llm.fallback.base_url` | Groq OpenAI-compat endpoint | Default fallback endpoint. Override via `.env` with `LLM_FALLBACK_BASE_URL`. |
-| `llm.fallback.api_key_env` | `LLM_FALLBACK_API_KEY` | Name of the env var holding the fallback provider key. |
+| `llm.fallback.base_url` | `https://api.groq.com/openai/v1` | Default fallback endpoint. |
 
 ---
 
