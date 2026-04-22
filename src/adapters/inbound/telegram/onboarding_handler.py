@@ -31,29 +31,7 @@ if TYPE_CHECKING:
 router = Router(name="onboarding")
 logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True)
-class OnboardingStartContext:
-    target_user_id: int
-    source_chat_id: str | None = None
-
-def parse_onboarding_start_context(payload: str | None) -> OnboardingStartContext | None:
-    if not payload or not payload.startswith("onboard_"):
-        return None
-    parts = payload.split("_")
-    if len(parts) not in (2, 3):
-        return None
-    raw_user_id = parts[1]
-    if not raw_user_id.isdigit():
-        return None
-    source_chat_id = None
-    if len(parts) == 3:
-        source_chat_id = parts[2]
-        if not source_chat_id or source_chat_id == "-":
-            return None
-    return OnboardingStartContext(
-        target_user_id=int(raw_user_id),
-        source_chat_id=source_chat_id,
-    )
+from adapters.inbound.telegram.common import parse_onboarding_payload, OnboardingStartContext
 
 class OnboardingFSM(StatesGroup):
     waiting_city = State()
@@ -66,7 +44,7 @@ async def on_start_onboard(
     command: CommandObject | None = None,
 ) -> None:
     """Entry point for private onboarding, including validated deep links."""
-    start_context = parse_onboarding_start_context(command.args if command else None)
+    start_context = parse_onboarding_payload(command.args if command else None)
     if start_context is not None and message.from_user.id != start_context.target_user_id:
         await message.answer("This setup link belongs to another user.")
         return

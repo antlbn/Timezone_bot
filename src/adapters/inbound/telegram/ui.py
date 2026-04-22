@@ -68,6 +68,22 @@ def get_settings_keyboard(user_id: int, chat_id: str = "0", has_timezone: bool =
     
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+def get_onboarding_prompt_text(author_name: str) -> str:
+    return (
+        f"👋 <b>{author_name}</b>, to convert your time correctly, "
+        f"please specify your city."
+    )
+
+def get_onboarding_prompt_keyboard(url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[
+            InlineKeyboardButton(
+                text="📍 Set up my timezone",
+                url=url,
+            )
+        ]]
+    )
+
 def get_back_to_settings_keyboard(user_id: int, chat_id: str = "0") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(

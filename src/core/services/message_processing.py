@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.domain.commands import SendReply, ShowOnboarding
-from core.domain.value_objects import InputData, MessageContext, MessageDecision
+from core.domain.value_objects import InputData, MessageContext, MessageDecision, BotSettings
 from core.pipeline.pipeline import Pipeline
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 
@@ -26,12 +26,14 @@ class MessageProcessingService:
         chats_repo: ChatRepositoryPort,
         delivery_service: "DeliveryPort",
         onboarding_prompt: "OnboardingPromptService",
+        settings: BotSettings,
     ) -> None:
         self._fresh_pipeline = fresh_pipeline
         self._users = users_repo
         self._chats = chats_repo
         self._delivery = delivery_service
         self._onboarding = onboarding_prompt
+        self._settings = settings
 
     async def process_input(self, data: InputData) -> None:
         ctx = MessageContext(input=data)

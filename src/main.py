@@ -22,6 +22,7 @@ from adapters.outbound.nominatim_geo import NominatimGeo
 from adapters.outbound.memory_pending import MemoryOnboardingPending
 from adapters.outbound.memory_onboarding_chillout_state import MemoryOnboardingChilloutState
 from adapters.executors.telegram_executor import TelegramCommandExecutor
+from adapters.inbound.telegram.config import TelegramConfig
 from adapters.executors.discord_executor import DiscordCommandExecutor
 from adapters.inbound.discord.ui import SetTimezoneView
 from core.pipeline.pipeline import Pipeline
@@ -49,10 +50,7 @@ class AppContainer:
 logger = logging.getLogger(__name__)
 
 
-def build_settings(config_path: Path) -> BotSettings:
-    with open(config_path, "r") as f:
-        config_data = yaml.safe_load(f)
-
+def build_settings(config_data: dict) -> BotSettings:
     bot_config = config_data.get("bot", {})
     response_style_str = bot_config.get("response_style", "block")
     style = ResponseStyle.INLINE if response_style_str.lower() == "inline_sentence" else ResponseStyle.BLOCK
@@ -64,6 +62,12 @@ def build_settings(config_path: Path) -> BotSettings:
         max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
         onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
         onboarding_pending_ttl_secs=bot_config.get("onboarding_pending_ttl_secs", 3600),
+    )
+
+def build_tg_config(config_data: dict) -> TelegramConfig:
+    bot_config = config_data.get("bot", {})
+    return TelegramConfig(
+        delete_delay=bot_config.get("group_auto_delete_delay_secs", 20),
     )
 
 
@@ -139,9 +143,13 @@ async def main():
         )
     
     llm_config = LLMConfig(primary=primary_llm, fallback=fallback_llm)
+    with open(Path("configuration.yaml"), "r") as f:
+        config_data = yaml.safe_load(f)
+    
     detector = OpenAIDetector(config=llm_config)
     geocoder = NominatimGeo()
-    settings = build_settings(Path("configuration.yaml"))
+    settings = build_settings(config_data)
+    tg_config = build_tg_config(config_data)
 
     onboarding_pending_store = MemoryOnboardingPending(
         ttl_seconds=settings.onboarding_pending_ttl_secs
@@ -166,7 +174,14 @@ async def main():
 
     onboarding_completion: OnboardingCompletionUseCase | None = None
 
-    tg_executor = TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username) if (tg_bot and tg_username) else None
+    tg_executor = (
+        TelegramCommandExecutor(
+            bot=tg_bot,
+            bot_username=tg_username,
+            config=tg_config
+        )
+        if (tg_bot and tg_username) else None
+    )
 
     def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
         if onboarding_completion is None:
@@ -205,6 +220,7 @@ async def main():
         chats_repo=storage,
         delivery_service=delivery_service,
         onboarding_prompt=onboarding_prompt,
+        settings=settings,
     )
 
     profile_service = ProfileService(users_repo=storage, chats_repo=storage)
@@ -236,6 +252,7 @@ async def main():
                 data: dict[str, Any],
             ) -> Any:
                 data["container"] = container
+                data["tg_config"] = tg_config
                 return await handler(event, data)
 
         dp.update.outer_middleware(ContainerMiddleware())
