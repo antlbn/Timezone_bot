@@ -15,7 +15,8 @@ def get_help_text(chat_type: str) -> str:
         "• /tb_settz — set or change your timezone\n"
         "• /tb_decline — stop the bot and ignore me\n\n"
         "Group commands:\n"
-        "• /tb_members — list tracked members in the current chat\n\n"
+        "• /tb_members — list tracked members in the current chat\n"
+        "• /tb_deletemember [number] — remove a member from the list\n\n"
         "Mention a time in a group chat and I'll convert it for known members automatically."
     )
 

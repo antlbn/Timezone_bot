@@ -102,6 +102,46 @@ async def cmd_members(message: Message, container: "AppContainer", tg_config: "T
     await schedule_deletion(message, delay=tg_config.delete_delay)
     await schedule_deletion(reply, delay=tg_config.delete_delay)
 
+
+@router.message(Command("tb_deletemember"), StateFilter("*"))
+async def cmd_delete_member(message: Message, container: "AppContainer", tg_config: "TelegramConfig") -> None:
+    if message.chat.type == "private":
+        await message.answer("This command only works in groups.")
+        return
+
+    members = await container.profile_service.get_sorted_chat_members(str(message.chat.id), Platform.TELEGRAM)
+    if not members:
+        await message.answer("No members registered here yet.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        text = _format_chat_members(members)
+        text += "\n\nTo remove a member, use: <code>/tb_deletemember [number]</code>"
+        reply = await message.answer(text)
+        await schedule_deletion(message, delay=tg_config.delete_delay)
+        await schedule_deletion(reply, delay=tg_config.delete_delay)
+        return
+
+    try:
+        idx = int(args[1]) - 1
+        if idx < 0 or idx >= len(members):
+            raise ValueError()
+        
+        target = members[idx]
+        await container.chats_repo.remove_chat_member(
+            chat_id=str(message.chat.id),
+            user_id=target.user_id,
+            platform=Platform.TELEGRAM
+        )
+        reply = await message.answer(f"✅ Removed <b>{target.username or target.city or target.user_id}</b> from this chat's list.")
+    except ValueError:
+        reply = await message.answer("❌ Invalid number. Please use a number from the list.")
+
+    await schedule_deletion(message, delay=tg_config.delete_delay)
+    await schedule_deletion(reply, delay=tg_config.delete_delay)
+
+
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
 async def cmd_help(message: Message, tg_config: "TelegramConfig") -> None:
     reply = await message.answer(ui.get_help_text(message.chat.type))
