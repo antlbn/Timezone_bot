@@ -88,8 +88,9 @@ flowchart LR
 
 ---
 
-## Docs
+## Documentation
 
-- [docs/ONBOARDING.md](docs/ONBOARDING.md) — prerequisites, local setup, configuration reference
-- [docs/HANDOVER.md](docs/HANDOVER.md) — key architectural decisions and trade-offs
-- [journal/](journal/) — canonical specs and source of truth
+- [docs/setup.md](docs/setup.md) — Prerequisites, local setup, and configuration.
+- [docs/architecture.md](docs/architecture.md) — Technical deep dive: Hexagonal Architecture, Pipeline, and Command patterns.
+- [docs/decisions.md](docs/decisions.md) — Design decisions, trade-offs, and product roadmap.
+- [docs/archive/](docs/archive/) — Historical project logs and session notes.

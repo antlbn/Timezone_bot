@@ -28,6 +28,10 @@ def build_settings(config_data: dict) -> BotSettings:
         show_event_title=bot_config.get("show_event_title", True),
         response_style=style,
         max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
+        max_message_hard_skip_chars=config_data.get("event_detection", {}).get(
+            "max_message_hard_skip_chars",
+            4000,
+        ),
         onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
         onboarding_pending_ttl_secs=bot_config.get("onboarding_pending_ttl_secs", 3600),
     )

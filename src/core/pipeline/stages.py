@@ -20,12 +20,15 @@ logger = logging.getLogger(__name__)
 
 class GuardStage:
     """Drops messages that should never enter the pipeline."""
+    def __init__(self, settings: BotSettings):
+        self._settings = settings
+
     async def process(self, ctx: MessageContext) -> MessageContext:
         if ctx.input.is_bot:
             return dataclasses.replace(ctx, stop_processing=True)
         if not ctx.input.text or ctx.input.text.strip() == "":
             return dataclasses.replace(ctx, stop_processing=True)
-        if len(ctx.input.text) > 4000:
+        if len(ctx.input.text) > self._settings.max_message_hard_skip_chars:
             return dataclasses.replace(ctx, stop_processing=True)
         return ctx
 

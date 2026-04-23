@@ -15,7 +15,7 @@ def _fresh_pipeline(storage, detection, settings=None, time_port=None):
     settings = settings or BotSettings()
     time_port = time_port or FakeTimePort()
     return Pipeline([
-        GuardStage(),
+        GuardStage(settings),
         AgingStage(settings, time_port),
         DetectionStage(detection),
         HydrationStage(users_repo=storage, chats_repo=storage),
@@ -149,12 +149,25 @@ async def test_pipeline_aging_stage_drops_old_messages():
 
 @pytest.mark.asyncio
 async def test_pipeline_guard_stage_drops_bots():
-    pipeline = Pipeline([GuardStage()])
+    pipeline = Pipeline([GuardStage(BotSettings())])
 
     ctx = MessageContext(input=InputData(
         text="Meeting at 15:00", user_id=1, platform=Platform.TELEGRAM,
         author_name="Bot", timestamp_utc=datetime.now(timezone.utc), chat_id="chat1",
         is_bot=True
+    ))
+
+    ctx = await pipeline.run(ctx)
+    assert ctx.stop_processing is True
+
+
+@pytest.mark.asyncio
+async def test_pipeline_guard_stage_uses_configured_hard_skip_limit():
+    pipeline = Pipeline([GuardStage(BotSettings(max_message_hard_skip_chars=5))])
+
+    ctx = MessageContext(input=InputData(
+        text="123456", user_id=1, platform=Platform.TELEGRAM,
+        author_name="John", timestamp_utc=datetime.now(timezone.utc), chat_id="chat1"
     ))
 
     ctx = await pipeline.run(ctx)

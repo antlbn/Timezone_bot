@@ -53,7 +53,7 @@ def build_pipelines(storage, detector, geocoder, settings, time_port) -> tuple[P
     )
 
     fresh_pipeline = Pipeline([
-        GuardStage(),
+        GuardStage(settings),
         AgingStage(settings, time_port),
         DetectionStage(detector),
         GeoResolveStage(geocoder),

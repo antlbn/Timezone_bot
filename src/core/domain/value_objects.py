@@ -77,6 +77,7 @@ class BotSettings:
     show_event_title: bool = True
     response_style: ResponseStyle = ResponseStyle.BLOCK
     max_age_fresh_secs: int = 30
+    max_message_hard_skip_chars: int = 4000
     onboarding_cooldown_secs: int = 3600  # How long to wait before re-prompting an ignoring user
     onboarding_pending_ttl_secs: int = 3600
 
