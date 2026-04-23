@@ -207,9 +207,9 @@ For whoever continues developing the project, here is the list of top-priority p
    * *Problem:* Currently, `fresh_pipeline` and `replay_pipeline` (in `main.py`) share several identical stages, leading to code duplication.
    * *Improvement:* Introduce a builder that constructs the pipeline based on a `flow_type` flag (fresh vs. replay). This ensures that the common processing "tail" (formatting, hydration) remains synchronized.
 
-5. **Structured Delivery Feedback (`DeliveryResult`):**
-   * *Problem:* The delivery layer currently uses a "fire and forget" approach. The core has no visibility into whether a message was actually delivered or blocked by the user.
-   * *Improvement:* Update the `DeliveryPort` and `CommandExecutorPort` to return a list of `DeliveryResult` objects. This will allow the core to react to infrastructure errors (e.g., marking a user as inactive if they blocked the bot) and improve overall system observability.
+5. **Handling Infrastructure Errors (e.g., User Blocked Bot):**
+   * *Problem:* The delivery layer currently uses a strict "fire and forget" approach. If a user blocks the bot in Telegram, the adapter logs the error, but the core business state (user activity) is not updated, leading to wasted processing in the future.
+   * *Improvement (Point of Growth):* When the user base grows and reducing unnecessary API calls becomes important, outbound adapters should catch specific infrastructure exceptions (e.g., `telegram.error.Forbidden`). **Crucially, this should not be done by returning error signals back to the core pipeline.** Instead, the adapter should invert control and directly call a specific Use Case (e.g., `DeactivateUserUseCase`) or publish an internal domain event. This keeps the main pipeline asynchronous and clean while reacting to business-relevant infrastructure events.
 
 ## 6. Canonical Specs
 

@@ -217,17 +217,15 @@ def format_multi_conversion(
                 return f"It is {title} at {body}"
             return f"It is {body}"
         else:
-            # Multi-point inline: "Title at:\nTime"
+            # Multi-point inline
             res_blocks = []
             for point, body in valid_results:
-                # format_single_point for INLINE now ignores show_event_title, 
-                # so 'body' is always clean.
                 title = point.event_title if point.event_title and show_event_title else ""
                 if title:
-                    res_blocks.append(f"{title} at:\n{body}")
+                    res_blocks.append(f"It is {title} at {body}")
                 else:
-                    res_blocks.append(body)
-            return "\n".join(res_blocks)
+                    res_blocks.append(f"It is {body}")
+            return "\n\n".join(res_blocks)
 
     # Block format
     return "\n\n".join(block for _, block in valid_results)
