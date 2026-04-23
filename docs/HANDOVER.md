@@ -203,6 +203,14 @@ For whoever continues developing the project, here is the list of top-priority p
 3. **Evaluate Geocoding Providers:**
    * The current city-to-timezone resolution mechanism (`GeoResolveStage`) should be treated as a baseline. Alternative strategies and providers should be evaluated in the future.
 
+4. **Declarative Pipeline Builder:**
+   * *Problem:* Currently, `fresh_pipeline` and `replay_pipeline` (in `main.py`) share several identical stages, leading to code duplication.
+   * *Improvement:* Introduce a builder that constructs the pipeline based on a `flow_type` flag (fresh vs. replay). This ensures that the common processing "tail" (formatting, hydration) remains synchronized.
+
+5. **Structured Delivery Feedback (`DeliveryResult`):**
+   * *Problem:* The delivery layer currently uses a "fire and forget" approach. The core has no visibility into whether a message was actually delivered or blocked by the user.
+   * *Improvement:* Update the `DeliveryPort` and `CommandExecutorPort` to return a list of `DeliveryResult` objects. This will allow the core to react to infrastructure errors (e.g., marking a user as inactive if they blocked the bot) and improve overall system observability.
+
 ## 6. Canonical Specs
 
 Start here when changing behavior:
