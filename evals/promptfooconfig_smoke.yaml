@@ -1,0 +1,11 @@
+env_file: ../.env
+prompts:
+  - "Hello, respond with JSON: {\"status\": \"ok\"}"
+
+providers:
+  - id: google:gemini-1.5-flash
+  - id: groq:llama-3.1-8b-instant
+
+tests:
+  - vars:
+      input: "test"

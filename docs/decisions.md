@@ -49,7 +49,7 @@ This is partly a product decision and partly a platform constraint:
 - keeping membership passive keeps the shared core simpler and avoids broad background synchronization
 
 ### 2.6 AM/PM Ambiguity
-If AM/PM is unclear, the bot publishes with an `AM/PM?` annotation instead of staying silent.
+If AM/PM is unclear, the bot publishes with an `AM/PM?` annotation instead of staying silent. - look into roadmap to solve it.
 
 ### 2.8 Error Handling & Logging Strategy
 На текущем этапе в проекте отсутствует комплексная стратегия логирования. Это осознанный компромисс:
@@ -78,7 +78,7 @@ The following limitations are part of the current MVP behavior and should be tre
 1. **Interactive AM/PM Clarification**: Ask the user instead of just annotating.
 2. **Multi-Message Context**: Feed 3-5 previous messages to the LLM for better context.
 3. **Infrastructure Error Handling**: Handle "Bot Blocked" by deactivating users in the DB.
-4. **Declarative Pipeline Builder**: Reduce duplication between fresh and replay pipelines.
+4. **pipeline logging strategy** - define domain vs infrastructure errors and handle them accordingly.
 
 ---
 
