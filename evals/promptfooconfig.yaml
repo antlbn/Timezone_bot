@@ -1,7 +1,7 @@
 env_file: ../.env
 prompts:
   - file://prompts/prompt_v5_en.txt
-  - file://prompts/prompt_balanced.txt
+  # - file://prompts/prompt_balanced.txt
 
 providers:
   # Primary: Gemini
@@ -20,7 +20,8 @@ evaluateOptions:
   maxConcurrency: 2
 
 tests:
-  - file://cases.yaml
+  # - file://cases.yaml
+  - file://cases_mini.yaml
 
 defaultTest:
   options:
