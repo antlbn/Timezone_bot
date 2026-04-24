@@ -16,10 +16,9 @@ from adapters.inbound.discord.setup import setup_discord
 logger = logging.getLogger(__name__)
 
 async def main():
-    logging.basicConfig(level=logging.INFO)
-    logger.info("Starting Timezone Bot (Refactored Composition Root)")
-
     config = load_config()
+    logging.basicConfig(level=getattr(logging, config.logging.level, logging.INFO))
+    logger.info("Starting Timezone Bot (Refactored Composition Root)")
     
     if not config.tg_token and not config.dc_token:
         logger.error("No bot tokens found. Exiting.")

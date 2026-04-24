@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from dataclasses import dataclass
 from dotenv import load_dotenv
-from core.domain.value_objects import BotSettings, LLMConfig, LLMModelConfig
+from core.domain.value_objects import BotSettings, LLMConfig, LLMModelConfig, LoggingConfig
 from core.domain.enums import ResponseStyle
 from adapters.inbound.telegram.config import TelegramConfig
 
@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class AppConfig:
     tg_token: str | None
     dc_token: str | None
+    logging: LoggingConfig
     llm: LLMConfig
+    log_prompts: bool
     bot: BotSettings
     telegram: TelegramConfig
 
@@ -42,27 +44,19 @@ def build_tg_config(config_data: dict) -> TelegramConfig:
         delete_delay=bot_config.get("group_auto_delete_delay_secs", 20),
     )
 
+
+def build_logging_config(config_data: dict) -> LoggingConfig:
+    logging_config = config_data.get("logging", {})
+    return LoggingConfig(
+        level=str(logging_config.get("level", "INFO")).upper(),
+    )
+
 def load_config() -> AppConfig:
     load_dotenv()
     
     tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
     dc_token = os.getenv("DISCORD_BOT_TOKEN")
-    
-    # LLM Setup
-    primary_llm = LLMModelConfig(
-        api_key=os.getenv("LLM_API_KEY"),
-        base_url=os.getenv("LLM_BASE_URL"),
-        model=os.getenv("LLM_MODEL", "gemini-3-flash-lite-preview")
-    )
-    fallback_llm = None
-    if os.getenv("LLM_FALLBACK_API_KEY"):
-        fallback_llm = LLMModelConfig(
-            api_key=os.getenv("LLM_FALLBACK_API_KEY"),
-            base_url=os.getenv("LLM_FALLBACK_BASE_URL"),
-            model=os.getenv("LLM_FALLBACK_MODEL", "llama-3.1-8b-instant")
-        )
-    llm_config = LLMConfig(primary=primary_llm, fallback=fallback_llm)
-    
+
     # YAML Setup
     config_path = Path("configuration.yaml")
     if not config_path.exists():
@@ -71,11 +65,29 @@ def load_config() -> AppConfig:
     else:
         with open(config_path, "r") as f:
             config_data = yaml.safe_load(f) or {}
+    
+    primary_llm = LLMModelConfig(
+        api_key=os.getenv("LLM_API_KEY"),
+        base_url=os.getenv("LLM_BASE_URL"),
+        model=os.getenv("LLM_MODEL", "gemini-3-flash-lite-preview"),
+        temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
+    )
+    fallback_llm = None
+    if os.getenv("LLM_FALLBACK_API_KEY"):
+        fallback_llm = LLMModelConfig(
+            api_key=os.getenv("LLM_FALLBACK_API_KEY"),
+            base_url=os.getenv("LLM_FALLBACK_BASE_URL"),
+            model=os.getenv("LLM_FALLBACK_MODEL", "llama-3.1-8b-instant"),
+            temperature=float(os.getenv("LLM_FALLBACK_TEMPERATURE", "0.0")),
+        )
+    llm_config = LLMConfig(primary=primary_llm, fallback=fallback_llm)
             
     return AppConfig(
         tg_token=tg_token,
         dc_token=dc_token,
+        logging=build_logging_config(config_data),
         llm=llm_config,
+        log_prompts=bool(config_data.get("event_detection", {}).get("log_prompts", False)),
         bot=build_settings(config_data),
         telegram=build_tg_config(config_data)
     )

@@ -82,8 +82,6 @@ async def test_completion_use_case_returns_error_if_city_not_found():
         geocoding_port=geo,
         replay_pipeline=Pipeline([]),
         delivery_service=DeliveryService(tg_executor=FakeCommandExecutorPort()),
-        settings=BotSettings(),
-        time_port=FakeTimePort(),
     )
     
     result = await use_case.complete(1, "UnknownCity", Platform.TELEGRAM)
@@ -109,8 +107,6 @@ async def test_completion_use_case_replays_pending_and_clears_it():
         geocoding_port=geo,
         replay_pipeline=Pipeline([StaticReplayStage(MessageDecision(reply_text="15:00 London"))]),
         delivery_service=DeliveryService(tg_executor=executor),
-        settings=BotSettings(),
-        time_port=FakeTimePort(),
     )
     
     result = await use_case.complete(1, "London", Platform.TELEGRAM)
@@ -123,7 +119,7 @@ async def test_completion_use_case_replays_pending_and_clears_it():
     assert await pending_port.get(1, Platform.TELEGRAM) is None
 
 @pytest.mark.asyncio
-async def test_completion_use_case_drops_stale_pending():
+async def test_completion_use_case_replays_pending_even_if_message_is_old():
     pending_port = FakeOnboardingPendingPort()
     await pending_port.upsert(1, Platform.TELEGRAM, _pending_message(minutes_old=10))
     executor = FakeCommandExecutorPort()
@@ -134,16 +130,16 @@ async def test_completion_use_case_drops_stale_pending():
         chats_repo=storage_port,
         onboarding_pending_port=pending_port,
         geocoding_port=FakeGeoPort(resolves_to=Location(city="L", timezone="T", country_code="C", flag="F")),
-        replay_pipeline=Pipeline([]),
+        replay_pipeline=Pipeline([StaticReplayStage(MessageDecision(reply_text="15:00 T"))]),
         delivery_service=DeliveryService(tg_executor=executor),
-        settings=BotSettings(max_age_fresh_secs=30),
-        time_port=FakeTimePort(),
     )
     
     result = await use_case.complete(1, "London", Platform.TELEGRAM)
     
     assert result.ok is True
-    assert executor.executed_commands == []
+    assert executor.executed_commands == [
+        SendReply(text="15:00 T", chat_id="chat1", thread_id="thread-1")
+    ]
     assert await pending_port.get(1, Platform.TELEGRAM) is None
 
 @pytest.mark.asyncio
@@ -159,8 +155,6 @@ async def test_completion_use_case_decline():
         geocoding_port=FakeGeoPort(),
         replay_pipeline=Pipeline([]),
         delivery_service=DeliveryService(tg_executor=FakeCommandExecutorPort()),
-        settings=BotSettings(),
-        time_port=FakeTimePort(),
     )
     
     await use_case.decline(1, Platform.TELEGRAM)

@@ -1,13 +1,7 @@
-# Project Configuration
-app_name: timezone_bot
-version: 0.1.0
-
 # Logging Configuration
 logging:
   # Levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
   level: DEBUG
-  # Format: json or text (default: text)
-  format: text
 
 # Bot Settings
 bot:
@@ -26,34 +20,11 @@ bot:
   # Auto-delete conversion results and setup prompts in group chats (seconds)
   group_auto_delete_delay_secs: 20
 
-# LLM Runtime
-llm:
-  model: gemini-3.1-flash-lite-preview
-  temperature: 0.1
-  base_url: https://generativelanguage.googleapis.com/v1beta/openai
-  fallback:
-    enabled: true
-    model: llama-3.1-8b-instant
-    temperature: 0.1
-    base_url: https://api.groq.com/openai/v1
-
 # Event Detection (LLM Layer)
 # See: journal/14_llm_module.md
 event_detection:
   # Dedicated logging mode for LLM contexts (true = show full prompt in console)
   log_prompts: false
 
-  # Aging & limits
-  # Messages older than this are skipped before processing
-  max_message_age_seconds: 30
-  # Hard skip: messages longer than this are ignored entirely
+  # Hard skip: messages longer than this are ignored before LLM detection
   max_message_hard_skip_chars: 2000
-  # How long to keep "frozen" messages during onboarding
-  onboarding_timeout_seconds: 120
-  # How long to wait before re-prompting a user who ignored/abandoned DM onboarding
-  dm_onboarding_cooldown_seconds: 600
-
-# Data Management
-storage:
-  # Delete users who haven't interacted with the bot for this many days (0 = disabled)
-  inactive_user_retention_days: 30

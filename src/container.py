@@ -81,7 +81,7 @@ async def build_container(
     await storage.initialize()
 
     time_port = RealTimeAdapter()
-    detector = OpenAIDetector(config=config.llm)
+    detector = OpenAIDetector(config=config.llm, log_prompts=config.log_prompts)
     geocoder = NominatimGeo()
     
     onboarding_pending_store = MemoryOnboardingPending(
@@ -127,8 +127,6 @@ async def build_container(
         geocoding_port=geocoder,
         replay_pipeline=replay_pipeline,
         delivery_service=delivery_service,
-        settings=config.bot,
-        time_port=time_port,
     )
     onboarding_completion_holder[0] = onboarding_completion
 

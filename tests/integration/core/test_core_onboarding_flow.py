@@ -35,7 +35,7 @@ def _make_fresh_pipeline(storage, detection, geo=None, settings=None, time_port=
     geo = geo or FakeGeoPort()
     time_port = time_port or FakeTimePort()
     return Pipeline([
-        GuardStage(),
+        GuardStage(settings),
         AgingStage(settings, time_port),
         DetectionStage(detection),
         GeoResolveStage(geo),
@@ -87,8 +87,6 @@ def _make_services(
         geocoding_port=geo,
         replay_pipeline=replay,
         delivery_service=delivery,
-        settings=settings,
-        time_port=time_port,
     )
     processor = MessageProcessingService(
         fresh_pipeline=_make_fresh_pipeline(storage, detection, geo, settings, time_port),
@@ -207,7 +205,7 @@ async def test_complete_replays_latest_pending_and_clears_it():
 
 
 @pytest.mark.asyncio
-async def test_complete_drops_stale_pending_without_reply():
+async def test_complete_replays_pending_even_if_message_is_old():
     storage = FakeStoragePort()
     pending = FakeOnboardingPendingPort()
     geo = FakeGeoPort()
@@ -240,7 +238,8 @@ async def test_complete_drops_stale_pending_without_reply():
     result = await onboarding_completion.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
-    assert tg_executor.executed_commands == []
+    assert len(tg_executor.executed_commands) == 1
+    assert isinstance(tg_executor.executed_commands[0], SendReply)
     assert await pending.get(1, Platform.TELEGRAM) is None
 
 

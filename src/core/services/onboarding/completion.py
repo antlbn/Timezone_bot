@@ -2,13 +2,12 @@ from dataclasses import dataclass
 
 from core.domain.commands import SendReply
 from core.domain.enums import Platform
-from core.domain.value_objects import MessageContext, OnboardingPendingMessage, BotSettings
+from core.domain.value_objects import MessageContext, OnboardingPendingMessage
 from core.pipeline.pipeline import Pipeline
 from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
 from ports.pending import OnboardingPendingPort
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
-from ports.time import TimePort
 
 @dataclass(frozen=True)
 class OnboardingResult:
@@ -22,7 +21,7 @@ class OnboardingCompletionUseCase:
     """Executes the final stage of onboarding.
     
     Resolves the provided city to a timezone, updates the user's profile,
-    and replays any pending messages if they are still fresh.
+    and replays any pending messages that are still present in pending storage.
     """
     def __init__(
         self,
@@ -32,8 +31,6 @@ class OnboardingCompletionUseCase:
         geocoding_port: GeoPort,
         replay_pipeline: Pipeline,
         delivery_service: DeliveryPort,
-        settings: BotSettings,
-        time_port: TimePort,
     ) -> None:
         self._users = users_repo
         self._chats = chats_repo
@@ -41,8 +38,6 @@ class OnboardingCompletionUseCase:
         self._geo = geocoding_port
         self._replay_pipeline = replay_pipeline
         self._delivery = delivery_service
-        self._settings = settings
-        self._time = time_port
 
     async def complete(
         self,
@@ -77,12 +72,9 @@ class OnboardingCompletionUseCase:
                     user_id=user_id,
                     platform=platform,
                 )
-            
-            if self._is_replay_stale(pending_message):
-                await self._onboarding_pending.delete(user_id, platform)
-            else:
-                await self._replay_latest_pending(pending_message)
-                await self._onboarding_pending.delete(user_id, platform)
+
+            await self._replay_latest_pending(pending_message)
+            await self._onboarding_pending.delete(user_id, platform)
 
         return OnboardingResult(
             ok=True,
@@ -98,10 +90,6 @@ class OnboardingCompletionUseCase:
         """
         await self._users.set_onboarding_declined(user_id, platform)
         await self._onboarding_pending.delete(user_id, platform)
-
-    def _is_replay_stale(self, pending: OnboardingPendingMessage) -> bool:
-        age_seconds = (self._time.now_utc() - pending.original_input.timestamp_utc).total_seconds()
-        return age_seconds > self._settings.max_age_fresh_secs
 
     async def _replay_latest_pending(self, pending: OnboardingPendingMessage) -> None:
         ctx = MessageContext(

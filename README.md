@@ -1,96 +1,60 @@
 # Timezone Bot
 
-A bot that helps distributed teams coordinate time in group chats — on **Telegram** and **Discord**, from a single shared core.
+Timezone Bot detects time mentions in Telegram and Discord group chats and replies with converted local times for known chat members.
 
 ## What It Does
 
-Timezone Bot watches normal conversation in group chats. When someone mentions a time coordination event, it detects it and replies with local times for every known member of that chat — no commands needed.
+- Watches regular chat messages.
+- Uses an LLM to detect time references in the current message.
+- Resolves the source timezone from the message or from the sender profile.
+- Converts the detected time for known members of the same chat.
+- Starts onboarding when a user without a configured timezone mentions time.
 
-### 🌟 Flexible & Beautiful Formatting
+## Example
 
-You can configure the bot to display times in a compact sentence or as a detailed block with member names and event titles.
-
-**Compact Mode (`inline_sentence`)**: Perfect for quick updates and preserving screen space.
 ```text
-👤 Maria: Let's sync at 3pm tomorrow
-
-🤖 It is 15:00 Berlin, 09:00 New York, 23:00 Tokyo
+User: Let's sync tomorrow at 15:00
+Bot: It is 15:00 Berlin, 09:00 New York
 ```
 
-*(Handles multiple time points in one reply:)*
-```text
-👤 Jane: Standup at 10:30, then the retro is at 15:00.
-
-🤖 It is 10:30 London, 11:30 Berlin
-
-   It is 15:00 London, 16:00 Berlin
-```
-
-**Extended Mode (`block`)**: Great for larger teams or detailed coordination. Includes flags, usernames, and extracted event titles.
-```text
-👤 Anton: Due to the holiday, the final release review is postponed to tomorrow 5pm.
-
-🤖 final release review
-   17:00 Berlin 🇩🇪 @anton, @maria
-   16:00 London 🇬🇧 @john
-```
-
-> **Note:** The current MVP uses `one-shot / one-message` LLM detection intentionally — no multi-message history in this branch.
-
----
+Reply formatting is configurable through `configuration.yaml`.
 
 ## Architecture
 
-### Adapter + Shared Core
+The project uses platform adapters around a shared application/core flow.
 
-The central design idea: **platform adapters are thin delivery layers; all business logic lives in a shared core.**
+- Telegram and Discord adapters receive incoming messages.
+- `MessageProcessingService` runs the fresh-message workflow.
+- `Pipeline` performs detection, timezone resolution, member hydration, formatting, and decision-making.
+- Delivery executors send replies or onboarding prompts back to the platform.
 
-```
-┌─────────────────────────────────────────────────┐
-│                  Shared Core                    │
-│                                                 │
-│  event_detection  →  geo  →  transform          │
-│       ↓                        ↓                │
-│  onboarding/pending          formatter          │
-│       ↓                        ↓                │
-│            storage  ←──────────┘               │
-└──────────────┬──────────────────┬───────────────┘
-               │                  │
-    ┌──────────▼──────┐  ┌────────▼──────────┐
-    │ Telegram Adapter│  │  Discord Adapter  │
-    │   (aiogram)     │  │  (discord.py)     │
-    └─────────────────┘  └───────────────────┘
+Current fresh-message pipeline:
+
+```text
+GuardStage
+-> AgingStage
+-> DetectionStage
+-> GeoResolveStage
+-> HydrationStage
+-> FormatStage
+-> DecisionStage
 ```
 
-The LLM **does not send replies** — it returns structured JSON detection only. The shared bot logic decides whether conversion is allowed; Telegram and Discord are delivery and UX adapters.
+The pipeline returns `MessageContext` with a final `MessageDecision`. It does not send messages and does not write pending onboarding state directly.
 
-### Shared Core Modules
+## Run Locally
 
-| Module | Responsibility |
-|---|---|
-| `event_detection/` | One-shot LLM call + JSON validation |
-| `geo.py` | City/place → IANA timezone resolution |
-| `transform.py` | UTC-pivot time conversion |
-| `formatter.py` | Human-readable, grouped reply text |
-| `storage/` | SQLite persistence + in-memory caches |
-| `services/` | Cross-platform user service logic |
-
-### Message Flow
-
-```mermaid
-flowchart LR
-    A[Message in group chat] --> B[LLM detection]
-    B -->|time_mentioned=false| S[Stay silent]
-    B -->|time_mentioned=true| C[Resolve source timezone]
-    C --> D[Convert for known members]
-    D --> E[Reply in chat]
+```bash
+cp env.example .env
+uv sync
+./run.sh
 ```
 
----
+Python 3.12+ is required.
 
 ## Documentation
 
-- [docs/setup.md](docs/setup.md) — Prerequisites, local setup, and configuration.
-- [docs/architecture.md](docs/architecture.md) — Technical deep dive: Hexagonal Architecture, Pipeline, and Command patterns.
-- [docs/decisions.md](docs/decisions.md) — Design decisions, trade-offs, and product roadmap.
-- [docs/archive/](docs/archive/) — Historical project logs and session notes.
+- [docs/setup.md](docs/setup.md) — setup, runtime configuration, and tests
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — current architecture and message flow
+- [docs/decisions.md](docs/decisions.md) — design decisions and accepted trade-offs
+- [docs/archive/](docs/archive/) — historical notes

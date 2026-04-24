@@ -9,8 +9,9 @@ from core.domain.value_objects import TimePoint, LLMConfig
 logger = logging.getLogger(__name__)
 
 class OpenAIDetector(DetectionPort):
-    def __init__(self, config: LLMConfig):
+    def __init__(self, config: LLMConfig, log_prompts: bool = False):
         self._config = config
+        self._log_prompts = log_prompts
 
     def _strip_json_fences(self, raw: str) -> str:
         text = (raw or "").strip()
@@ -99,9 +100,17 @@ EXAMPLES:
 
                 user_content = f"CURRENT TIME (UTC): {request.timestamp}\nCURRENT MESSAGE:\n{request.text}"
 
+                if self._log_prompts:
+                    logger.info(
+                        "LLM detection prompt model=%s system=%r user=%r",
+                        m_cfg.model,
+                        system_prompt,
+                        user_content,
+                    )
+
                 response = await client.chat.completions.create(
                     model=m_cfg.model,
-                    temperature=0.0,
+                    temperature=m_cfg.temperature,
                     response_format={"type": "json_object"},
                     messages=[
                         {"role": "system", "content": system_prompt},

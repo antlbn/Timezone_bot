@@ -1,199 +1,117 @@
-# Onboarding: How to Run the Bot
+# Setup
 
-This guide covers the current MVP local setup.
-
-## Clone Repository
-
-```bash
-git clone https://github.com/antlbn/Timezone_bot.git
-cd Timezone_bot
-```
+This document describes the current local setup and the runtime configuration that is actually wired into the code.
 
 ## Prerequisites
 
-1.  **Telegram Bot Setup**:
-    1.  Open [@BotFather](https://t.me/botfather) in Telegram.
-    2.  Send `/newbot` and follow instructions to name your bot.
-    3.  **Copy the API Token** provided by BotFather.
-    4.  **Configure Privacy** (Critical):
-        *   Send `/mybots` -> Select Bot -> `Bot Settings` -> `Group Privacy` -> **Turn off**.
+- Python 3.12+
+- `uv`
+- Telegram bot token if you want to run the Telegram adapter
+- Discord bot token if you want to run the Discord adapter
+- LLM API key for detection
 
-2.  **Discord Bot Setup** (optional):
-    1.  [Discord Developer Portal](https://discord.com/developers/applications) → New Application → Bot → Copy **Token**.
-    2.  **Privileged Gateway Intents** (scroll down in Bot section):
-        - ✅ Server Members Intent
-        - ✅ Message Content Intent
-        - Save Changes.
-    3.  **OAuth2 → URL Generator**:
-        - Scopes: `bot`, `applications.commands`
-        - Permissions: `Send Messages`, `Read Message History`, `Use Slash Commands`
-        - Copy Generated URL → open in browser → select server.
-    
-3.  **Environment**:
-    ```bash
-    cp env.example .env
-    ```
+## Telegram Bot
 
-    Add these values to `.env`:
+1. Open [@BotFather](https://t.me/botfather) in Telegram.
+2. Create a bot with `/newbot`.
+3. Copy the token into `.env`.
+4. Disable group privacy for the bot:
+   `Bot Settings -> Group Privacy -> Turn off`
 
-    - `TELEGRAM_BOT_TOKEN` for Telegram runtime
-    - `DISCORD_BOT_TOKEN` for Discord runtime
-    - `LLM_API_KEY` for the primary LLM provider
-    - `LLM_FALLBACK_API_KEY` for the optional fallback provider
-    - `LLM_BASE_URL` *(optional)* — override the primary endpoint without editing `configuration.yaml`
-    - `LLM_FALLBACK_BASE_URL` *(optional)* — override the fallback endpoint without editing `configuration.yaml`
+## Discord Bot
 
-    Current default LLM runtime:
+1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Create a bot and copy the token into `.env`.
+3. Enable privileged intents:
+   `Server Members Intent`
+   `Message Content Intent`
+4. Add the bot to a server with scopes `bot` and `applications.commands`.
 
-    - primary model: Gemini 3.1 Flash-Lite via its OpenAI-compatible endpoint
-    - fallback model: for instance llama 8b / Nemotron 4 12B  / gpt 20b
-    - the current prompt contract also works well with Nemotron and smaller models in the Llama 8B class
+## Environment Variables
 
-    Notes:
+Create `.env` from the example file:
 
-    - the LLM env names are intentionally provider-agnostic,
-    - the canonical LLM contract is exactly two endpoints and two keys: primary + fallback,
+```bash
+cp env.example .env
+```
 
-> [!TIP]
-> **Startup Logic**: Each bot checks its own token. If `TELEGRAM_BOT_TOKEN` is set — Telegram bot starts. If `DISCORD_BOT_TOKEN` is set — Discord bot starts. Missing token = bot skips gracefully (no crash). You can run one or both.
+Supported variables:
 
----
+- `TELEGRAM_BOT_TOKEN`
+- `DISCORD_BOT_TOKEN`
+- `LLM_API_KEY`
+- `LLM_BASE_URL`
+- `LLM_MODEL`
+- `LLM_TEMPERATURE`
+- `LLM_FALLBACK_API_KEY`
+- `LLM_FALLBACK_BASE_URL`
+- `LLM_FALLBACK_MODEL`
+- `LLM_FALLBACK_TEMPERATURE`
 
-## Manual Execution
+LLM settings are resolved as:
 
-Requires Python 3.12+.
+- environment variables are the source of truth
+- if a variable is missing, the code falls back to its built-in default
 
-1.  **Install dependencies**:
-    ```bash
-    uv sync
-    ```
+Fallback is enabled only when both of these are true:
 
-2.  **Run**:
-    ```bash
-    ./run.sh
-    ```
-    
----
+- `LLM_FALLBACK_API_KEY` is present in the environment
+- fallback model settings are present or can use built-in defaults
 
-## Running Tests
+## Install And Run
+
+Install dependencies:
+
+```bash
+uv sync
+```
+
+Run the bot:
+
+```bash
+./run.sh
+```
+
+## Tests
+
 ```bash
 uv run pytest tests/ -v
 ```
 
----
+## Active Configuration
 
-## Runtime Behavior
+The current code reads these keys from `configuration.yaml`.
 
-Once the bot is running:
+### `logging`
 
-1.  Add it to a Telegram group or Discord server.
-2.  No global setup command is required for normal conversion flow.
-3.  Detection is LLM-only in the canonical MVP flow.
-4.  Onboarding is lazy:
-    - if a configured user mentions a time, the bot converts immediately,
-    - if an unconfigured user mentions a time, the bot starts onboarding and freezes that message,
-    - after successful setup, the frozen message is replayed.
+| Key | Default | Used For |
+|---|---|---|
+| `logging.level` | `DEBUG` in repo config | Python logging level in `main.py` |
 
----
+### `bot`
 
-## Configuration
+| Key | Default | Used For |
+|---|---|---|
+| `bot.show_usernames` | `true` | Show member names in block formatting |
+| `bot.show_event_title` | `true` | Show extracted event title when available |
+| `bot.response_style` | `inline_sentence` | Reply layout |
+| `bot.max_age_fresh_secs` | `30` | Drop stale fresh messages |
+| `bot.onboarding_cooldown_secs` | `600` | Cooldown before showing onboarding again |
+| `bot.onboarding_pending_ttl_secs` | `120` | TTL for stored pending onboarding messages |
+| `bot.group_auto_delete_delay_secs` | `20` | Telegram message auto-delete delay |
 
-Runtime behavior is configured via `configuration.yaml`. All sections and their defaults are described below.
+### `event_detection`
 
----
+| Key | Default | Used For |
+|---|---|---|
+| `event_detection.log_prompts` | `false` | Log full LLM prompt and user payload |
+| `event_detection.max_message_hard_skip_chars` | `2000` | Hard message-length limit before LLM detection |
 
-### `logging` — Observability
+## Runtime Notes
 
-| Key | Default | Description |
-| :--- | :--- | :--- |
-| `logging.level` | `DEBUG` | Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
-| `logging.format` | `text` | Output format: `text` (human-readable) or `json` (structured). |
+- The LLM sees only the current message.
+- LLM credentials and model settings are configured through `.env`.
+- If a user without a timezone mentions time, the bot stores the latest pending message and starts onboarding.
+- After successful onboarding, the latest pending message may be replayed if it is still fresh.
+- Known members are discovered from observed chat activity; the bot does not load full member lists proactively.
 
----
-
-### `bot` — Output and UX
-
-| Key | Default | Description |
-| :--- | :--- | :--- |
-| `bot.show_usernames` | `true` | Append names to each timezone row: `13:00 Berlin 🇩🇪 @alice, Bob`. |
-| `bot.show_event_title` | `true` | Show `event_title` above a block when the LLM explicitly extracted it. If `false`, titles are always suppressed. |
-| `bot.response_style` | `inline_sentence` | Reply layout. `block` — one timezone per line with flags and optional names; `inline_sentence` — compact flag-free inline rows. |
-| `bot.max_age_fresh_secs` | `30` | Messages older than this are skipped before processing. |
-| `bot.onboarding_cooldown_secs` | `600` | How long to wait before showing onboarding again. |
-| `bot.onboarding_pending_ttl_secs` | `120` | How long to keep the latest onboarding-pending message for replay. |
-| `bot.group_auto_delete_delay_secs` | `20` | Auto-delete conversion results and setup prompts in group chats (seconds). |
-
-> [!TIP]
-> `show_event_title` reads what the LLM returned — it never invents a title. Turning it `off` suppresses all titles regardless of LLM output.
-> `show_usernames` affects `block` replies only. `inline_sentence` stays compact and does not show flags or member names.
-
-#### 🎨 Formatting Showcase
-
-By tweaking `configuration.yaml`, you can radically change how the bot looks in chat.
-
-**Option A: Clean and Compact (Default)**
-*(Settings: `response_style: inline_sentence`)*
-```text
-👤 Maria: Let's sync tomorrow at 3pm
-
-🤖 It is 15:00 Berlin, 09:00 New York
-```
-
-**Option A2: Compact with Event Titles**
-*(Settings: `response_style: inline_sentence`, `show_event_title: true`)*
-```text
-👤 Jane: Standup at 10:30, then retro at 15:00.
-
-🤖 standup
-   It is 10:30 London, 11:30 Berlin
-
-   retro
-   It is 15:00 London, 16:00 Berlin
-```
-
-**Option B: Detailed Block with Usernames and Context**
-*(Settings: `response_style: block`, `show_usernames: true`, `show_event_title: true`)*
-```text
-👤 Anton: The final release review is postponed to tomorrow 5pm due to testing updates.
-
-🤖 final release review
-   17:00 Berlin 🇩🇪 @anton, @maria
-   09:00 New York 🇺🇸 @jane
-```
-
----
-
-### `llm` — Detection Model
-
-| Key | Default | Description |
-| :--- | :--- | :--- |
-| `llm.model` | `gemini-3.1-flash-lite-preview` | Primary model identifier. |
-| `llm.temperature` | `0.1` | Low temperature keeps detection deterministic. |
-| `llm.base_url` | `https://generativelanguage.googleapis.com/...` | Default primary endpoint. |
-| `llm.fallback.enabled` | `true` | Enable automatic retry on the fallback model when the primary fails. |
-| `llm.fallback.model` | `llama-3.1-8b-instant` | Fallback model identifier. |
-| `llm.fallback.base_url` | `https://api.groq.com/openai/v1` | Default fallback endpoint. |
-
----
-
-### `event_detection` — LLM Pipeline Guards
-
-| Key | Default | Description |
-| :--- | :--- | :--- |
-| `event_detection.onboarding_timeout_seconds` | `120` | How long a frozen message waits for onboarding to complete before being discarded. Cleanup runs on a 60-second loop, so the effective discard point may lag by up to about 60 seconds. |
-| `event_detection.dm_onboarding_cooldown_seconds` | `600` | Minimum gap before re-prompting a user who ignored or abandoned the onboarding DM. |
-| `event_detection.max_message_age_seconds` | `30` | Messages older than this are skipped — prevents stale replies after restart or downtime. |
-| `event_detection.max_message_hard_skip_chars` | `2000` | Hard safety ceiling: messages longer than this are never sent to the LLM. |
-| `event_detection.log_prompts` | `false` | If `true`, prints the full LLM prompt to the console. Useful for debugging detection failures. |
-
----
-
-### `storage` — Data Management
-
-| Key | Default | Description |
-| :--- | :--- | :--- |
-| `storage.inactive_user_retention_days` | `30` | Remove users who haven't interacted with the bot for this many days. Set `0` to disable pruning. |
-
----
-
-Canonical config reference: [journal/13_configuration.md](../journal/13_configuration.md).

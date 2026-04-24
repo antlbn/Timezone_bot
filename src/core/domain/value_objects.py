@@ -14,11 +14,16 @@ class LLMModelConfig:
     api_key: str
     model: str
     base_url: str | None = None
+    temperature: float = 0.0
 
 @dataclass(frozen=True)
 class LLMConfig:
     primary: LLMModelConfig
     fallback: LLMModelConfig | None = None
+
+@dataclass(frozen=True)
+class LoggingConfig:
+    level: str = "INFO"
 
 @dataclass(frozen=True)
 class TimePoint:
