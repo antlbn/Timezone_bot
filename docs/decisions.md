@@ -14,17 +14,18 @@ These are known limitations that were accepted for the MVP to speed up developme
 | **Auto-commits (No UoW)** | Potential partial writes on error. | Scaling to multiple workers. | Implement full Transactions / Unit of Work. |
 | **Raw String Formatting** | Hard to do complex UI (bold, buttons). | Need for platform-specific rich UI. | Return `PresentationModel` instead of string. |
 | **Anemic Domain Model** | Logic is in services, not entities. | Complex business rules growth. | Move logic into Entities (Rich Model). |
+| **Silent Pipeline Failures** | Pipeline swallows stage exceptions and returns `ignore=True`. System failures look like "no time detected" to the user. | Need for high reliability and monitoring. | Implement `PipelineStageError` hierarchy and bubble up infrastructure errors. |
 
 ---
 
 ## 2. Key Product Decisions
 
-### 2.0 Why This Architecture
-The choice of architecture was largely driven by inexperience, and by the feeling that the project needed hard boundaries to get out of a knot of dependencies.
+### 2.0 Why This Architecture & Project Goals
+The choice of architecture was largely driven by the goal of **learning architectural patterns** (Hexagonal, Pipe & Filters, Command) and **practicing pair programming with AI**. 
 
-I am sure there were other valid approaches. This one seemed interesting and useful for a first conscious learning project.
+**Цель проекта для меня — не довести систему до идеала, а научиться паттернам проектирования и эффективной работе с ИИ.**
 
-The goal was to make the boundaries between core logic, platform adapters, and infrastructure explicit, and to force the code into a shape that was easier to reason about.
+Доведение до идеала всех второстепенных аспектов (таких как идеальное логирование или 100% обработка краевых случаев) намеренно вынесено за скобки для экономии времени. Если потребуется для реальной эксплуатации — это будет доделано, но сейчас фокус на структуре и «чистоте» границ.
 
 ### 2.1 UTC Pivot
 All conversions go through UTC (`Local -> UTC -> Target`). This avoids direct zone-to-zone arithmetic and handles DST correctly via IANA data.
@@ -50,7 +51,15 @@ This is partly a product decision and partly a platform constraint:
 ### 2.6 AM/PM Ambiguity
 If AM/PM is unclear, the bot publishes with an `AM/PM?` annotation instead of staying silent.
 
-## 2.7 Current Operational Limitations
+### 2.8 Error Handling & Logging Strategy
+На текущем этапе в проекте отсутствует комплексная стратегия логирования. Это осознанный компромисс:
+- **Как сейчас:** 
+    - Ошибки внутри стадий Pipeline логируются как `exception` (с трейсбэком), но «проглатываются» конвейером, возвращая `ignore=True`. Это защищает бота от падения, но делает систему «молчаливой» при сбоях (например, при ошибках API OpenAI).
+    - Глобальные ошибки в адаптерах ловятся Middleware, логируются и выводят пользователю дружелюбное «что-то пошло не так».
+- **Почему так:** Разработка полноценной стратегии классификации ошибок (Domain vs Infrastructure) требует времени, которое сейчас приоритетнее направить на изучение архитектурных слоев.
+- **Что сделано:** Базовое покрытие логами критических путей (I/O, DI, Pipeline) присутствует.
+
+## 2.9 Current Operational Limitations
 
 The following limitations are part of the current MVP behavior and should be treated as known constraints, not bugs:
 

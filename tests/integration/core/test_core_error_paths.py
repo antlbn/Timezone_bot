@@ -70,8 +70,6 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
         ),
         replay_pipeline=Pipeline([ExplodingStage()]),
         delivery_service=DeliveryService(tg_executor=executor),
-        settings=BotSettings(),
-        time_port=FakeTimePort(),
     )
 
     await pending.upsert(

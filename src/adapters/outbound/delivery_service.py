@@ -22,6 +22,9 @@ class DeliveryService(DeliveryPort):
         if dc_executor:
             self._routes[Platform.DISCORD] = dc_executor
 
+    def register_executor(self, platform: Platform, executor: CommandExecutorPort) -> None:
+        self._routes[platform] = executor
+
     async def deliver(self, platform: Platform, commands: list[Command]) -> None:
         if not commands:
             return

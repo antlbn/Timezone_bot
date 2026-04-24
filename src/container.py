@@ -19,7 +19,7 @@ from ports.geocoding import GeoPort
 
 from aiogram import Bot as TgBot
 import discord
-from discord import app_commands
+from core.domain.enums import Platform
 from adapters.inbound.discord.ui import SetTimezoneView
 from adapters.executors.telegram_executor import TelegramCommandExecutor
 from adapters.executors.discord_executor import DiscordCommandExecutor
@@ -99,20 +99,8 @@ async def build_container(
         if (tg_bot and tg_username) else None
     )
 
-    onboarding_completion_holder = [None] # For circular ref in dc_executor
-
-    def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
-        if onboarding_completion_holder[0] is None:
-            raise RuntimeError("Onboarding completion use case is not initialized yet")
-        return SetTimezoneView(target_user_id, onboarding_completion_holder[0])
-
-    dc_executor = (
-        DiscordCommandExecutor(client=dc_client, onboarding_view_factory=_make_discord_onboarding_view)
-        if dc_client else None
-    )
-
     # Services
-    delivery_service = DeliveryService(tg_executor=tg_executor, dc_executor=dc_executor)
+    delivery_service = DeliveryService(tg_executor=tg_executor)
 
     onboarding_prompt = OnboardingPromptService(
         onboarding_pending_port=onboarding_pending_store,
@@ -128,7 +116,17 @@ async def build_container(
         replay_pipeline=replay_pipeline,
         delivery_service=delivery_service,
     )
-    onboarding_completion_holder[0] = onboarding_completion
+
+    # Discord Executor (needs onboarding_completion)
+    if dc_client:
+        def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
+            return SetTimezoneView(target_user_id, onboarding_completion)
+
+        dc_executor = DiscordCommandExecutor(
+            client=dc_client, 
+            onboarding_view_factory=_make_discord_onboarding_view
+        )
+        delivery_service.register_executor(Platform.DISCORD, dc_executor)
 
     message_processor = MessageProcessingService(
         fresh_pipeline=fresh_pipeline,
