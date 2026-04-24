@@ -44,9 +44,6 @@ def get_city_prompt_text() -> str:
         "💡 Write city: e.g. <code>Paris</code> for France, or specify <code>Paris, Texas</code> for USA."
     )
 
-def get_timezone_removed_text() -> str:
-    return "🗑️ Your timezone has been removed. I'll no longer convert times for you."
-
 def get_privacy_text() -> str:
     return (
         "Data is stored locally and used only for time conversion. "

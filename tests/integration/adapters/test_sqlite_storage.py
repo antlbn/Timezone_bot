@@ -83,6 +83,19 @@ async def test_set_onboarding_declined(sqlite_storage: SQLiteStorage):
 
 
 @pytest.mark.asyncio
+async def test_set_user_clears_onboarding_declined(sqlite_storage: SQLiteStorage):
+    await sqlite_storage.set_onboarding_declined(1, Platform.TELEGRAM)
+
+    await sqlite_storage.set_user(
+        1, Platform.TELEGRAM, timezone="Europe/London", city="London", flag="🇬🇧"
+    )
+
+    fetched = await sqlite_storage.get_user(1, Platform.TELEGRAM)
+    assert fetched.timezone == "Europe/London"
+    assert fetched.onboarding_declined is False
+
+
+@pytest.mark.asyncio
 async def test_chat_members_flow(sqlite_storage: SQLiteStorage):
     # 1. Подготавливаем двух пользователей (один с таймзоной, другой без)
     await sqlite_storage.set_user(1, Platform.TELEGRAM, "UTC", "Nowhere") # С таймзоной

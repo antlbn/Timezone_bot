@@ -33,17 +33,6 @@ class ProfileService:
 
         now = self._time.now_utc()
         return (0, get_utc_offset(member.timezone, now=now), member.city or member.username or "")
-    async def remove_timezone(self, user_id: int, platform: Platform, username: str = "") -> None:
-        """Clear the user's timezone/city/flag."""
-        await self._users.set_user(
-            user_id=user_id,
-            platform=platform,
-            timezone=None,
-            city=None,
-            flag=None,
-            username=username
-        )
-
     async def remove_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
         """Remove a user from a specific chat's list."""
         await self._chats.remove_chat_member(chat_id, user_id, platform)

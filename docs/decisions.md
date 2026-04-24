@@ -67,6 +67,7 @@ The following limitations are part of the current MVP behavior and should be tre
 - onboarding pending state is in memory and is lost on restart
 - pending state currently overwrites across chats for the same user and platform
 - replay applies only to the latest pending message for a user/platform pair
+- replay is best-effort; if replay fails after timezone save, pending may be dropped
 - replay depends on pending storage retention, not on fresh-message aging rules
 - detection uses only the current message and does not inspect prior chat history
 - delivery is best-effort and does not report command outcome back to the core

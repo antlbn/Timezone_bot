@@ -115,13 +115,17 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
         self._chat_members_cache.clear()
 
     async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None) -> None:
-        """Set timezone/city/flag after successful onboarding. Username is managed by ensure_user."""
+        """Set timezone/city/flag after successful onboarding and clear decline state."""
         db = await self._get_conn()
         await db.execute(
             """
-            INSERT INTO users (user_id, platform, city, timezone, flag)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, platform) DO UPDATE SET city = ?, timezone = ?, flag = ?
+            INSERT INTO users (user_id, platform, city, timezone, flag, onboarding_declined)
+            VALUES (?, ?, ?, ?, ?, 0)
+            ON CONFLICT(user_id, platform) DO UPDATE SET
+                city = ?,
+                timezone = ?,
+                flag = ?,
+                onboarding_declined = 0
             """,
             (user_id, platform.value, city, timezone, flag or "", city, timezone, flag or ""),
         )

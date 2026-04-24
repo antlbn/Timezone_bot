@@ -56,29 +56,6 @@ async def cb_decline(
     )
     await callback.answer("Bot services declined.")
 
-@router.callback_query(TelegramCallback.filter(F.action == "remove"), StateFilter("*"))
-async def cb_remove(
-    callback: CallbackQuery, 
-    callback_data: TelegramCallback, 
-    profile_service: ProfileService
-):
-    if callback.from_user.id != callback_data.user_id:
-        await callback.answer(ui.get_not_your_button_text(), show_alert=True)
-        return
-
-    await profile_service.remove_timezone(
-        user_id=callback_data.user_id,
-        platform=Platform.TELEGRAM,
-        username=callback.from_user.first_name
-    )
-    
-    await safe_edit_text(
-        callback,
-        ui.get_timezone_removed_text(),
-        reply_markup=get_settings_keyboard(callback_data.user_id, callback_data.chat_id, has_timezone=False)
-    )
-    await callback.answer("Timezone removed.")
-
 @router.callback_query(TelegramCallback.filter(F.action == "privacy"), StateFilter("*"))
 async def cb_privacy(callback: CallbackQuery):
     await callback.answer(

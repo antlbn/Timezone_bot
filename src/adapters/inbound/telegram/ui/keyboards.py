@@ -26,14 +26,6 @@ def get_settings_keyboard(user_id: int, chat_id: str = PRIVATE_CHAT_SENTINEL, ha
         )
     ])
     
-    if has_timezone:
-        buttons.append([
-            InlineKeyboardButton(
-                text="🗑️ Remove timezone",
-                callback_data=TelegramCallback(action="remove", user_id=user_id, chat_id=chat_id).pack()
-            )
-        ])
-
     # Universal decline button
     buttons.append([
         InlineKeyboardButton(
