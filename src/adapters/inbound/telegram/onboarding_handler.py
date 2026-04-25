@@ -25,7 +25,7 @@ from core.domain.enums import Platform
 from adapters.inbound.telegram import ui
 from adapters.inbound.telegram.ui import get_settings_keyboard
 from adapters.inbound.telegram.config import TelegramConfig
-from adapters.inbound.telegram.common import parse_onboarding_payload, PRIVATE_CHAT_SENTINEL, schedule_deletion
+from adapters.inbound.telegram.common import parse_onboarding_payload, PRIVATE_CHAT_SENTINEL, DeletionScheduler
 from core.services.onboarding import OnboardingCompletionUseCase
 from core.services.profile import ProfileService
 
@@ -46,10 +46,11 @@ async def on_start_command(
     state: FSMContext, 
     onboarding_completion: OnboardingCompletionUseCase,
     profile_service: ProfileService,
-    tg_config: TelegramConfig
+    tg_config: TelegramConfig,
+    deletion_scheduler: DeletionScheduler,
 ) -> None:
     """Entry point for private onboarding, including validated deep links."""
-    await start_onboarding_flow(message, state, onboarding_completion, profile_service, tg_config, command)
+    await start_onboarding_flow(message, state, onboarding_completion, profile_service, tg_config, deletion_scheduler, command)
 
 
 async def start_onboarding_flow(
@@ -58,6 +59,7 @@ async def start_onboarding_flow(
     onboarding_completion: OnboardingCompletionUseCase,
     profile_service: ProfileService,
     tg_config: TelegramConfig,
+    deletion_scheduler: DeletionScheduler,
     command: CommandObject | None = None
 ) -> None:
     """Shared logic for starting onboarding from command or group redirect."""
@@ -85,7 +87,7 @@ async def start_onboarding_flow(
             reply_markup=get_settings_keyboard(message.from_user.id, chat_id, has_timezone=False)
         )
     
-    await schedule_deletion(reply, delay=tg_config.delete_delay)
+    await deletion_scheduler.schedule(reply, delay=tg_config.delete_delay)
 
 @router.message(OnboardingFSM.waiting_city, F.text)
 async def on_city_input(

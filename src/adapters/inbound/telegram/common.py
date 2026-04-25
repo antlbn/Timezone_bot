@@ -69,15 +69,6 @@ class DeletionScheduler:
             await asyncio.gather(*self._tasks, return_exceptions=True)
             self._tasks.clear()
 
-deletion_scheduler = DeletionScheduler()
-
-async def schedule_deletion(*messages: Message | None, delay: int = 20):
-    """Schedules messages for deletion after a specified delay.
-    
-    Safe for use in background tasks. Silently ignores errors.
-    """
-    await deletion_scheduler.schedule(*messages, delay=delay)
-
 async def safe_edit_text(callback: CallbackQuery, text: str, reply_markup: InlineKeyboardMarkup | None = None):
     """Safely edits message text, suppressing 'message is not modified' errors."""
     try:

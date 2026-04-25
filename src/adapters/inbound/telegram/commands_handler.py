@@ -5,7 +5,7 @@ from aiogram.types import Message
 from core.domain.enums import Platform
 from adapters.inbound.telegram.onboarding_handler import start_onboarding_flow
 from adapters.inbound.telegram import ui
-from adapters.inbound.telegram.common import schedule_deletion, generate_onboarding_link
+from adapters.inbound.telegram.common import DeletionScheduler, generate_onboarding_link
 from core.services.profile import ProfileService
 from core.services.onboarding import OnboardingCompletionUseCase
 from adapters.inbound.telegram.config import TelegramConfig
@@ -22,10 +22,11 @@ async def cmd_start_or_settz(
     state: FSMContext, 
     onboarding_completion: OnboardingCompletionUseCase,
     profile_service: ProfileService,
-    tg_config: TelegramConfig
+    tg_config: TelegramConfig,
+    deletion_scheduler: DeletionScheduler,
 ) -> None:
     if message.chat.type == "private":
-        await start_onboarding_flow(message, state, onboarding_completion, profile_service, tg_config)
+        await start_onboarding_flow(message, state, onboarding_completion, profile_service, tg_config, deletion_scheduler)
         return
 
     bot_user = await message.bot.me()
@@ -35,14 +36,15 @@ async def cmd_start_or_settz(
         ui.get_onboarding_prompt_text(message.from_user.first_name),
         reply_markup=ui.get_onboarding_prompt_keyboard(url)
     )
-    await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+    await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
 
 @router.message(Command("tb_decline", "decline"), StateFilter("*"))
 async def cmd_decline(
     message: Message, 
     state: FSMContext, 
     onboarding_completion: OnboardingCompletionUseCase,
-    tg_config: TelegramConfig
+    tg_config: TelegramConfig,
+    deletion_scheduler: DeletionScheduler,
 ) -> None:
     await state.clear()
     await onboarding_completion.decline(
@@ -52,13 +54,13 @@ async def cmd_decline(
     reply = await message.answer(ui.get_decline_confirmation_text())
     
     if message.chat.type != "private":
-        await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
     else:
-        await schedule_deletion(reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(reply, delay=tg_config.delete_delay)
 
 
 @router.message(Command("tb_me", "tz_me", "me"), StateFilter("*"))
-async def cmd_me(message: Message, profile_service: ProfileService, tg_config: TelegramConfig) -> None:
+async def cmd_me(message: Message, profile_service: ProfileService, tg_config: TelegramConfig, deletion_scheduler: DeletionScheduler) -> None:
     user = await profile_service.get_user(message.from_user.id, Platform.TELEGRAM)
     if not user or not user.timezone:
         await message.answer(ui.get_tz_not_set_text())
@@ -66,13 +68,13 @@ async def cmd_me(message: Message, profile_service: ProfileService, tg_config: T
 
     reply = await message.answer(ui.format_user_timezone(user))
     if message.chat.type != "private":
-        await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
     else:
-        await schedule_deletion(reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(reply, delay=tg_config.delete_delay)
 
 
 @router.message(Command("tb_members", "tz_members", "members"), StateFilter("*"))
-async def cmd_members(message: Message, profile_service: ProfileService, tg_config: TelegramConfig) -> None:
+async def cmd_members(message: Message, profile_service: ProfileService, tg_config: TelegramConfig, deletion_scheduler: DeletionScheduler) -> None:
     if message.chat.type == "private":
         await message.answer(ui.get_group_only_command_text())
         return
@@ -84,11 +86,11 @@ async def cmd_members(message: Message, profile_service: ProfileService, tg_conf
         return
 
     reply = await message.answer(ui.format_chat_members(members))
-    await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+    await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
 
 
 @router.message(Command("tb_deletemember"), StateFilter("*"))
-async def cmd_delete_member(message: Message, profile_service: ProfileService, tg_config: TelegramConfig) -> None:
+async def cmd_delete_member(message: Message, profile_service: ProfileService, tg_config: TelegramConfig, deletion_scheduler: DeletionScheduler) -> None:
     if message.chat.type == "private":
         await message.answer(ui.get_group_only_command_text())
         return
@@ -102,7 +104,7 @@ async def cmd_delete_member(message: Message, profile_service: ProfileService, t
     if len(command_parts) < 2:
         text = ui.get_delete_member_usage_text(ui.format_chat_members(members))
         reply = await message.answer(text)
-        await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
         return
 
     reply = None
@@ -122,13 +124,13 @@ async def cmd_delete_member(message: Message, profile_service: ProfileService, t
         reply = await message.answer(ui.get_invalid_number_text())
     
     if reply:
-        await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
 
 
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
-async def cmd_help(message: Message, tg_config: TelegramConfig) -> None:
+async def cmd_help(message: Message, tg_config: TelegramConfig, deletion_scheduler: DeletionScheduler) -> None:
     reply = await message.answer(ui.get_help_text())
     if message.chat.type != "private":
-        await schedule_deletion(message, reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
     else:
-        await schedule_deletion(reply, delay=tg_config.delete_delay)
+        await deletion_scheduler.schedule(reply, delay=tg_config.delete_delay)

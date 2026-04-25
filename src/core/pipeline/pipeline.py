@@ -1,6 +1,7 @@
 import logging
 import dataclasses
-from core.domain.value_objects import MessageContext
+import asyncio
+from core.domain.value_objects import MessageContext, PipelineError
 from core.pipeline.contracts import Stage
 
 logger = logging.getLogger(__name__)
@@ -31,12 +32,8 @@ class Pipeline:
                     ctx.input.text[:50] if ctx.input.text else "",
                     e,
                 )
-                from core.domain.value_objects import PipelineError
-                import asyncio
-                import aiohttp
-                
                 category = "unknown"
-                if isinstance(e, (asyncio.TimeoutError, aiohttp.ClientError)):
+                if isinstance(e, (asyncio.TimeoutError, OSError, ConnectionError)):
                     category = "transient"
                 elif isinstance(e, ValueError):
                     category = "permanent"

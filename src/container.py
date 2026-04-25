@@ -1,10 +1,13 @@
 import logging
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TYPE_CHECKING
 
 from aiogram import Bot as TgBot
 import discord
+
+if TYPE_CHECKING:
+    from adapters.inbound.telegram.common import DeletionScheduler
 
 from adapters.inbound.telegram.config import TelegramConfig
 from adapters.executors.discord_executor import DiscordCommandExecutor
@@ -54,6 +57,7 @@ class AppContainer:
     profile_service: ProfileService
     message_processor: MessageProcessingService
     delivery_service: DeliveryService
+    deletion_scheduler: 'DeletionScheduler'
 
 def build_pipelines(
     storage: StoragePorts,
@@ -171,6 +175,9 @@ async def build_container(
 
     profile_service = ProfileService(users_repo=storage, chats_repo=storage, time_port=time_port)
 
+    from adapters.inbound.telegram.common import DeletionScheduler
+    deletion_scheduler = DeletionScheduler()
+
     return AppContainer(
         storage=storage,
         users_repo=storage,
@@ -183,4 +190,5 @@ async def build_container(
         profile_service=profile_service,
         message_processor=message_processor,
         delivery_service=delivery_service,
+        deletion_scheduler=deletion_scheduler,
     )

@@ -137,8 +137,7 @@ async def main() -> None:
         logger.info("No tasks to run.")
 
     logger.info("Cancelling background deletion tasks...")
-    from adapters.inbound.telegram.common import deletion_scheduler
-    await deletion_scheduler.cancel_all()
+    await container.deletion_scheduler.cancel_all()
 
     await container.storage.close()
     logger.info("Shutdown complete.")

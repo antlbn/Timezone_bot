@@ -1,4 +1,7 @@
+import logging
 import discord
+
+logger = logging.getLogger(__name__)
 from core.domain.value_objects import InputData
 from core.domain.enums import Platform
 from core.services.message_processing import MessageProcessingService
@@ -21,7 +24,5 @@ async def on_message(message: discord.Message, message_processor: MessageProcess
         
         await message_processor.process_input(data)
     except Exception:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.exception("Discord on_message failed user=%s", message.author.id)
 

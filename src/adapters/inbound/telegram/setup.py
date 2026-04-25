@@ -21,6 +21,7 @@ def setup_dispatcher(
             data["onboarding_completion"] = container.onboarding_completion
             data["profile_service"] = container.profile_service
             data["message_processor"] = container.message_processor
+            data["deletion_scheduler"] = container.deletion_scheduler
             data["tg_config"] = tg_config
             return await handler(event, data)
 
