@@ -37,16 +37,9 @@ from config import AppConfig
 
 logger = logging.getLogger(__name__)
 
-
-class StoragePorts(UserRepositoryPort, ChatRepositoryPort, Protocol):
-    pass
-
-class Closeable(Protocol):
-    async def close(self) -> None: ...
-
 @dataclass
 class AppContainer:
-    storage: Closeable
+    storage: SQLiteStorage
     users_repo: UserRepositoryPort
     chats_repo: ChatRepositoryPort
     fresh_pipeline: Pipeline
@@ -60,7 +53,8 @@ class AppContainer:
     deletion_scheduler: 'DeletionScheduler'
 
 def build_pipelines(
-    storage: StoragePorts,
+    users_repo: UserRepositoryPort,
+    chats_repo: ChatRepositoryPort,
     detector: DetectionPort,
     geocoder: GeoPort,
     settings: BotSettings,
@@ -81,13 +75,13 @@ def build_pipelines(
         AgingStage(settings, time_port),
         DetectionStage(detector),
         GeoResolveStage(geocoder),
-        HydrationStage(storage, storage),
+        HydrationStage(users_repo, chats_repo),
         FormatStage(settings),
         DecisionStage(),
     ])
 
     replay_pipeline = Pipeline([
-        HydrationStage(storage, storage),
+        HydrationStage(users_repo, chats_repo),
         FormatStage(settings),
         DecisionStage(),
     ])
@@ -145,7 +139,7 @@ async def build_container(
     onboarding_chillout_state = MemoryOnboardingChilloutState()
     
     fresh_pipeline, replay_pipeline = build_pipelines(
-        storage, detector, geocoder, config.bot, time_port
+        storage, storage, detector, geocoder, config.bot, time_port
     )
 
     tg_executor = _build_tg_executor(tg_bot, tg_username, config.telegram, deletion_scheduler)

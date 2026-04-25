@@ -7,9 +7,7 @@ from core.domain.commands import Command, CommandResult, SendReply, ShowOnboardi
 from core.domain.value_objects import InputData, MessageContext, BotSettings
 from core.pipeline.pipeline import Pipeline
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
-
-if TYPE_CHECKING:
-    from ports.delivery import DeliveryPort
+from ports.delivery import DeliveryPort
 from core.services.onboarding import OnboardingPromptService
 
 logger = logging.getLogger(__name__)

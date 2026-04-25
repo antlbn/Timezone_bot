@@ -6,6 +6,28 @@ from adapters.inbound.telegram import ui
 
 logger = logging.getLogger(__name__)
 
+from container import AppContainer
+from adapters.inbound.telegram.config import TelegramConfig
+
+class DependencyMiddleware(BaseMiddleware):
+    def __init__(self, container: AppContainer, tg_config: TelegramConfig):
+        super().__init__()
+        self.container = container
+        self.tg_config = tg_config
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any],
+    ) -> Any:
+        data["onboarding_completion"] = self.container.onboarding_completion
+        data["profile_service"] = self.container.profile_service
+        data["message_processor"] = self.container.message_processor
+        data["deletion_scheduler"] = self.container.deletion_scheduler
+        data["tg_config"] = self.tg_config
+        return await handler(event, data)
+
 class ErrorHandlingMiddleware(BaseMiddleware):
     """
     Global error handler for Telegram adapter.

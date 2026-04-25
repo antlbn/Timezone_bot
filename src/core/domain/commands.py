@@ -15,7 +15,7 @@ class CommandResult:
 
 @dataclass(frozen=True)
 class DeliveryResult:
-    results: list[CommandResult]
+    results: tuple[CommandResult, ...]
 
 @dataclass(frozen=True)
 class SendReply(Command):

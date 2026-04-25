@@ -4,13 +4,15 @@ from discord import app_commands
 from adapters.inbound.discord.events import on_message as dc_on_message
 from adapters.inbound.discord.slash_commands import setup_slash_commands
 
+from container import AppContainer
+
 logger = logging.getLogger(__name__)
 
 def setup_discord(
     client: discord.Client, 
     tree: app_commands.CommandTree, 
-    container
-):
+    container: AppContainer
+) -> None:
     @client.event
     async def on_message(message):
         await dc_on_message(message, container.message_processor)

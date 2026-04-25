@@ -80,4 +80,5 @@ class OpenAIDetector(DetectionPort):
 
         if last_error:
             logger.exception(f"All LLM attempts failed. Last error: {last_error}")
-        return DetectionResult(time_mentioned=False, points=tuple())
+            raise last_error
+        raise ValueError("No LLM API keys configured")

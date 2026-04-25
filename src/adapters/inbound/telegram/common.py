@@ -24,13 +24,14 @@ def parse_onboarding_payload(payload: str | None) -> OnboardingStartContext | No
         return None
     
     rest = payload[len("onboard_"):]
-    if "_" in rest:
-        user_part, chat_part = rest.rsplit("_", 1)
+    parts = rest.rsplit("_", 1)
+    
+    if len(parts) == 2:
+        user_part, chat_part = parts
     else:
-        user_part, chat_part = rest, None
+        user_part, chat_part = parts[0], None
 
-    user_part = user_part.replace("_", "")
-    if not user_part.isdigit():
+    if not user_part.lstrip("-").isdigit():
         return None
         
     return OnboardingStartContext(

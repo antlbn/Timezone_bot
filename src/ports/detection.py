@@ -4,7 +4,7 @@ from datetime import datetime
 
 from core.domain.value_objects import TimePoint
 
-@dataclass
+@dataclass(frozen=True)
 class DetectionRequest:
     text: str
     timestamp: datetime

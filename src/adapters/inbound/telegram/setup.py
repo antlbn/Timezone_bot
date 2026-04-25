@@ -3,30 +3,17 @@ from aiogram import Dispatcher, Router, BaseMiddleware
 from aiogram.types import TelegramObject, Message
 
 from core.services.message_processing import MessageProcessingService
-from adapters.inbound.telegram.middlewares import ErrorHandlingMiddleware
+from adapters.inbound.telegram.middlewares import ErrorHandlingMiddleware, DependencyMiddleware
+from container import AppContainer
+from adapters.inbound.telegram.config import TelegramConfig
 
 def setup_dispatcher(
     dp: Dispatcher, 
-    container, 
-    tg_config
-):
-    # Middleware: injects dependencies into every handler
-    class DependencyMiddleware(BaseMiddleware):
-        async def __call__(
-            self,
-            handler,
-            event: TelegramObject,
-            data: dict[str, Any],
-        ) -> Any:
-            data["onboarding_completion"] = container.onboarding_completion
-            data["profile_service"] = container.profile_service
-            data["message_processor"] = container.message_processor
-            data["deletion_scheduler"] = container.deletion_scheduler
-            data["tg_config"] = tg_config
-            return await handler(event, data)
-
+    container: AppContainer, 
+    tg_config: TelegramConfig
+) -> None:
     dp.update.outer_middleware(ErrorHandlingMiddleware())
-    dp.update.outer_middleware(DependencyMiddleware())
+    dp.update.outer_middleware(DependencyMiddleware(container, tg_config))
 
     # Routers
     from adapters.inbound.telegram.commands_handler import router as tg_commands_router

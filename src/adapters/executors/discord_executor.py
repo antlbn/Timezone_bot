@@ -3,6 +3,8 @@ import logging
 from collections.abc import Callable
 from adapters.executors.base_executor import BaseCommandExecutor
 from core.domain.commands import SendReply, ShowOnboarding
+from core.services.profile import ProfileService
+from adapters.inbound.discord import ui
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +51,6 @@ class DiscordCommandExecutor(BaseCommandExecutor):
         if not channel:
             return
             
-        from adapters.inbound.discord import ui
-        
         embed = discord.Embed(
             title=ui.get_onboarding_embed_title(cmd.author_name),
             description=ui.get_onboarding_embed_description(),

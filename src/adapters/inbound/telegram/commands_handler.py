@@ -13,6 +13,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+async def auto_cleanup(
+    scheduler: DeletionScheduler,
+    message: Message,
+    reply: Message | None,
+    config: TelegramConfig,
+) -> None:
+    if message.chat.type != "private":
+        await scheduler.schedule(message, reply, delay=config.delete_delay)
+    elif reply:
+        await scheduler.schedule(reply, delay=config.delete_delay)
+
 router = Router(name="commands")
 
 
@@ -67,10 +78,7 @@ async def cmd_me(message: Message, profile_service: ProfileService, tg_config: T
         return
 
     reply = await message.answer(ui.format_user_timezone(user))
-    if message.chat.type != "private":
-        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
-    else:
-        await deletion_scheduler.schedule(reply, delay=tg_config.delete_delay)
+    await auto_cleanup(deletion_scheduler, message, reply, tg_config)
 
 
 @router.message(Command("tb_members", "tz_members", "members"), StateFilter("*"))
@@ -86,7 +94,7 @@ async def cmd_members(message: Message, profile_service: ProfileService, tg_conf
         return
 
     reply = await message.answer(ui.format_chat_members(members))
-    await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
+    await auto_cleanup(deletion_scheduler, message, reply, tg_config)
 
 
 @router.message(Command("tb_deletemember"), StateFilter("*"))
@@ -124,13 +132,10 @@ async def cmd_delete_member(message: Message, profile_service: ProfileService, t
         reply = await message.answer(ui.get_invalid_number_text())
     
     if reply:
-        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
+        await auto_cleanup(deletion_scheduler, message, reply, tg_config)
 
 
 @router.message(Command("tb_help", "tz_help", "help"), StateFilter("*"))
 async def cmd_help(message: Message, tg_config: TelegramConfig, deletion_scheduler: DeletionScheduler) -> None:
     reply = await message.answer(ui.get_help_text())
-    if message.chat.type != "private":
-        await deletion_scheduler.schedule(message, reply, delay=tg_config.delete_delay)
-    else:
-        await deletion_scheduler.schedule(reply, delay=tg_config.delete_delay)
+    await auto_cleanup(deletion_scheduler, message, reply, tg_config)
