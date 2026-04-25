@@ -97,15 +97,14 @@ class OnboardingCompletionUseCase:
             detection=pending.detection,
         )
         ctx = await self._replay_pipeline.run(ctx)
-        decision = ctx.decision
-        if not decision or decision.ignore or not decision.reply_text:
+        if ctx.ignore or not ctx.reply_text:
             return
 
         await self._delivery.deliver(
             pending.original_input.platform,
             [
                 SendReply(
-                    text=decision.reply_text,
+                    text=ctx.reply_text,
                     chat_id=pending.original_input.chat_id,
                     thread_id=pending.original_input.thread_id,
                 )

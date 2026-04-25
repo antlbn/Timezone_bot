@@ -10,7 +10,7 @@ At a high level:
 
 - inbound adapters receive platform events
 - application services orchestrate workflows
-- the core pipeline evaluates a message and produces a decision
+- the core pipeline runs a step-by-step orchestration flow for message evaluation
 - outbound adapters implement storage, detection, geocoding, and delivery
 
 The project follows a hexagonal style with a shared core, but the current implementation is pragmatic rather than doctrinaire.
@@ -48,6 +48,10 @@ Responsibilities:
 - `src/core/pipeline/pipeline.py`
 - `src/core/pipeline/stages.py`
 
+The pipeline is an orchestration flow, not a pure computation engine.
+Its job is to run the message workflow as a sequence of explicit steps.
+Some stages perform I/O such as LLM calls, geocoding, or repository reads.
+
 Responsibilities:
 
 - validate incoming messages
@@ -75,7 +79,7 @@ Telegram/Discord event
 -> InputData
 -> MessageProcessingService
 -> fresh Pipeline
--> MessageDecision
+-> MessageContext outcome
 -> application-side effects
 -> SendReply / ShowOnboarding
 -> DeliveryService
@@ -90,7 +94,7 @@ OnboardingCompletionUseCase
 -> persist user timezone
 -> load latest pending message
 -> replay Pipeline
--> MessageDecision
+-> MessageContext outcome
 -> SendReply
 -> DeliveryService
 ```
@@ -127,15 +131,16 @@ HydrationStage
 | `GeoResolveStage` | Resolve explicit `tz_city` values into IANA timezone names |
 | `HydrationStage` | Load sender profile and known chat members with configured timezones |
 | `FormatStage` | Produce reply text from detected time points and hydrated context |
-| `DecisionStage` | Produce final `MessageDecision` |
+| `DecisionStage` | Populate the final workflow outcome on `MessageContext` |
 
-## Decision Model
+## Workflow Outcome
 
 The pipeline does not return platform commands.
 
-It returns an updated `MessageContext`. The final outcome is stored in `MessageContext.decision` as `MessageDecision`.
+It returns an updated `MessageContext`. The final workflow outcome is stored
+directly on the context.
 
-`MessageDecision` may contain:
+The final outcome uses these fields:
 
 - `reply_text`
 - `pending_message`
@@ -144,8 +149,8 @@ It returns an updated `MessageContext`. The final outcome is stored in `MessageC
 
 This split is intentional in the current codebase:
 
-- the pipeline decides what the outcome of message evaluation is
-- application services perform side effects and build delivery commands
+- the pipeline computes the outcome of message evaluation
+- application services apply side effects and build delivery commands
 
 ## Commands And Delivery
 
@@ -159,7 +164,7 @@ These commands are created in application services, not inside the pipeline.
 Execution flow:
 
 ```text
-MessageDecision
+MessageContext outcome
 -> MessageProcessingService / OnboardingCompletionUseCase
 -> list[Command]
 -> DeliveryService

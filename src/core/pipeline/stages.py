@@ -5,7 +5,6 @@ from core.domain.value_objects import (
     MessageContext,
     OnboardingPendingMessage,
     BotSettings,
-    MessageDecision,
     TimePoint,
 )
 from ports.detection import DetectionPort, DetectionRequest, DetectionResult
@@ -157,7 +156,7 @@ class DecisionStage:
     """
     async def process(self, ctx: MessageContext) -> MessageContext:
         if not ctx.detection or not ctx.detection.time_mentioned:
-            return dataclasses.replace(ctx, decision=MessageDecision(ignore=True))
+            return dataclasses.replace(ctx, ignore=True)
 
         needs_onboarding = not ctx.sender or ctx.sender.needs_onboarding
 
@@ -172,10 +171,9 @@ class DecisionStage:
                 logger.warning(
                     "DecisionStage: sender timezone present but no outcome was produced."
                 )
-        decision = MessageDecision(
-            reply_text=ctx.reply_text,
+        return dataclasses.replace(
+            ctx,
             pending_message=pending_message,
             needs_onboarding=needs_onboarding,
             ignore=ignore,
         )
-        return dataclasses.replace(ctx, decision=decision)

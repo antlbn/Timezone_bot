@@ -4,7 +4,7 @@ import dataclasses
 
 from core.domain.commands import SendReply
 from core.domain.enums import Platform
-from core.domain.value_objects import BotSettings, InputData, MessageContext, MessageDecision, OnboardingPendingMessage, TimePoint
+from core.domain.value_objects import BotSettings, InputData, MessageContext, OnboardingPendingMessage, TimePoint
 from core.pipeline.pipeline import Pipeline
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase
@@ -20,11 +20,11 @@ from tests.fakes.ports import (
 )
 
 class StaticReplayStage:
-    def __init__(self, decision: MessageDecision):
-        self.decision = decision
+    def __init__(self, reply_text: str | None):
+        self.reply_text = reply_text
 
     async def process(self, ctx: MessageContext) -> MessageContext:
-        return dataclasses.replace(ctx, decision=self.decision)
+        return dataclasses.replace(ctx, reply_text=self.reply_text, ignore=not self.reply_text)
 
 def _pending_message(*, minutes_old: int = 0) -> OnboardingPendingMessage:
     return OnboardingPendingMessage(
@@ -105,7 +105,7 @@ async def test_completion_use_case_replays_pending_and_clears_it():
         chats_repo=storage,
         onboarding_pending_port=pending_port,
         geocoding_port=geo,
-        replay_pipeline=Pipeline([StaticReplayStage(MessageDecision(reply_text="15:00 London"))]),
+        replay_pipeline=Pipeline([StaticReplayStage("15:00 London")]),
         delivery_service=DeliveryService(tg_executor=executor),
     )
     
@@ -130,7 +130,7 @@ async def test_completion_use_case_replays_pending_even_if_message_is_old():
         chats_repo=storage_port,
         onboarding_pending_port=pending_port,
         geocoding_port=FakeGeoPort(resolves_to=Location(city="L", timezone="T", country_code="C", flag="F")),
-        replay_pipeline=Pipeline([StaticReplayStage(MessageDecision(reply_text="15:00 T"))]),
+        replay_pipeline=Pipeline([StaticReplayStage("15:00 T")]),
         delivery_service=DeliveryService(tg_executor=executor),
     )
     

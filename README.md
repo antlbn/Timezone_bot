@@ -25,7 +25,7 @@ The project uses platform adapters around a shared application/core flow.
 
 - Telegram and Discord adapters receive incoming messages.
 - `MessageProcessingService` runs the fresh-message workflow.
-- `Pipeline` performs detection, timezone resolution, member hydration, formatting, and decision-making.
+- `Pipeline` runs the message workflow as an orchestration flow with explicit steps.
 - Delivery executors send replies or onboarding prompts back to the platform.
 
 Current fresh-message pipeline:
@@ -40,7 +40,7 @@ GuardStage
 -> DecisionStage
 ```
 
-The pipeline returns `MessageContext` with a final `MessageDecision`. It does not send messages and does not write pending onboarding state directly.
+The pipeline returns `MessageContext` with the final workflow outcome populated on it. It does not send messages and does not write pending onboarding state directly.
 
 ## Run Locally
 

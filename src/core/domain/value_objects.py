@@ -59,13 +59,6 @@ class OnboardingPendingMessage:
     detection: DetectionResult  # Checkpoint: detection was done, geo was resolved; store here to skip re-detection on replay
 
 @dataclass(frozen=True)
-class MessageDecision:
-    reply_text: str | None = None
-    pending_message: OnboardingPendingMessage | None = None
-    needs_onboarding: bool = False
-    ignore: bool = False
-
-@dataclass(frozen=True)
 class InputData:
     text: str
     user_id: int
@@ -93,5 +86,7 @@ class MessageContext:
     sender: UserProfile | None = None
     reply_text: str | None = None
     members: tuple[UserProfile, ...] = field(default_factory=tuple)
-    decision: MessageDecision | None = None
+    pending_message: OnboardingPendingMessage | None = None
+    needs_onboarding: bool = False
+    ignore: bool = False
     stop_processing: bool = False

@@ -45,7 +45,7 @@ async def test_pipeline_no_time_noop():
 
     ctx = await pipeline.run(ctx)
     assert ctx.stop_processing is True
-    assert ctx.decision is None
+    assert ctx.ignore is False
 
 
 @pytest.mark.asyncio
@@ -75,9 +75,8 @@ async def test_pipeline_time_found_configured_user_sends_reply():
     assert ctx.stop_processing is False
     assert ctx.reply_text is not None
     assert "15:00 Berlin" in ctx.reply_text
-    assert ctx.decision is not None
-    assert ctx.decision.reply_text == ctx.reply_text
-    assert ctx.decision.needs_onboarding is False
+    assert ctx.reply_text is not None
+    assert ctx.needs_onboarding is False
 
 
 @pytest.mark.asyncio
@@ -101,10 +100,9 @@ async def test_pipeline_time_found_unconfigured_user_triggers_onboarding():
     ctx = await pipeline.run(ctx)
 
     assert ctx.stop_processing is False
-    assert ctx.decision is not None
-    assert ctx.decision.needs_onboarding is True
-    assert ctx.decision.pending_message is not None
-    assert ctx.decision.reply_text is None
+    assert ctx.needs_onboarding is True
+    assert ctx.pending_message is not None
+    assert ctx.reply_text is None
 
 
 @pytest.mark.asyncio
@@ -127,8 +125,7 @@ async def test_pipeline_declined_onboarding_no_spam():
     ctx = await pipeline.run(ctx)
 
     assert ctx.stop_processing is False
-    assert ctx.decision is not None
-    assert ctx.decision.ignore is True
+    assert ctx.ignore is True
 
 
 @pytest.mark.asyncio
@@ -212,6 +209,5 @@ async def test_tz_resolved_bypasses_onboarding_for_declined_user():
     ))
     ctx = await pipeline.run(ctx)
 
-    assert ctx.decision is not None
-    assert ctx.decision.reply_text is not None
-    assert ctx.decision.needs_onboarding is False
+    assert ctx.reply_text is not None
+    assert ctx.needs_onboarding is False

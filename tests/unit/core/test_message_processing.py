@@ -7,7 +7,7 @@ import pytest
 
 from core.domain.commands import SendReply, ShowOnboarding
 from core.domain.enums import Platform
-from core.domain.value_objects import BotSettings, InputData, MessageContext, MessageDecision, OnboardingPendingMessage, TimePoint
+from core.domain.value_objects import BotSettings, InputData, MessageContext, OnboardingPendingMessage, TimePoint
 from core.pipeline.pipeline import Pipeline
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
@@ -20,12 +20,22 @@ from tests.fakes.ports import (
 
 @dataclass
 class StaticDecisionStage:
-    decision: MessageDecision | None
+    reply_text: str | None = None
+    pending_message: OnboardingPendingMessage | None = None
+    needs_onboarding: bool = False
+    ignore: bool = False
     detection: DetectionResult | None = None
 
     async def process(self, ctx: MessageContext) -> MessageContext:
         import dataclasses
-        return dataclasses.replace(ctx, detection=self.detection, decision=self.decision)
+        return dataclasses.replace(
+            ctx,
+            detection=self.detection,
+            reply_text=self.reply_text,
+            pending_message=self.pending_message,
+            needs_onboarding=self.needs_onboarding,
+            ignore=self.ignore,
+        )
 
 
 class FakeOnboardingPromptService:
@@ -74,7 +84,7 @@ async def test_process_input_registers_and_sends_reply_for_detected_message():
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
             StaticDecisionStage(
-                decision=MessageDecision(reply_text="15:00 Berlin"),
+                reply_text="15:00 Berlin",
                 detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="15:00"),)),
             )
         ]),
@@ -102,7 +112,7 @@ async def test_process_input_skips_registration_and_delivery_when_no_detection()
     executor = FakeCommandExecutorPort()
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
-            StaticDecisionStage(decision=MessageDecision(ignore=True), detection=None)
+            StaticDecisionStage(ignore=True, detection=None)
         ]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),
@@ -126,7 +136,8 @@ async def test_process_input_updates_pending_and_marks_prompt_when_onboarding_sh
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
             StaticDecisionStage(
-                decision=MessageDecision(needs_onboarding=True, pending_message=pending),
+                needs_onboarding=True,
+                pending_message=pending,
                 detection=pending.detection,
             )
         ]),
@@ -160,7 +171,8 @@ async def test_process_input_updates_pending_without_mark_when_chillout_active()
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
             StaticDecisionStage(
-                decision=MessageDecision(needs_onboarding=True, pending_message=pending),
+                needs_onboarding=True,
+                pending_message=pending,
                 detection=pending.detection,
             )
         ]),

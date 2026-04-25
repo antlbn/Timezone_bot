@@ -40,11 +40,10 @@ async def test_decision_stage_reply_and_onboarding_decision():
 
     ctx = await DecisionStage().process(ctx)
 
-    assert ctx.decision is not None
-    assert ctx.decision.reply_text == "15:00 Berlin"
-    assert ctx.decision.needs_onboarding is True
-    assert ctx.decision.pending_message is not None
-    assert ctx.decision.ignore is False
+    assert ctx.reply_text == "15:00 Berlin"
+    assert ctx.needs_onboarding is True
+    assert ctx.pending_message is not None
+    assert ctx.ignore is False
 
 
 @pytest.mark.asyncio
@@ -53,10 +52,9 @@ async def test_decision_stage_onboarding_without_reply():
 
     ctx = await DecisionStage().process(ctx)
 
-    assert ctx.decision is not None
-    assert ctx.decision.reply_text is None
-    assert ctx.decision.pending_message is not None
-    assert ctx.decision.needs_onboarding is True
+    assert ctx.reply_text is None
+    assert ctx.pending_message is not None
+    assert ctx.needs_onboarding is True
 
 
 @pytest.mark.asyncio
@@ -65,8 +63,7 @@ async def test_decision_stage_declined_user_gets_ignore_decision():
 
     ctx = await DecisionStage().process(ctx)
 
-    assert ctx.decision is not None
-    assert ctx.decision.ignore is True
+    assert ctx.ignore is True
 
 
 @pytest.mark.asyncio
@@ -79,8 +76,8 @@ async def test_decision_stage_configured_sender_with_reply_produces_no_onboardin
 
     ctx = await DecisionStage().process(ctx)
 
-    assert ctx.decision.needs_onboarding is False
-    assert ctx.decision.ignore is False
+    assert ctx.needs_onboarding is False
+    assert ctx.ignore is False
 
 
 @pytest.mark.asyncio
@@ -93,7 +90,7 @@ async def test_decision_stage_configured_sender_without_reply_produces_ignore():
 
     ctx = await DecisionStage().process(ctx)
 
-    assert ctx.decision.ignore is True
+    assert ctx.ignore is True
 
 
 @pytest.mark.asyncio

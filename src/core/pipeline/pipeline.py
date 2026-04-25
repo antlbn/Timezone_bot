@@ -1,17 +1,16 @@
 import logging
 import dataclasses
-from core.domain.value_objects import MessageContext, MessageDecision
+from core.domain.value_objects import MessageContext
 from core.pipeline.contracts import Stage
 
 logger = logging.getLogger(__name__)
 
 
 class Pipeline:
-    """Executes a linear sequence of stages for message processing.
+    """Executes a linear orchestration flow for message processing.
 
-    This pipeline uses a 'Functional Pipeline / Evolvable Shell' architecture:
-    - The `MessageContext` passed through the pipeline is replaced by each stage.
-    - All data values inside the context are strictly immutable.
+    Each stage reads the current MessageContext, performs its step, and returns
+    an updated context for the next stage.
     """
     
     def __init__(self, stages: list[Stage]):
@@ -32,5 +31,5 @@ class Pipeline:
                     ctx.input.text[:50] if ctx.input.text else "",
                     e,
                 )
-                return dataclasses.replace(ctx, decision=MessageDecision(ignore=True))
+                return dataclasses.replace(ctx, ignore=True)
         return ctx
