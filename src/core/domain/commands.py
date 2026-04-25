@@ -5,6 +5,18 @@ class Command:
     """Base delivery command."""
     pass
 
+
+@dataclass(frozen=True)
+class CommandResult:
+    command_name: str
+    ok: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class DeliveryResult:
+    results: list[CommandResult]
+
 @dataclass(frozen=True)
 class SendReply(Command):
     text: str

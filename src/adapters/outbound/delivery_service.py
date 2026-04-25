@@ -1,6 +1,6 @@
 import logging
 
-from core.domain.commands import Command
+from core.domain.commands import Command, CommandResult, DeliveryResult
 from core.domain.enums import Platform
 from ports.executor import CommandExecutorPort
 from ports.delivery import DeliveryPort
@@ -25,11 +25,20 @@ class DeliveryService(DeliveryPort):
     def register_executor(self, platform: Platform, executor: CommandExecutorPort) -> None:
         self._routes[platform] = executor
 
-    async def deliver(self, platform: Platform, commands: list[Command]) -> None:
+    async def deliver(self, platform: Platform, commands: list[Command]) -> DeliveryResult:
         if not commands:
-            return
+            return DeliveryResult(results=[])
         executor = self._routes.get(platform)
         if executor is None:
             logger.warning("No executor configured for platform %s", platform)
-            return
-        await executor.execute(commands)
+            return DeliveryResult(
+                results=[
+                    CommandResult(
+                        command_name=type(command).__name__,
+                        ok=False,
+                        error="missing_executor",
+                    )
+                    for command in commands
+                ]
+            )
+        return DeliveryResult(results=await executor.execute(commands))

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from core.domain.commands import (
     Command,
+    CommandResult,
     SendReply,
     ShowOnboarding,
 )
@@ -16,13 +17,34 @@ class BaseCommandExecutor(CommandExecutorPort, ABC):
             ShowOnboarding: self._handle_show_onboarding,
         }
 
-    async def execute(self, commands: list[Command]) -> None:
+    async def execute(self, commands: list[Command]) -> list[CommandResult]:
+        results: list[CommandResult] = []
         for cmd in commands:
             handler = self._handlers.get(type(cmd))
-            if handler:
+            if not handler:
+                logger.warning("Unknown command type: %s", type(cmd))
+                results.append(
+                    CommandResult(
+                        command_name=type(cmd).__name__,
+                        ok=False,
+                        error="unknown_command",
+                    )
+                )
+                continue
+
+            try:
                 await handler(cmd)
-            else:
-                logger.warning(f"Unknown command type: {type(cmd)}")
+                results.append(CommandResult(command_name=type(cmd).__name__, ok=True))
+            except Exception as exc:
+                logger.exception("Command %s failed: %s", type(cmd).__name__, exc)
+                results.append(
+                    CommandResult(
+                        command_name=type(cmd).__name__,
+                        ok=False,
+                        error=str(exc),
+                    )
+                )
+        return results
 
     @abstractmethod
     async def _handle_send_reply(self, cmd: SendReply) -> None:

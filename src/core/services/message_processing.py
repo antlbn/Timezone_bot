@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from core.domain.commands import SendReply, ShowOnboarding
@@ -10,6 +11,8 @@ from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 if TYPE_CHECKING:
     from ports.delivery import DeliveryPort
 from core.services.onboarding import OnboardingPromptService
+
+logger = logging.getLogger(__name__)
 
 
 class MessageProcessingService:
@@ -92,7 +95,21 @@ class MessageProcessingService:
                     )
                 )
 
-        await self._delivery.deliver(ctx.input.platform, commands)
+        delivery_result = await self._delivery.deliver(ctx.input.platform, commands)
+        self._log_delivery_failures(ctx, delivery_result.results)
 
         if prompt_shown:
             await self._onboarding.mark_prompt_shown(ctx.input.user_id, ctx.input.platform)
+
+    def _log_delivery_failures(self, ctx: MessageContext, results) -> None:
+        for result in results:
+            if result.ok:
+                continue
+            logger.warning(
+                "Delivery failed user=%s chat=%s platform=%s command=%s error=%s",
+                ctx.input.user_id,
+                ctx.input.chat_id,
+                ctx.input.platform.value,
+                result.command_name,
+                result.error,
+            )

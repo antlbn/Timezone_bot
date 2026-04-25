@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from core.domain.commands import SendReply
@@ -8,6 +9,8 @@ from ports.delivery import DeliveryPort
 from ports.geocoding import GeoPort
 from ports.pending import OnboardingPendingPort
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
+
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class OnboardingResult:
@@ -109,7 +112,7 @@ class OnboardingCompletionUseCase:
         if ctx.failed_stage or ctx.ignore or not ctx.reply_text:
             return
 
-        await self._delivery.deliver(
+        delivery_result = await self._delivery.deliver(
             pending.original_input.platform,
             [
                 SendReply(
@@ -119,3 +122,14 @@ class OnboardingCompletionUseCase:
                 )
             ],
         )
+        for result in delivery_result.results:
+            if result.ok:
+                continue
+            logger.warning(
+                "Replay delivery failed user=%s chat=%s platform=%s command=%s error=%s",
+                pending.original_input.user_id,
+                pending.original_input.chat_id,
+                pending.original_input.platform.value,
+                result.command_name,
+                result.error,
+            )

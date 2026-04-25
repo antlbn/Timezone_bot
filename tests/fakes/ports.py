@@ -5,7 +5,7 @@ from core.domain.enums import Platform
 from core.domain.value_objects import UserProfile, OnboardingPendingMessage, TimePoint
 from ports.detection import DetectionRequest, DetectionResult
 from ports.geocoding import Location
-from core.domain.commands import Command
+from core.domain.commands import Command, CommandResult, DeliveryResult
 
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from ports.time import TimePort
@@ -175,13 +175,23 @@ class FakeDeliveryPort:
     def __init__(self):
         self.delivered: list[tuple[Platform, list[Command]]] = []
 
-    async def deliver(self, platform: Platform, commands: list[Command]) -> None:
+    async def deliver(self, platform: Platform, commands: list[Command]) -> DeliveryResult:
         self.delivered.append((platform, commands))
+        return DeliveryResult(
+            results=[
+                CommandResult(command_name=type(command).__name__, ok=True)
+                for command in commands
+            ]
+        )
 
 
 class FakeCommandExecutorPort:
     def __init__(self):
         self.executed_commands: list[Command] = []
 
-    async def execute(self, commands: list[Command]) -> None:
+    async def execute(self, commands: list[Command]) -> list[CommandResult]:
         self.executed_commands.extend(commands)
+        return [
+            CommandResult(command_name=type(command).__name__, ok=True)
+            for command in commands
+        ]

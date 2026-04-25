@@ -10,7 +10,7 @@ These are known limitations that were accepted for the MVP to speed up developme
 | :--- | :--- | :--- | :--- |
 | **In-memory Onboarding State** | User sessions are lost on restart. | >50 active chats. | Move to **Redis**. Ports are ready. |
 | **Best-effort Delivery** | Core logic does not track whether delivery commands were actually executed successfully. | Need retries, delivery status, or compensating actions. | Add command result/ack contract to delivery. |
-| **Best-effort Pending Replay** | Pending messages are replayed after timezone save, but replay is still best-effort and in-memory only. | Need stronger recovery guarantees or multi-process safety. | Persist pending state in durable storage and define replay result handling. |
+| **Non-transactional Pending Replay** | Timezone is saved first. Pending replay runs afterwards and may fail or be skipped. | Replay becomes a required part of the use case, not just a convenience. | Persist pending state durably and handle replay as a first-class workflow step. |
 | **Auto-commits (No UoW)** | Potential partial writes on error. | Scaling to multiple workers. | Implement full Transactions / Unit of Work. |
 | **Raw String Formatting** | Hard to do complex UI (bold, buttons). | Need for platform-specific rich UI. | Return `PresentationModel` instead of string. |
 | **Anemic Domain Model** | Logic is in services, not entities. | Complex business rules growth. | Move logic into Entities (Rich Model). |
@@ -65,7 +65,8 @@ The following limitations are part of the current MVP behavior and should be tre
 
 - membership is built from observed activity, not from authoritative platform rosters
 - onboarding pending state is in memory and is lost on restart
-- replay is best-effort; if replay fails after timezone save, pending may be dropped
+- timezone save is the main action; pending replay is a follow-up convenience step
+- replay is not transactional with timezone save; if replay fails, the user stays configured and pending may be dropped
 - pending keeps only the latest relevant message per chat, not a history
 - replay depends on pending storage retention, not on fresh-message aging rules
 - detection uses only the current message and does not inspect prior chat history
