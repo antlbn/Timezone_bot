@@ -139,7 +139,7 @@ async def test_fresh_message_without_timezone_saves_latest_pending_and_shows_pro
     await processor.process_input(data)
 
     assert (1, Platform.TELEGRAM, "Alice") in storage.created
-    assert pending.messages[(1, Platform.TELEGRAM.value)].original_input.text == data.text
+    assert pending.messages[(1, Platform.TELEGRAM.value, "chat1")].original_input.text == data.text
     assert len(tg_executor.executed_commands) == 1
     assert isinstance(tg_executor.executed_commands[0], ShowOnboarding)
     assert chillout.marked == [(1, Platform.TELEGRAM)]
@@ -162,7 +162,7 @@ async def test_fresh_message_during_chillout_updates_pending_without_prompt():
     await processor.process_input(data)
 
     assert (1, Platform.TELEGRAM, "Alice") in storage.created
-    assert pending.messages[(1, Platform.TELEGRAM.value)].original_input.text == data.text
+    assert pending.messages[(1, Platform.TELEGRAM.value, "chat1")].original_input.text == data.text
     assert tg_executor.executed_commands == []
     assert chillout.marked == []
 
@@ -194,14 +194,14 @@ async def test_complete_replays_latest_pending_and_clears_it():
         ),
         detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="12:00"),)),
     )
-    await pending.upsert(1, Platform.TELEGRAM, pending_msg)
+    await pending.upsert(1, Platform.TELEGRAM, "chat1", pending_msg)
 
     result = await onboarding_completion.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
     assert len(tg_executor.executed_commands) == 1
     assert isinstance(tg_executor.executed_commands[0], SendReply)
-    assert await pending.get(1, Platform.TELEGRAM) is None
+    assert await pending.get(1, Platform.TELEGRAM, "chat1") is None
 
 
 @pytest.mark.asyncio
@@ -233,14 +233,14 @@ async def test_complete_replays_pending_even_if_message_is_old():
         ),
         detection=DetectionResult(time_mentioned=True, points=(TimePoint(time="12:00"),)),
     )
-    await pending.upsert(1, Platform.TELEGRAM, stale_msg)
+    await pending.upsert(1, Platform.TELEGRAM, "chat1", stale_msg)
 
     result = await onboarding_completion.complete(1, "London", Platform.TELEGRAM)
 
     assert result.ok is True
     assert len(tg_executor.executed_commands) == 1
     assert isinstance(tg_executor.executed_commands[0], SendReply)
-    assert await pending.get(1, Platform.TELEGRAM) is None
+    assert await pending.get(1, Platform.TELEGRAM, "chat1") is None
 
 
 @pytest.mark.asyncio
@@ -252,6 +252,7 @@ async def test_decline_marks_user_and_clears_pending():
     await pending.upsert(
         1,
         Platform.TELEGRAM,
+        "chat1",
         OnboardingPendingMessage(
             original_input=InputData(
                 text="Let's meet at 12:00",
@@ -268,4 +269,4 @@ async def test_decline_marks_user_and_clears_pending():
     await onboarding_completion.decline(1, Platform.TELEGRAM)
 
     assert storage.users[(1, Platform.TELEGRAM)].onboarding_declined is True
-    assert await pending.get(1, Platform.TELEGRAM) is None
+    assert await pending.list_for_user(1, Platform.TELEGRAM) == []

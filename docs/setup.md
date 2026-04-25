@@ -111,7 +111,6 @@ The current code reads these keys from `configuration.yaml`.
 
 - The LLM sees only the current message.
 - LLM credentials and model settings are configured through `.env`.
-- If a user without a timezone mentions time, the bot stores the latest pending message and starts onboarding.
-- After successful onboarding, the latest pending message may be replayed if it is still fresh.
+- If a user without a timezone mentions time, the bot stores the latest pending message for that chat and starts onboarding.
+- After successful onboarding, pending messages for that user may be replayed across chats if they are still present in pending storage.
 - Known members are discovered from observed chat activity; the bot does not load full member lists proactively.
-

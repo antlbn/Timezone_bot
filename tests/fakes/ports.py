@@ -127,21 +127,29 @@ class FakeGeoPort:
 
 class FakeOnboardingPendingPort:
     def __init__(self):
-        self.messages: dict[tuple[int, str], OnboardingPendingMessage] = {}
+        self.messages: dict[tuple[int, str, str], OnboardingPendingMessage] = {}
 
-    async def upsert(self, user_id: int, platform: Platform, message: OnboardingPendingMessage) -> None:
-        self.messages[(user_id, platform.value)] = message
+    async def upsert(
+        self,
+        user_id: int,
+        platform: Platform,
+        chat_id: str,
+        message: OnboardingPendingMessage,
+    ) -> None:
+        self.messages[(user_id, platform.value, chat_id)] = message
 
-    async def get(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
-        return self.messages.get((user_id, platform.value))
+    async def get(self, user_id: int, platform: Platform, chat_id: str) -> OnboardingPendingMessage | None:
+        return self.messages.get((user_id, platform.value, chat_id))
 
-    async def delete(self, user_id: int, platform: Platform) -> None:
-        self.messages.pop((user_id, platform.value), None)
+    async def list_for_user(self, user_id: int, platform: Platform) -> list[OnboardingPendingMessage]:
+        return [
+            message
+            for (stored_user_id, stored_platform, _chat_id), message in self.messages.items()
+            if stored_user_id == user_id and stored_platform == platform.value
+        ]
 
-    async def get_and_delete(self, user_id: int, platform: Platform) -> OnboardingPendingMessage | None:
-        message = await self.get(user_id, platform)
-        await self.delete(user_id, platform)
-        return message
+    async def delete(self, user_id: int, platform: Platform, chat_id: str) -> None:
+        self.messages.pop((user_id, platform.value, chat_id), None)
 
 
 class FakeOnboardingChilloutStatePort:

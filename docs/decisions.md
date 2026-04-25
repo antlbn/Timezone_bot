@@ -10,7 +10,7 @@ These are known limitations that were accepted for the MVP to speed up developme
 | :--- | :--- | :--- | :--- |
 | **In-memory Onboarding State** | User sessions are lost on restart. | >50 active chats. | Move to **Redis**. Ports are ready. |
 | **Best-effort Delivery** | Core logic does not track whether delivery commands were actually executed successfully. | Need retries, delivery status, or compensating actions. | Add command result/ack contract to delivery. |
-| **Cross-chat Pending Scope** | Pending onboarding state is currently keyed by `user + platform`, so a newer pending message can overwrite an older one from another chat. | Users actively trigger onboarding from multiple chats. | Keep cooldown global per user, but scope pending messages per chat. |
+| **Best-effort Pending Replay** | Pending messages are replayed after timezone save, but replay is still best-effort and in-memory only. | Need stronger recovery guarantees or multi-process safety. | Persist pending state in durable storage and define replay result handling. |
 | **Auto-commits (No UoW)** | Potential partial writes on error. | Scaling to multiple workers. | Implement full Transactions / Unit of Work. |
 | **Raw String Formatting** | Hard to do complex UI (bold, buttons). | Need for platform-specific rich UI. | Return `PresentationModel` instead of string. |
 | **Anemic Domain Model** | Logic is in services, not entities. | Complex business rules growth. | Move logic into Entities (Rich Model). |
@@ -54,7 +54,7 @@ If AM/PM is unclear, the bot publishes with an `AM/PM?` annotation instead of st
 ### 2.8 Error Handling & Logging Strategy
 На текущем этапе в проекте отсутствует комплексная стратегия логирования. Это осознанный компромисс:
 - **Как сейчас:** 
-    - Ошибки внутри стадий Pipeline логируются как `exception` (с трейсбэком), но «проглатываются» конвейером, возвращая `ignore=True`. Это защищает бота от падения, но делает систему «молчаливой» при сбоях (например, при ошибках API OpenAI).
+    - Ошибки внутри стадий Pipeline логируются как `exception` (с трейсбэком), а Pipeline помечает контекст через `failed_stage`. Это защищает бота от падения и позволяет отличить технический сбой от обычного `ignore`, но полноценной классификации ошибок пока нет.
     - Глобальные ошибки в адаптерах ловятся Middleware, логируются и выводят пользователю дружелюбное «что-то пошло не так».
 - **Почему так:** Разработка полноценной стратегии классификации ошибок (Domain vs Infrastructure) требует времени, которое сейчас приоритетнее направить на изучение архитектурных слоев.
 - **Что сделано:** Базовое покрытие логами критических путей (I/O, DI, Pipeline) присутствует.
@@ -65,9 +65,8 @@ The following limitations are part of the current MVP behavior and should be tre
 
 - membership is built from observed activity, not from authoritative platform rosters
 - onboarding pending state is in memory and is lost on restart
-- pending state currently overwrites across chats for the same user and platform
-- replay applies only to the latest pending message for a user/platform pair
 - replay is best-effort; if replay fails after timezone save, pending may be dropped
+- pending keeps only the latest relevant message per chat, not a history
 - replay depends on pending storage retention, not on fresh-message aging rules
 - detection uses only the current message and does not inspect prior chat history
 - delivery is best-effort and does not report command outcome back to the core

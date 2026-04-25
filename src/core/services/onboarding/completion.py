@@ -63,9 +63,8 @@ class OnboardingCompletionUseCase:
             location.flag,
         )
 
-        pending_message = await self._onboarding_pending.get(user_id, platform)
-        if pending_message:
-            # Sync chat membership if we have chat context
+        pending_messages = await self._onboarding_pending.list_for_user(user_id, platform)
+        for pending_message in pending_messages:
             if pending_message.original_input.chat_id:
                 await self._chats.add_chat_member(
                     chat_id=pending_message.original_input.chat_id,
@@ -74,7 +73,11 @@ class OnboardingCompletionUseCase:
                 )
 
             await self._replay_latest_pending(pending_message)
-            await self._onboarding_pending.delete(user_id, platform)
+            await self._onboarding_pending.delete(
+                user_id,
+                platform,
+                pending_message.original_input.chat_id,
+            )
 
         return OnboardingResult(
             ok=True,
@@ -89,7 +92,13 @@ class OnboardingCompletionUseCase:
         Delete pending messages without replay.
         """
         await self._users.set_onboarding_declined(user_id, platform)
-        await self._onboarding_pending.delete(user_id, platform)
+        pending_messages = await self._onboarding_pending.list_for_user(user_id, platform)
+        for pending_message in pending_messages:
+            await self._onboarding_pending.delete(
+                user_id,
+                platform,
+                pending_message.original_input.chat_id,
+            )
 
     async def _replay_latest_pending(self, pending: OnboardingPendingMessage) -> None:
         ctx = MessageContext(

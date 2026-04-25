@@ -26,7 +26,12 @@ class OnboardingPromptService:
         pending_message: OnboardingPendingMessage,
     ) -> bool:
         """Store the latest pending message and decide whether the onboarding prompt should be shown."""
-        await self._onboarding_pending.upsert(user_id, platform, pending_message)
+        await self._onboarding_pending.upsert(
+            user_id,
+            platform,
+            pending_message.original_input.chat_id,
+            pending_message,
+        )
         return not await self._chillout_state.is_onboarding_in_chillout(
             user_id,
             platform,

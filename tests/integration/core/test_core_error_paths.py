@@ -95,6 +95,7 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
     await pending.upsert(
         1,
         Platform.TELEGRAM,
+        "chat1",
         OnboardingPendingMessage(
             original_input=InputData(
                 text="15:00",
@@ -112,4 +113,4 @@ async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
 
     assert result.ok is True
     assert executor.executed_commands == []
-    assert await pending.get(1, Platform.TELEGRAM) is None
+    assert await pending.get(1, Platform.TELEGRAM, "chat1") is None

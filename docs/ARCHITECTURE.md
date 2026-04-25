@@ -40,7 +40,7 @@ Responsibilities:
 - run the fresh-message flow
 - register observed users and chat membership
 - store pending onboarding messages
-- complete onboarding and replay the latest pending message
+- complete onboarding and replay pending messages for affected chats
 - route delivery commands to platform executors
 
 ### Core Pipeline
@@ -92,7 +92,7 @@ Replay flow after onboarding:
 OnboardingCompletionUseCase
 -> resolve submitted city
 -> persist user timezone
--> load latest pending message
+-> load pending messages for the user
 -> replay Pipeline
 -> MessageContext outcome
 -> SendReply
@@ -216,7 +216,7 @@ Single-purpose values may remain as plain fields on `AppConfig`.
 - Detection is one-shot and uses only the current message.
 - Known members are collected passively from observed activity.
 - Pending onboarding state is stored in memory and is lost on process restart.
-- Replay handles only the latest pending message per user/platform pair.
+- Replay is best-effort and depends on pending storage retention.
 - The current implementation is single-process oriented.
 
 ## Notes On Accuracy
