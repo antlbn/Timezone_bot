@@ -98,10 +98,11 @@ def _build_tg_executor(
     tg_bot: TgBot | None,
     tg_username: str | None,
     config: TelegramConfig,
+    deletion_scheduler: 'DeletionScheduler'
 ) -> TelegramCommandExecutor | None:
     if not tg_bot or not tg_username:
         return None
-    return TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username, config=config)
+    return TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username, config=config, deletion_scheduler=deletion_scheduler)
 
 
 def _register_discord_executor(
@@ -135,6 +136,9 @@ async def build_container(
     detector: DetectionPort = OpenAIDetector(config=config.llm, log_prompts=config.log_prompts)
     geocoder: GeoPort = NominatimGeo()
 
+    from adapters.inbound.telegram.common import DeletionScheduler
+    deletion_scheduler = DeletionScheduler()
+
     onboarding_pending_store = MemoryOnboardingPending(
         ttl_seconds=config.bot.onboarding_pending_ttl_secs
     )
@@ -144,7 +148,7 @@ async def build_container(
         storage, detector, geocoder, config.bot, time_port
     )
 
-    tg_executor = _build_tg_executor(tg_bot, tg_username, config.telegram)
+    tg_executor = _build_tg_executor(tg_bot, tg_username, config.telegram, deletion_scheduler)
     delivery_service = DeliveryService(tg_executor=tg_executor)
 
     onboarding_prompt = OnboardingPromptService(
@@ -174,9 +178,6 @@ async def build_container(
     )
 
     profile_service = ProfileService(users_repo=storage, chats_repo=storage, time_port=time_port)
-
-    from adapters.inbound.telegram.common import DeletionScheduler
-    deletion_scheduler = DeletionScheduler()
 
     return AppContainer(
         storage=storage,

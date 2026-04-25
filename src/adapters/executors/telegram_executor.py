@@ -1,17 +1,18 @@
 from adapters.executors.base_executor import BaseCommandExecutor
 from core.domain.commands import SendReply, ShowOnboarding
-from adapters.inbound.telegram.common import schedule_deletion, generate_onboarding_link
+from adapters.inbound.telegram.common import generate_onboarding_link, DeletionScheduler
 from adapters.inbound.telegram.config import TelegramConfig
 from adapters.inbound.telegram import ui
 
 from aiogram import Bot
 
 class TelegramCommandExecutor(BaseCommandExecutor):
-    def __init__(self, bot: Bot, bot_username: str, config: TelegramConfig):
+    def __init__(self, bot: Bot, bot_username: str, config: TelegramConfig, deletion_scheduler: DeletionScheduler):
         super().__init__()
         self.bot = bot
         self._bot_username = bot_username
         self._config = config
+        self._deletion_scheduler = deletion_scheduler
 
     async def _handle_send_reply(self, cmd: SendReply) -> None:
         msg = await self.bot.send_message(
@@ -23,7 +24,7 @@ class TelegramCommandExecutor(BaseCommandExecutor):
         # Policy: stay in groups, delete in private
         is_group = int(cmd.chat_id) < 0
         if not is_group:
-            await schedule_deletion(msg, delay=self._config.delete_delay)
+            await self._deletion_scheduler.schedule(msg, delay=self._config.delete_delay)
 
     async def _handle_show_onboarding(self, cmd: ShowOnboarding) -> None:
         url = generate_onboarding_link(self._bot_username, cmd.user_id, cmd.chat_id)
@@ -36,4 +37,4 @@ class TelegramCommandExecutor(BaseCommandExecutor):
         )
         
         # Policy: always delete (onboarding is setup/settings)
-        await schedule_deletion(msg, delay=self._config.delete_delay)
+        await self._deletion_scheduler.schedule(msg, delay=self._config.delete_delay)
