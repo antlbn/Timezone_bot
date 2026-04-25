@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from core.domain.value_objects import BotSettings, LLMConfig, LLMModelConfig, LoggingConfig
 from core.domain.enums import ResponseStyle
 from adapters.inbound.telegram.config import TelegramConfig
+from config_schema import YamlConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,35 +21,32 @@ class AppConfig:
     bot: BotSettings
     telegram: TelegramConfig
 
-def build_settings(config_data: dict) -> BotSettings:
-    bot_config = config_data.get("bot", {})
-    response_style_str = bot_config.get("response_style", "block")
-    style = ResponseStyle.INLINE if response_style_str.lower() == "inline_sentence" else ResponseStyle.BLOCK
+def build_settings(config: YamlConfig) -> BotSettings:
+    style = (
+        ResponseStyle.INLINE
+        if config.bot.response_style == "inline_sentence"
+        else ResponseStyle.BLOCK
+    )
 
     return BotSettings(
-        show_usernames=bot_config.get("show_usernames", False),
-        show_event_title=bot_config.get("show_event_title", True),
+        show_usernames=config.bot.show_usernames,
+        show_event_title=config.bot.show_event_title,
         response_style=style,
-        max_age_fresh_secs=bot_config.get("max_age_fresh_secs", 30),
-        max_message_hard_skip_chars=config_data.get("event_detection", {}).get(
-            "max_message_hard_skip_chars",
-            4000,
-        ),
-        onboarding_cooldown_secs=bot_config.get("onboarding_cooldown_secs", 3600),
-        onboarding_pending_ttl_secs=bot_config.get("onboarding_pending_ttl_secs", 3600),
+        max_age_fresh_secs=config.bot.max_age_fresh_secs,
+        max_message_hard_skip_chars=config.event_detection.max_message_hard_skip_chars,
+        onboarding_cooldown_secs=config.bot.onboarding_cooldown_secs,
+        onboarding_pending_ttl_secs=config.bot.onboarding_pending_ttl_secs,
     )
 
-def build_tg_config(config_data: dict) -> TelegramConfig:
-    bot_config = config_data.get("bot", {})
+def build_tg_config(config: YamlConfig) -> TelegramConfig:
     return TelegramConfig(
-        delete_delay=bot_config.get("group_auto_delete_delay_secs", 20),
+        delete_delay=config.bot.group_auto_delete_delay_secs,
     )
 
 
-def build_logging_config(config_data: dict) -> LoggingConfig:
-    logging_config = config_data.get("logging", {})
+def build_logging_config(config: YamlConfig) -> LoggingConfig:
     return LoggingConfig(
-        level=str(logging_config.get("level", "INFO")).upper(),
+        level=config.logging.level.upper(),
     )
 
 def load_config() -> AppConfig:
@@ -61,10 +59,11 @@ def load_config() -> AppConfig:
     config_path = Path("configuration.yaml")
     if not config_path.exists():
         logger.warning(f"Config file {config_path} not found. Using defaults.")
-        config_data = {}
+        raw_config_data: object = {}
     else:
         with open(config_path, "r") as f:
-            config_data = yaml.safe_load(f) or {}
+            raw_config_data = yaml.safe_load(f) or {}
+    yaml_config = YamlConfig.model_validate(raw_config_data)
     
     primary_llm = LLMModelConfig(
         api_key=os.getenv("LLM_API_KEY"),
@@ -85,9 +84,9 @@ def load_config() -> AppConfig:
     return AppConfig(
         tg_token=tg_token,
         dc_token=dc_token,
-        logging=build_logging_config(config_data),
+        logging=build_logging_config(yaml_config),
         llm=llm_config,
-        log_prompts=bool(config_data.get("event_detection", {}).get("log_prompts", False)),
-        bot=build_settings(config_data),
-        telegram=build_tg_config(config_data)
+        log_prompts=yaml_config.event_detection.log_prompts,
+        bot=build_settings(yaml_config),
+        telegram=build_tg_config(yaml_config)
     )
