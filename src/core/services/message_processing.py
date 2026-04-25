@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from core.domain.commands import SendReply, ShowOnboarding
+from core.domain.commands import Command, CommandResult, SendReply, ShowOnboarding
 from core.domain.value_objects import InputData, MessageContext, BotSettings
 from core.pipeline.pipeline import Pipeline
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
@@ -68,7 +68,7 @@ class MessageProcessingService:
         if ctx.ignore:
             return
 
-        commands = []
+        commands: list[Command] = []
         if ctx.reply_text:
             commands.append(
                 SendReply(
@@ -101,7 +101,7 @@ class MessageProcessingService:
         if prompt_shown:
             await self._onboarding.mark_prompt_shown(ctx.input.user_id, ctx.input.platform)
 
-    def _log_delivery_failures(self, ctx: MessageContext, results) -> None:
+    def _log_delivery_failures(self, ctx: MessageContext, results: list[CommandResult]) -> None:
         for result in results:
             if result.ok:
                 continue

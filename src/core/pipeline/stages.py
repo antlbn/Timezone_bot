@@ -6,6 +6,7 @@ from core.domain.value_objects import (
     OnboardingPendingMessage,
     BotSettings,
     TimePoint,
+    UserProfile,
 )
 from ports.detection import DetectionPort, DetectionRequest, DetectionResult
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
@@ -107,7 +108,7 @@ class HydrationStage:
         sender = await self._users.get_user(ctx.input.user_id, ctx.input.platform)
 
         # Load only members who can help with time conversion
-        members = tuple()
+        members: tuple[UserProfile, ...] = tuple()
         if ctx.input.chat_id:
             fetched_members = await self._chats.get_chat_members_with_tz(
                 ctx.input.chat_id, ctx.input.platform

@@ -31,7 +31,7 @@ The choice of architecture was largely driven by the goal of **learning architec
 All conversions go through UTC (`Local -> UTC -> Target`). This avoids direct zone-to-zone arithmetic and handles DST correctly via IANA data.
 
 ### 2.2 LLM-Only Detection
-The MVP relies on LLM for detection without a regex fallback. This ensures high flexibility for natural language and returns a strict JSON contract.
+The MVP relies on LLM for detection without a regex fallback. This ensures high flexibility for natural language and returns a strict JSON contract that is validated at the adapter boundary before reaching the core.
 
 ### 2.3 One-Shot Context
 The LLM sees only the current message. This keeps the contract simple and predictable for the MVP.
@@ -84,4 +84,4 @@ The following limitations are part of the current MVP behavior and should be tre
 ---
 
 ## 4. Archive & History
-For historical context on how these decisions were reached, see [docs/archive/](archive/).
+Historical notes may exist during development, but handover should rely on the live docs in this directory rather than archived design snapshots.

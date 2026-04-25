@@ -17,5 +17,5 @@
       "root": "src"
     }
   ],
-  "typeCheckingMode": "basic"
+  "typeCheckingMode": "standard"
 }

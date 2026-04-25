@@ -1,8 +1,17 @@
 from collections import defaultdict
 from datetime import datetime
+from typing import Sequence, TypedDict
+
 from core.domain.value_objects import TimePoint, UserProfile
 from core.services.conversion import convert_time, get_utc_offset, parse_time
 from core.domain.enums import ResponseStyle
+
+
+class ConversionRow(TypedDict):
+    displayed_time: str
+    label: str
+    flag: str
+    group: list[UserProfile]
 
 
 def normalize_time(time_str: str) -> str:
@@ -38,8 +47,10 @@ def _format_names(group: list[UserProfile], show_usernames: bool) -> str:
     return f"{names[0]}, {names[1]}, +{len(names) - 2} more"
 
 
-def _group_members_by_timezone(members: list[UserProfile], reference_date: datetime) -> list[tuple[str, list[UserProfile]]]:
-    tz_groups = defaultdict(list)
+def _group_members_by_timezone(
+    members: Sequence[UserProfile], reference_date: datetime
+) -> list[tuple[str, list[UserProfile]]]:
+    tz_groups: defaultdict[str, list[UserProfile]] = defaultdict(list)
     for m in members:
         if m.timezone:
             tz_groups[m.timezone].append(m)
@@ -62,9 +73,9 @@ def _build_conversion_rows(
     source_tz: str,
     source_label: str,
     source_flag: str,
-    members: list[UserProfile],
+    members: Sequence[UserProfile],
     reference_date: datetime,
-) -> list[dict]:
+) -> list[ConversionRow]:
     """Build the list of display rows: source first (at source_tz), then all other
     member timezones sorted by UTC offset.
 
@@ -86,7 +97,7 @@ def _build_conversion_rows(
     if not source_flag and source_group and source_group[0].flag:
         source_flag = source_group[0].flag
 
-    rows = [{
+    rows: list[ConversionRow] = [{
         "displayed_time": normalize_time(original_time),
         "label": source_label,
         "flag": source_flag,
@@ -136,7 +147,7 @@ def _resolve_source(
 def format_single_point(
     point: TimePoint,
     sender: UserProfile | None,
-    members: list[UserProfile],
+    members: Sequence[UserProfile],
     response_style: ResponseStyle,
     show_usernames: bool,
     show_event_title: bool,
@@ -184,11 +195,11 @@ def format_single_point(
 def format_multi_conversion(
     points: tuple[TimePoint, ...],
     sender: UserProfile | None,
-    members: list[UserProfile],
+    members: Sequence[UserProfile],
     response_style: ResponseStyle = ResponseStyle.BLOCK,
     show_usernames: bool = False,
     show_event_title: bool = False,
-    reference_date: datetime = None,
+    reference_date: datetime | None = None,
 ) -> str:
     """
     Formats the converted times into a single text representation.

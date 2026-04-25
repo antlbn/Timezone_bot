@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class LLMModelConfig:
-    api_key: str
+    api_key: str | None
     model: str
     base_url: str | None = None
     temperature: float = 0.0
@@ -34,7 +34,7 @@ class TimePoint:
     day_shift: int = 0
     event_title: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Validate time format HH:MM
         if not re.match(r"^(?:[01]\d|2[0-3]):[0-5]\d$", self.time):
             raise ValueError(f"Invalid time format: {self.time}. Must be HH:MM.")

@@ -1,8 +1,8 @@
-from datetime import datetime, time
+from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
-def get_utc_offset(tz_name: str, now: datetime = None) -> float:
+def get_utc_offset(tz_name: str, now: datetime | None = None) -> float:
     """Get UTC offset in hours for sorting timezones."""
     try:
         tz = ZoneInfo(tz_name)
@@ -10,7 +10,10 @@ def get_utc_offset(tz_name: str, now: datetime = None) -> float:
             now = datetime.now(tz)
         else:
             now = now.astimezone(tz)
-        return now.utcoffset().total_seconds() / 3600
+        offset: timedelta | None = now.utcoffset()
+        if offset is None:
+            return 0
+        return offset.total_seconds() / 3600
     except (ValueError, ZoneInfoNotFoundError):
         return 0
 

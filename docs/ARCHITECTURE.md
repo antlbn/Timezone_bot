@@ -70,6 +70,26 @@ Responsibilities:
 - `MemoryOnboardingChilloutState`
 - platform command executors
 
+## Boundary Rules
+
+The most important structural rule in the current codebase is:
+
+- adapters may receive raw transport data such as messenger payloads, SQLite rows, YAML objects, or LLM JSON
+- adapters must convert that transport data into typed objects before passing it into the shared core
+- the core pipeline and application services do not accept raw `dict` contracts
+
+Current typed boundaries:
+
+- messenger events -> `InputData`
+- SQLite rows -> `UserProfile`
+- LLM JSON -> `DetectionResult` via Pydantic schema validation
+- `configuration.yaml` -> typed config sections via Pydantic schema validation
+
+This is the current phase-transition rule for the project:
+
+- once data crosses a module boundary and is consumed by shared logic, it must have an explicit schema or domain type
+- defensive `.get(...)` chains are acceptable only inside boundary parsing code, not in the core workflow
+
 ## Message Flow
 
 Fresh message flow:
@@ -209,7 +229,21 @@ Settings that form clear responsibility boundaries are grouped in typed objects 
 - `LoggingConfig`
 - `TelegramConfig`
 
+The YAML file itself is validated as a typed transport schema before those domain-facing settings are built.
+
 Single-purpose values may remain as plain fields on `AppConfig`.
+
+## Static Analysis
+
+The repository currently uses:
+
+- `pyright` in `standard` mode for broad feedback
+- `mypy --strict` on the core and boundary modules where contract drift matters most
+
+The intent is practical rather than total:
+
+- type enforcement is strongest around `src/core/`, `src/ports/`, storage, detector parsing, and config loading
+- looser framework-heavy adapter code can be tightened later without blocking handover
 
 ## Current Limitations
 
