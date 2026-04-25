@@ -40,6 +40,8 @@ files = [
     "src/adapters/outbound/sqlite_storage.py",
     "src/config.py",
     "src/config_schema.py",
+    "src/container.py",
+    "src/main.py",
 ]
 strict = true
 warn_unused_ignores = true
@@ -47,3 +49,18 @@ warn_redundant_casts = true
 namespace_packages = true
 explicit_package_bases = true
 mypy_path = ["src", "."]
+
+[[tool.mypy.overrides]]
+module = [
+    "adapters.executors.*",
+    "adapters.inbound.discord.*",
+    "adapters.inbound.telegram.*",
+    "adapters.outbound.nominatim_geo",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "geopy.*",
+]
+ignore_missing_imports = true

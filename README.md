@@ -57,4 +57,5 @@ Python 3.12+ is required.
 - [docs/setup.md](docs/setup.md) — setup, runtime configuration, and tests
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — current architecture and message flow
 - [docs/decisions.md](docs/decisions.md) — design decisions and accepted trade-offs
-- [docs/archive/](docs/archive/) — historical notes
+
+Use the documents above as the current source of truth for handover and maintenance.

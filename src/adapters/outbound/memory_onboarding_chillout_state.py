@@ -1,11 +1,12 @@
 from time import monotonic
+from collections.abc import Callable
 
 from core.domain.enums import Platform
 from ports.onboarding_chillout_state import OnboardingChilloutStatePort
 
 
 class MemoryOnboardingChilloutState(OnboardingChilloutStatePort):
-    def __init__(self, now_fn=None):
+    def __init__(self, now_fn: Callable[[], float] | None = None) -> None:
         self._shown_at: dict[tuple[int, str], float] = {}
         self._now = now_fn or monotonic
 

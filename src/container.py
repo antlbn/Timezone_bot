@@ -1,7 +1,15 @@
 import logging
 from pathlib import Path
 from dataclasses import dataclass
+from typing import Protocol
 
+from aiogram import Bot as TgBot
+import discord
+
+from adapters.inbound.telegram.config import TelegramConfig
+from adapters.executors.discord_executor import DiscordCommandExecutor
+from adapters.executors.telegram_executor import TelegramCommandExecutor
+from adapters.inbound.discord.ui import SetTimezoneView
 from adapters.outbound.sqlite_storage import SQLiteStorage
 from adapters.outbound.openai_detector import OpenAIDetector
 from adapters.outbound.nominatim_geo import NominatimGeo
@@ -10,26 +18,29 @@ from adapters.outbound.memory_onboarding_chillout_state import MemoryOnboardingC
 from adapters.outbound.delivery_service import DeliveryService
 from adapters.outbound.real_time import RealTimeAdapter
 
+from core.domain.enums import Platform
+from core.domain.value_objects import BotSettings, LLMConfig
 from core.pipeline.pipeline import Pipeline
 from core.services.message_processing import MessageProcessingService
 from core.services.onboarding import OnboardingPromptService, OnboardingCompletionUseCase
 from core.services.profile import ProfileService
+from ports.detection import DetectionPort
+from ports.delivery import DeliveryPort
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from ports.geocoding import GeoPort
-
-from aiogram import Bot as TgBot
-import discord
-from core.domain.enums import Platform
-from adapters.inbound.discord.ui import SetTimezoneView
-from adapters.executors.telegram_executor import TelegramCommandExecutor
-from adapters.executors.discord_executor import DiscordCommandExecutor
+from ports.time import TimePort
 
 from config import AppConfig
 
 logger = logging.getLogger(__name__)
 
+
+class StoragePorts(UserRepositoryPort, ChatRepositoryPort, Protocol):
+    pass
+
 @dataclass
 class AppContainer:
+    storage: SQLiteStorage
     users_repo: UserRepositoryPort
     chats_repo: ChatRepositoryPort
     fresh_pipeline: Pipeline
@@ -41,7 +52,13 @@ class AppContainer:
     message_processor: MessageProcessingService
     delivery_service: DeliveryService
 
-def build_pipelines(storage, detector, geocoder, settings, time_port) -> tuple[Pipeline, Pipeline]:
+def build_pipelines(
+    storage: StoragePorts,
+    detector: DetectionPort,
+    geocoder: GeoPort,
+    settings: BotSettings,
+    time_port: TimePort,
+) -> tuple[Pipeline, Pipeline]:
     from core.pipeline.stages import (
         GuardStage,
         AgingStage,
@@ -69,21 +86,48 @@ def build_pipelines(storage, detector, geocoder, settings, time_port) -> tuple[P
     ])
     return fresh_pipeline, replay_pipeline
 
+
+def _build_tg_executor(
+    tg_bot: TgBot | None,
+    tg_username: str | None,
+    config: TelegramConfig,
+) -> TelegramCommandExecutor | None:
+    if not tg_bot or not tg_username:
+        return None
+    return TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username, config=config)
+
+
+def _register_discord_executor(
+    delivery_service: DeliveryService,
+    dc_client: discord.Client | None,
+    onboarding_completion: OnboardingCompletionUseCase,
+) -> None:
+    if dc_client is None:
+        return
+
+    def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
+        return SetTimezoneView(target_user_id, onboarding_completion)
+
+    dc_executor = DiscordCommandExecutor(
+        client=dc_client,
+        onboarding_view_factory=_make_discord_onboarding_view,
+    )
+    delivery_service.register_executor(Platform.DISCORD, dc_executor)
+
 async def build_container(
     config: AppConfig,
     tg_bot: TgBot | None = None,
     tg_username: str | None = None,
     dc_client: discord.Client | None = None,
 ) -> AppContainer:
-    # Infrastructure Setup
     db_path = Path("data/bot.db")
     storage = SQLiteStorage(db_path)
     await storage.initialize()
 
-    time_port = RealTimeAdapter()
-    detector = OpenAIDetector(config=config.llm, log_prompts=config.log_prompts)
-    geocoder = NominatimGeo()
-    
+    time_port: TimePort = RealTimeAdapter()
+    detector: DetectionPort = OpenAIDetector(config=config.llm, log_prompts=config.log_prompts)
+    geocoder: GeoPort = NominatimGeo()
+
     onboarding_pending_store = MemoryOnboardingPending(
         ttl_seconds=config.bot.onboarding_pending_ttl_secs
     )
@@ -93,13 +137,7 @@ async def build_container(
         storage, detector, geocoder, config.bot, time_port
     )
 
-    # Executors
-    tg_executor = (
-        TelegramCommandExecutor(bot=tg_bot, bot_username=tg_username, config=config.telegram)
-        if (tg_bot and tg_username) else None
-    )
-
-    # Services
+    tg_executor = _build_tg_executor(tg_bot, tg_username, config.telegram)
     delivery_service = DeliveryService(tg_executor=tg_executor)
 
     onboarding_prompt = OnboardingPromptService(
@@ -117,16 +155,7 @@ async def build_container(
         delivery_service=delivery_service,
     )
 
-    # Discord Executor (needs onboarding_completion)
-    if dc_client:
-        def _make_discord_onboarding_view(target_user_id: int) -> discord.ui.View:
-            return SetTimezoneView(target_user_id, onboarding_completion)
-
-        dc_executor = DiscordCommandExecutor(
-            client=dc_client, 
-            onboarding_view_factory=_make_discord_onboarding_view
-        )
-        delivery_service.register_executor(Platform.DISCORD, dc_executor)
+    _register_discord_executor(delivery_service, dc_client, onboarding_completion)
 
     message_processor = MessageProcessingService(
         fresh_pipeline=fresh_pipeline,
@@ -140,6 +169,7 @@ async def build_container(
     profile_service = ProfileService(users_repo=storage, chats_repo=storage, time_port=time_port)
 
     return AppContainer(
+        storage=storage,
         users_repo=storage,
         chats_repo=storage,
         fresh_pipeline=fresh_pipeline,
@@ -149,5 +179,5 @@ async def build_container(
         onboarding_completion=onboarding_completion,
         profile_service=profile_service,
         message_processor=message_processor,
-        delivery_service=delivery_service
+        delivery_service=delivery_service,
     )

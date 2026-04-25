@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class BaseCommandExecutor(CommandExecutorPort, ABC):
-    def __init__(self):
+    def __init__(self) -> None:
         self._handlers = {
             SendReply: self._handle_send_reply,
             ShowOnboarding: self._handle_show_onboarding,
