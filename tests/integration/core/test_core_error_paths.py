@@ -57,6 +57,26 @@ async def test_message_processing_ignores_pipeline_failure_without_side_effects(
 
 
 @pytest.mark.asyncio
+async def test_pipeline_marks_failed_stage_on_exception():
+    ctx = MessageContext(
+        input=InputData(
+            text="15:00",
+            user_id=1,
+            platform=Platform.TELEGRAM,
+            author_name="Alice",
+            timestamp_utc=datetime.now(timezone.utc),
+            chat_id="chat1",
+        )
+    )
+
+    ctx = await Pipeline([ExplodingStage()]).run(ctx)
+
+    assert ctx.failed_stage == "ExplodingStage"
+    assert ctx.stop_processing is True
+    assert ctx.ignore is False
+
+
+@pytest.mark.asyncio
 async def test_onboarding_complete_clears_pending_when_replay_pipeline_fails():
     storage = FakeStoragePort()
     pending = FakeOnboardingPendingPort()

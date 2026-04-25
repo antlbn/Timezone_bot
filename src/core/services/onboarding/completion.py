@@ -97,7 +97,7 @@ class OnboardingCompletionUseCase:
             detection=pending.detection,
         )
         ctx = await self._replay_pipeline.run(ctx)
-        if ctx.ignore or not ctx.reply_text:
+        if ctx.failed_stage or ctx.ignore or not ctx.reply_text:
             return
 
         await self._delivery.deliver(

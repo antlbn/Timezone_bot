@@ -24,6 +24,7 @@ class StaticDecisionStage:
     pending_message: OnboardingPendingMessage | None = None
     needs_onboarding: bool = False
     ignore: bool = False
+    failed_stage: str | None = None
     detection: DetectionResult | None = None
 
     async def process(self, ctx: MessageContext) -> MessageContext:
@@ -35,6 +36,7 @@ class StaticDecisionStage:
             pending_message=self.pending_message,
             needs_onboarding=self.needs_onboarding,
             ignore=self.ignore,
+            failed_stage=self.failed_stage,
         )
 
 
@@ -113,6 +115,27 @@ async def test_process_input_skips_registration_and_delivery_when_no_detection()
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
             StaticDecisionStage(ignore=True, detection=None)
+        ]),
+        users_repo=storage, chats_repo=storage,
+        delivery_service=DeliveryService(tg_executor=executor),
+        onboarding_prompt=FakeOnboardingPromptService(),
+        settings=BotSettings(),
+    )
+
+    await service.process_input(data)
+
+    assert storage.created == []
+    assert executor.executed_commands == []
+
+
+@pytest.mark.asyncio
+async def test_process_input_skips_side_effects_when_pipeline_failed():
+    data = _input()
+    storage = FakeStoragePort()
+    executor = FakeCommandExecutorPort()
+    service = MessageProcessingService(
+        fresh_pipeline=Pipeline([
+            StaticDecisionStage(failed_stage="DetectionStage")
         ]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),

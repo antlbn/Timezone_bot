@@ -31,5 +31,9 @@ class Pipeline:
                     ctx.input.text[:50] if ctx.input.text else "",
                     e,
                 )
-                return dataclasses.replace(ctx, ignore=True)
+                return dataclasses.replace(
+                    ctx,
+                    failed_stage=stage.__class__.__name__,
+                    stop_processing=True,
+                )
         return ctx

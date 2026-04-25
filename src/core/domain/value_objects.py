@@ -89,4 +89,5 @@ class MessageContext:
     pending_message: OnboardingPendingMessage | None = None
     needs_onboarding: bool = False
     ignore: bool = False
+    failed_stage: str | None = None
     stop_processing: bool = False

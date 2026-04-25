@@ -60,6 +60,8 @@ class MessageProcessingService:
             )
 
     async def _apply_outcome(self, ctx: MessageContext) -> None:
+        if ctx.failed_stage:
+            return
         if ctx.ignore:
             return
 
