@@ -31,11 +31,12 @@ def parse_onboarding_payload(payload: str | None) -> OnboardingStartContext | No
     else:
         user_part, chat_part = parts[0], None
 
-    if not user_part.lstrip("-").isdigit():
+    user_part_clean = user_part.replace("_", "")
+    if not user_part_clean.lstrip("-").isdigit():
         return None
         
     return OnboardingStartContext(
-        target_user_id=int(user_part),
+        target_user_id=int(user_part_clean),
         source_chat_id=chat_part or None,
     )
 
