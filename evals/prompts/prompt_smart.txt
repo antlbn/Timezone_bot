@@ -1,53 +1,40 @@
-ВЫВОДИ ТОЛЬКО JSON. ОТВЕТ НАЧИНАЕТСЯ С { И ЗАКАНЧИВАЕТСЯ НА }.
-БЕЗ ЛИШНЕГО ТЕКСТА И ПОЯСНЕНИЙ.
+JSON only. Start with { and end with }. No extra text.
 
-ЗАДАЧА:
-Проанализируй CURRENT MESSAGE.
-Цель: определить, содержит ли сообщение координацию события со временем, и извлечь только однозначные time points.
+TASK:
+Analyze CURRENT MESSAGE as a coordination-oriented time detection task and return the current detection schema.
 
-ИНСТРУКЦИИ:
-1. Выводи время строго в 24-часовом формате `HH:MM`.
-2. Инферируй AM/PM только если это действительно однозначно из формулировки и текущего времени.
-3. Учитывай языковые идиомы: `пол восьмого`, `без пятнадцати восемь`, `halb zehn`, `9 y media`.
-4. Относительное время (`через 20 минут`) вычисляй от CURRENT TIME (UTC).
-5. Используй массив `points`; каждый объект содержит `time`, `city`, `event_title`.
-6. Если в одном сообщении есть окно или два разных события, верни несколько `points`.
-7. Если время невозможно или противоречиво (`13 ночи`, `14 pm`), не извлекай его.
-8. Если `event=false`, верни `points=[]`.
-
-JSON SCHEMA:
+SCHEMA:
 {
-  "event": boolean,
+  "time_mentioned": boolean,
   "points": [
     {
       "time": "HH:MM",
-      "city": "string|null",
-      "event_title": "string|null"
+      "tz_city": "string | null",
+      "event_title": "string | null",
+      "am_pm_clear": boolean
     }
   ]
 }
 
-ПРИМЕРЫ:
+INSTRUCTIONS:
+1. Use `HH:MM` 24-hour time.
+2. Infer AM/PM only when the current contract allows it confidently.
+3. Handle idioms such as `пол восьмого`, `без пятнадцати восемь`, `halb zehn`, `9 y media`.
+4. Compute relative time from `CURRENT TIME (UTC)`.
+5. Return multiple points when the message truly contains multiple relevant time mentions.
+6. If a city or timezone is attached to a point, store it in `tz_city`.
+7. If the time is impossible, return no point for it.
+8. If there is no valid time-of-day reference, return `{"time_mentioned": false, "points": []}`.
 
-Пример 1 — встреча с идиомой:
-CURRENT TIME (UTC): 2026-03-13T12:00:00Z
-CURRENT MESSAGE:
-Ок, тогда встречаемся без пятнадцати восемь у входа
-→ {"event":true,"points":[{"time":"19:45","city":null,"event_title":"встреча"}]}
+EXAMPLES:
+"Ок, тогда встречаемся без пятнадцати восемь у входа"
+-> {"time_mentioned":true,"points":[{"time":"19:45","tz_city":null,"event_title":"встреча","am_pm_clear":true}]}
 
-Пример 2 — явный город:
-CURRENT TIME (UTC): 2026-03-13T18:30:00Z
-CURRENT MESSAGE:
-не вечером - утром: в 8 по Парижу это в 11 по Еревану
-→ {"event":true,"points":[{"time":"11:00","city":"Yerevan","event_title":"встреча"}]}
+"не вечером - утром: в 8 по Парижу это в 11 по Еревану"
+-> {"time_mentioned":true,"points":[{"time":"11:00","tz_city":"Yerevan","event_title":"встреча","am_pm_clear":true}]}
 
-Пример 3 — флуд:
-CURRENT TIME (UTC): 2026-03-13T21:22:00Z
-CURRENT MESSAGE:
-ребят вы серьезно? У нас есть чат для флуда
-→ {"event":false,"points":[]}
-
-=========================================
+"ребят вы серьезно? У нас есть чат для флуда"
+-> {"time_mentioned":false,"points":[]}
 
 CURRENT TIME (UTC): {{timestamp}}
 CURRENT MESSAGE:

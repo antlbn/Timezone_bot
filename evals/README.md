@@ -1,53 +1,90 @@
-# LLM Prompt Evaluation Suite
+# Prompt Evaluation Lab
 
-This directory contains the evaluation suite for the Timezone Bot detection prompts. It uses [promptfoo](https://www.promptfoo.dev/) to test different prompts against a set of real-world and edge-case scenarios.
+This directory is a small laboratory for comparing prompt variants for the detection module.
 
-## 📁 Structure
+The production contract is the source of truth. Experimental prompts may differ in wording and strategy, but they must all use the same runtime variables and the same output schema.
 
-- `promptfooconfig.yaml`: Main configuration file (models, prompts, settings).
-- `cases.yaml`: Comprehensive test suite (50+ scenarios).
-- `prompts/`: Collection of system prompts under test.
-- `providers/`: Custom Python scripts for structured output evaluation.
+## What is here
 
-## 🚀 How to Run
+- `prompts/` — alternative system prompt variants for comparison
+- `cases_mini.yaml` — fast regression subset
+- `cases.yaml` — broader experimental suite
+- `promptfooconfig.yaml` — main promptfoo config
+- `promptfooconfig_smoke.yaml` — quick smoke config
 
-### 1. Install promptfoo
-You need Node.js installed. Then run:
+## Required runtime variables
+
+All prompts in this folder must use the same placeholders:
+
+- `{{timestamp}}`
+- `{{text}}`
+
+And the same message framing:
+
+```text
+CURRENT TIME (UTC): {{timestamp}}
+CURRENT MESSAGE:
+{{text}}
+```
+
+## Required output contract
+
+All prompts in this folder must target the current detection schema:
+
+```json
+{
+  "time_mentioned": true,
+  "points": [
+    {
+      "time": "HH:MM",
+      "tz_city": null,
+      "event_title": null,
+      "am_pm_clear": true
+    }
+  ]
+}
+```
+
+Notes:
+
+- `time_mentioned` is the top-level boolean flag
+- `tz_city` is the message-level timezone reference for that point
+- `am_pm_clear` is required for every point
+- experimental prompts must not fall back to the old `event/city` schema
+
+## How to run
+
+Install promptfoo:
+
 ```bash
 npm install -g promptfoo
 ```
 
-### 2. Set API Keys
-Ensure you have the required API keys in your environment:
+Set model API keys in your environment or in the repo `.env`.
+
+Run the quick subset:
+
 ```bash
-export GOOGLE_API_KEY='your_key'
-export GROQ_API_KEY='your_key'
+cd evals
+promptfoo eval -c promptfooconfig_smoke.yaml
 ```
 
-### 3. Run Evaluation
-Execute from this directory:
+Run the broader suite:
+
 ```bash
-promptfoo eval
+cd evals
+promptfoo eval -c promptfooconfig.yaml
 ```
 
-### 4. View Results
-Open the web viewer to see a detailed comparison:
+Open results:
+
 ```bash
 promptfoo view
 ```
 
-## 🧪 Test Scenarios
+## Practical workflow
 
-The `cases.yaml` covers:
-- **BASIC_POSITIVE**: Clear time mentions.
-- **TIME_PARSING**: Relative times, Russian/English idioms, multiple events.
-- **DISAMBIGUATION**: Refusals, corrections, evening/morning inference.
-- **EDGE**: Past events, bare numbers, complex phrasing.
-- **SECURITY**: Prompt injection and jailbreak attempts.
-
-## 📈 Optimization Goals
-
-We aim for:
-1. **Zero False Negatives**: All legitimate time mentions must be detected.
-2. **Correct AM/PM Inference**: Especially for Russian bare-hour mentions (e.g., "в 8").
-3. **Structured Stability**: The output must always be valid JSON matching our `MessageContext` requirements.
+1. Duplicate or edit a prompt in `prompts/`
+2. Keep placeholders and output schema unchanged
+3. Run `cases_mini.yaml` first
+4. Run `cases.yaml` when the prompt survives the mini set

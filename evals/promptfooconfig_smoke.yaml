@@ -1,11 +1,14 @@
 env_file: ../.env
 prompts:
-  - "Hello, respond with JSON: {\"status\": \"ok\"}"
+  - file://prompts/prompt_v5_en.txt
 
 providers:
-  - id: google:gemini-1.5-flash
+  - id: google:gemini-2.5-flash-lite
   - id: groq:llama-3.1-8b-instant
 
 tests:
-  - vars:
-      input: "test"
+  - file://cases_mini.yaml
+
+defaultTest:
+  options:
+    transform: output.replace(/```json\n?|```/g, '').trim()

@@ -1,16 +1,19 @@
 env_file: ../.env
 prompts:
   - file://prompts/prompt_v5_en.txt
+  # - file://prompts/prompt_v4_en.txt
   # - file://prompts/prompt_balanced.txt
+  # - file://prompts/prompt_smart.txt
+  # - file://prompts/prompt_minimal.txt
+  # - file://prompts/prompt_extractive.txt
+  # - file://prompts/prompt_v3.txt
 
 providers:
-  # Primary: Gemini
   - id: google:gemini-2.5-flash-lite
     label: "Gemini 2.5 Flash Lite"
     config:
       temperature: 0.1
 
-  # Baseline: Llama 3 via Groq
   - id: groq:llama-3.1-8b-instant
     label: "Llama 3.1 8B"
     config:
@@ -20,8 +23,8 @@ evaluateOptions:
   maxConcurrency: 2
 
 tests:
-  # - file://cases.yaml
   - file://cases_mini.yaml
+  # - file://cases.yaml
 
 defaultTest:
   options:
