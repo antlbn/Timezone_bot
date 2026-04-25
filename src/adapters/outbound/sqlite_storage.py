@@ -14,6 +14,12 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
         self._db: aiosqlite.Connection | None = None
         self._chat_members_cache: dict[tuple[str, Platform], tuple[float, list[UserProfile]]] = {}
 
+    def _invalidate_all_chat_member_caches(self) -> None:
+        self._chat_members_cache.clear()
+
+    def _invalidate_chat_member_cache(self, chat_id: str, platform: Platform) -> None:
+        self._chat_members_cache.pop((chat_id, platform), None)
+
     async def initialize(self) -> None:
         await self._get_conn()
 
@@ -27,7 +33,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             await self.init_db()
         return self._db
 
-    async def init_db(self):
+    async def init_db(self) -> None:
         if not self._db:
             return
         await self._db.execute("""
@@ -88,7 +94,9 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
         ) as cursor:
             row = await cursor.fetchone()
         await db.commit()
-        self._chat_members_cache.clear()
+        self._invalidate_all_chat_member_caches()
+        if row is None:
+            raise RuntimeError("INSERT ... RETURNING did not return a user row")
         return self._row_to_user_profile(row)
 
     async def update_username(self, user_id: int, platform: Platform, author_name: str) -> None:
@@ -99,7 +107,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (author_name, user_id, platform.value),
         )
         await db.commit()
-        self._chat_members_cache.clear()
+        self._invalidate_all_chat_member_caches()
 
     async def ensure_user_metadata(self, user_id: int, platform: Platform, username: str) -> None:
         db = await self._get_conn()
@@ -112,7 +120,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (user_id, platform.value, username),
         )
         await db.commit()
-        self._chat_members_cache.clear()
+        self._invalidate_all_chat_member_caches()
 
     async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None) -> None:
         """Set timezone/city/flag after successful onboarding and clear decline state."""
@@ -130,7 +138,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (user_id, platform.value, city, timezone, flag or "", city, timezone, flag or ""),
         )
         await db.commit()
-        self._chat_members_cache.clear()
+        self._invalidate_all_chat_member_caches()
 
     async def get_chat_members(self, chat_id: str, platform: Platform) -> list[UserProfile]:
         cache_key = (chat_id, platform)
@@ -176,7 +184,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (chat_id, user_id, platform.value),
         )
         await db.commit()
-        self._chat_members_cache.pop((chat_id, platform), None)
+        self._invalidate_chat_member_cache(chat_id, platform)
 
     async def remove_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
         db = await self._get_conn()
@@ -185,7 +193,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (chat_id, user_id, platform.value),
         )
         await db.commit()
-        self._chat_members_cache.pop((chat_id, platform), None)
+        self._invalidate_chat_member_cache(chat_id, platform)
 
     async def update_activity(self, chat_id: str, user_id: int, platform: Platform) -> None:
         db = await self._get_conn()
@@ -211,8 +219,9 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (user_id, platform.value),
         )
         await db.commit()
+        self._invalidate_all_chat_member_caches()
 
-    async def close(self):
+    async def close(self) -> None:
         if self._db:
             await self._db.close()
             self._db = None
