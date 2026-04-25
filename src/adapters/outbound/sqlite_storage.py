@@ -1,5 +1,6 @@
 import aiosqlite
 import time
+from collections import OrderedDict
 from pathlib import Path
 from ports.repositories import UserRepositoryPort, ChatRepositoryPort
 from core.domain.enums import Platform
@@ -12,13 +13,16 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self._db: aiosqlite.Connection | None = None
-        self._chat_members_cache: dict[tuple[str, Platform], tuple[float, list[UserProfile]]] = {}
+        self._chat_members_cache: OrderedDict[tuple[str, Platform], tuple[float, list[UserProfile]]] = OrderedDict()
+        self._chat_members_with_tz_cache: OrderedDict[tuple[str, Platform], tuple[float, list[UserProfile]]] = OrderedDict()
 
     def _invalidate_all_chat_member_caches(self) -> None:
         self._chat_members_cache.clear()
+        self._chat_members_with_tz_cache.clear()
 
     def _invalidate_chat_member_cache(self, chat_id: str, platform: Platform) -> None:
         self._chat_members_cache.pop((chat_id, platform), None)
+        self._chat_members_with_tz_cache.pop((chat_id, platform), None)
 
     async def initialize(self) -> None:
         await self._get_conn()
@@ -145,6 +149,7 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
         cached = self._chat_members_cache.get(cache_key)
         now = time.monotonic()
         if cached and cached[0] > now:
+            self._chat_members_cache.move_to_end(cache_key)
             return cached[1]
 
         db = await self._get_conn()
@@ -159,11 +164,21 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
         ) as cursor:
             rows = await cursor.fetchall()
             members = [self._row_to_user_profile(row) for row in rows]
+            
             self._chat_members_cache[cache_key] = (now + 60.0, members)
+            if len(self._chat_members_cache) > 256:
+                self._chat_members_cache.popitem(last=False)
             return members
 
     async def get_chat_members_with_tz(self, chat_id: str, platform: Platform) -> list[UserProfile]:
-        """Fetch only members who have a timezone set. No cache for simplicity for now."""
+        """Fetch only members who have a timezone set. Uses bounded LRU cache."""
+        cache_key = (chat_id, platform)
+        cached = self._chat_members_with_tz_cache.get(cache_key)
+        now = time.monotonic()
+        if cached and cached[0] > now:
+            self._chat_members_with_tz_cache.move_to_end(cache_key)
+            return cached[1]
+
         db = await self._get_conn()
         async with db.execute(
             """
@@ -175,7 +190,12 @@ class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
             (chat_id, platform.value),
         ) as cursor:
             rows = await cursor.fetchall()
-            return [self._row_to_user_profile(row) for row in rows]
+            members = [self._row_to_user_profile(row) for row in rows]
+            
+            self._chat_members_with_tz_cache[cache_key] = (time.monotonic() + 60.0, members)
+            if len(self._chat_members_with_tz_cache) > 256:
+                self._chat_members_with_tz_cache.popitem(last=False)
+            return members
 
     async def add_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
         db = await self._get_conn()

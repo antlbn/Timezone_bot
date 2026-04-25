@@ -7,7 +7,7 @@ import pytest
 
 from core.domain.commands import SendReply, ShowOnboarding
 from core.domain.enums import Platform
-from core.domain.value_objects import BotSettings, InputData, MessageContext, OnboardingPendingMessage, TimePoint
+from core.domain.value_objects import BotSettings, InputData, MessageContext, OnboardingPendingMessage, TimePoint, PipelineError
 from core.pipeline.pipeline import Pipeline
 from adapters.outbound.delivery_service import DeliveryService
 from core.services.message_processing import MessageProcessingService
@@ -24,7 +24,7 @@ class StaticDecisionStage:
     pending_message: OnboardingPendingMessage | None = None
     needs_onboarding: bool = False
     ignore: bool = False
-    failed_stage: str | None = None
+    failed: PipelineError | None = None
     detection: DetectionResult | None = None
 
     async def process(self, ctx: MessageContext) -> MessageContext:
@@ -36,7 +36,7 @@ class StaticDecisionStage:
             pending_message=self.pending_message,
             needs_onboarding=self.needs_onboarding,
             ignore=self.ignore,
-            failed_stage=self.failed_stage,
+            failed=self.failed,
         )
 
 
@@ -135,7 +135,7 @@ async def test_process_input_skips_side_effects_when_pipeline_failed():
     executor = FakeCommandExecutorPort()
     service = MessageProcessingService(
         fresh_pipeline=Pipeline([
-            StaticDecisionStage(failed_stage="DetectionStage")
+            StaticDecisionStage(failed=PipelineError(stage="DetectionStage", category="permanent", message="err"))
         ]),
         users_repo=storage, chats_repo=storage,
         delivery_service=DeliveryService(tg_executor=executor),

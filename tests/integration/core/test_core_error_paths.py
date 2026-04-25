@@ -71,7 +71,8 @@ async def test_pipeline_marks_failed_stage_on_exception():
 
     ctx = await Pipeline([ExplodingStage()]).run(ctx)
 
-    assert ctx.failed_stage == "ExplodingStage"
+    assert ctx.failed is not None
+    assert ctx.failed.stage == "ExplodingStage"
     assert ctx.stop_processing is True
     assert ctx.ignore is False
 

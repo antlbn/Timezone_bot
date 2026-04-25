@@ -41,3 +41,6 @@ def get_onboarding_embed_description() -> str:
         "Tap the button below to quickly set it up! (Only you will see the next steps)"
     )
 
+def get_unexpected_error_text() -> str:
+    return "❌ An unexpected error occurred. Please try again later."
+

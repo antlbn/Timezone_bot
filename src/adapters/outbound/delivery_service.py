@@ -42,3 +42,13 @@ class DeliveryService(DeliveryPort):
                 ]
             )
         return DeliveryResult(results=await executor.execute(commands))
+
+    async def deliver_and_log(self, platform: Platform, commands: list[Command], *, user_id: int, chat_id: str) -> DeliveryResult:
+        result = await self.deliver(platform, commands)
+        for r in result.results:
+            if not r.ok:
+                logger.warning(
+                    "Delivery failed user=%s chat=%s platform=%s command=%s error=%s",
+                    user_id, chat_id, platform.value, r.command_name, r.error,
+                )
+        return result

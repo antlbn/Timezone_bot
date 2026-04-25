@@ -30,8 +30,9 @@ def setup_discord(
             else:
                 logger.error(f"Discord Slash Command Error: {error}", exc_info=True)
                 if not interaction.response.is_done():
+                    from adapters.inbound.discord.ui import texts
                     await interaction.response.send_message(
-                        "❌ An unexpected error occurred. Please try again later.", 
+                        texts.get_unexpected_error_text(), 
                         ephemeral=True
                     )
 

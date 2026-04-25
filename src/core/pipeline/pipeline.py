@@ -31,9 +31,25 @@ class Pipeline:
                     ctx.input.text[:50] if ctx.input.text else "",
                     e,
                 )
+                from core.domain.value_objects import PipelineError
+                import asyncio
+                import aiohttp
+                
+                category = "unknown"
+                if isinstance(e, (asyncio.TimeoutError, aiohttp.ClientError)):
+                    category = "transient"
+                elif isinstance(e, ValueError):
+                    category = "permanent"
+
+                error = PipelineError(
+                    stage=stage.__class__.__name__,
+                    category=category,
+                    message=str(e)
+                )
+                
                 return dataclasses.replace(
                     ctx,
-                    failed_stage=stage.__class__.__name__,
+                    failed=error,
                     stop_processing=True,
                 )
         return ctx

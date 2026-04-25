@@ -109,10 +109,10 @@ class OnboardingCompletionUseCase:
             detection=pending.detection,
         )
         ctx = await self._replay_pipeline.run(ctx)
-        if ctx.failed_stage or ctx.ignore or not ctx.reply_text:
+        if ctx.failed or ctx.ignore or not ctx.reply_text:
             return
 
-        delivery_result = await self._delivery.deliver(
+        await self._delivery.deliver_and_log(
             pending.original_input.platform,
             [
                 SendReply(
@@ -121,15 +121,6 @@ class OnboardingCompletionUseCase:
                     thread_id=pending.original_input.thread_id,
                 )
             ],
+            user_id=pending.original_input.user_id,
+            chat_id=pending.original_input.chat_id
         )
-        for result in delivery_result.results:
-            if result.ok:
-                continue
-            logger.warning(
-                "Replay delivery failed user=%s chat=%s platform=%s command=%s error=%s",
-                pending.original_input.user_id,
-                pending.original_input.chat_id,
-                pending.original_input.platform.value,
-                result.command_name,
-                result.error,
-            )

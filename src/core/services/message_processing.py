@@ -63,7 +63,16 @@ class MessageProcessingService:
             )
 
     async def _apply_outcome(self, ctx: MessageContext) -> None:
-        if ctx.failed_stage:
+        if ctx.failed:
+            if ctx.failed.category == "transient":
+                await self._delivery.deliver(
+                    ctx.input.platform,
+                    [SendReply(
+                        text="⚠️ Temporary issue processing time. Please try again later.",
+                        chat_id=ctx.input.chat_id,
+                        thread_id=ctx.input.thread_id,
+                    )]
+                )
             return
         if ctx.ignore:
             return
@@ -95,21 +104,12 @@ class MessageProcessingService:
                     )
                 )
 
-        delivery_result = await self._delivery.deliver(ctx.input.platform, commands)
-        self._log_delivery_failures(ctx, delivery_result.results)
+        await self._delivery.deliver_and_log(
+            ctx.input.platform, 
+            commands, 
+            user_id=ctx.input.user_id, 
+            chat_id=ctx.input.chat_id
+        )
 
         if prompt_shown:
             await self._onboarding.mark_prompt_shown(ctx.input.user_id, ctx.input.platform)
-
-    def _log_delivery_failures(self, ctx: MessageContext, results: list[CommandResult]) -> None:
-        for result in results:
-            if result.ok:
-                continue
-            logger.warning(
-                "Delivery failed user=%s chat=%s platform=%s command=%s error=%s",
-                ctx.input.user_id,
-                ctx.input.chat_id,
-                ctx.input.platform.value,
-                result.command_name,
-                result.error,
-            )

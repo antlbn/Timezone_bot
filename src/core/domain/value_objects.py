@@ -2,12 +2,18 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from core.domain.enums import Platform, ResponseStyle
 
 if TYPE_CHECKING:
     from ports.detection import DetectionResult
+
+@dataclass(frozen=True)
+class PipelineError:
+    stage: str
+    category: Literal["transient", "permanent", "unknown"]
+    message: str
 
 @dataclass(frozen=True)
 class LLMModelConfig:
@@ -89,5 +95,5 @@ class MessageContext:
     pending_message: OnboardingPendingMessage | None = None
     needs_onboarding: bool = False
     ignore: bool = False
-    failed_stage: str | None = None
+    failed: PipelineError | None = None
     stop_processing: bool = False

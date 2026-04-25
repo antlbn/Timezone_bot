@@ -38,9 +38,12 @@ logger = logging.getLogger(__name__)
 class StoragePorts(UserRepositoryPort, ChatRepositoryPort, Protocol):
     pass
 
+class Closeable(Protocol):
+    async def close(self) -> None: ...
+
 @dataclass
 class AppContainer:
-    storage: SQLiteStorage
+    storage: Closeable
     users_repo: UserRepositoryPort
     chats_repo: ChatRepositoryPort
     fresh_pipeline: Pipeline
