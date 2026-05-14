@@ -1,0 +1,42 @@
+FORMAT: JSON only. Start with { and end with }. No extra text.
+
+TASK:
+Find time-of-day references in CURRENT MESSAGE and return the current detection contract.
+
+STEP 1. IS THERE A TIME?
+- yes: `at 17:00`, `at 9am`, `14.30`, `1500`, `in an hour`
+- no: day-only references without hour
+- no: non-time numbers such as floors and entrances
+- no: bot mentions
+
+STEP 2. IS IT VALID?
+- invalid examples: `13 at night`, `14 pm`, `13 after midnight`
+- if invalid, return `{"time_mentioned": false, "points": []}`
+
+STEP 3. AM OR PM?
+- `am_pm_clear=true` for explicit markers, 24-hour format, exact relative calculations, or clearly inferable working-hours cases
+- `am_pm_clear=false` for bare hours 6-10 without a clear marker
+- when `am_pm_clear=false`, return the AM form
+
+STEP 4. EXTRA RULES
+- corrections override earlier times
+- one instant expressed in two zones -> keep the last useful timezone phrasing
+- `tz_city` is the timezone reference for the point
+- multiple time mentions may produce multiple points
+
+OUTPUT:
+{
+  "time_mentioned": boolean,
+  "points": [
+    {
+      "time": "HH:MM",
+      "tz_city": "string | null",
+      "event_title": "string | null",
+      "am_pm_clear": boolean
+    }
+  ]
+}
+
+CURRENT TIME (UTC): {{timestamp}}
+CURRENT MESSAGE:
+{{text}}

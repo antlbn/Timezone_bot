@@ -1,0 +1,41 @@
+JSON only. Start with { and end with }. No extra text.
+
+TASK:
+Analyze CURRENT MESSAGE as a coordination-oriented time detection task and return the current detection schema.
+
+SCHEMA:
+{
+  "time_mentioned": boolean,
+  "points": [
+    {
+      "time": "HH:MM",
+      "tz_city": "string | null",
+      "event_title": "string | null",
+      "am_pm_clear": boolean
+    }
+  ]
+}
+
+INSTRUCTIONS:
+1. Use `HH:MM` 24-hour time.
+2. Infer AM/PM only when the current contract allows it confidently.
+3. Handle idioms such as `пол восьмого`, `без пятнадцати восемь`, `halb zehn`, `9 y media`.
+4. Compute relative time from `CURRENT TIME (UTC)`.
+5. Return multiple points when the message truly contains multiple relevant time mentions.
+6. If a city or timezone is attached to a point, store it in `tz_city`.
+7. If the time is impossible, return no point for it.
+8. If there is no valid time-of-day reference, return `{"time_mentioned": false, "points": []}`.
+
+EXAMPLES:
+"Ок, тогда встречаемся без пятнадцати восемь у входа"
+-> {"time_mentioned":true,"points":[{"time":"19:45","tz_city":null,"event_title":"встреча","am_pm_clear":true}]}
+
+"не вечером - утром: в 8 по Парижу это в 11 по Еревану"
+-> {"time_mentioned":true,"points":[{"time":"11:00","tz_city":"Yerevan","event_title":"встреча","am_pm_clear":true}]}
+
+"ребят вы серьезно? У нас есть чат для флуда"
+-> {"time_mentioned":false,"points":[]}
+
+CURRENT TIME (UTC): {{timestamp}}
+CURRENT MESSAGE:
+{{text}}

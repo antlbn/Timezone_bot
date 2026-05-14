@@ -1,0 +1,126 @@
+import logging
+from dataclasses import dataclass
+
+from core.domain.commands import SendReply
+from core.domain.enums import Platform
+from core.domain.value_objects import MessageContext, OnboardingPendingMessage
+from core.pipeline.pipeline import Pipeline
+from ports.delivery import DeliveryPort
+from ports.geocoding import GeoPort
+from ports.pending import OnboardingPendingPort
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
+
+logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class OnboardingResult:
+    ok: bool
+    timezone_name: str | None = None
+    city: str | None = None
+    flag: str | None = None
+    error: str | None = None  # "city_not_found"
+
+class OnboardingCompletionUseCase:
+    """Executes the final stage of onboarding.
+    
+    Resolves the provided city to a timezone, updates the user's profile,
+    and replays any pending messages that are still present in pending storage.
+    """
+    def __init__(
+        self,
+        users_repo: UserRepositoryPort,
+        chats_repo: ChatRepositoryPort,
+        onboarding_pending_port: OnboardingPendingPort,
+        geocoding_port: GeoPort,
+        replay_pipeline: Pipeline,
+        delivery_service: DeliveryPort,
+    ) -> None:
+        self._users = users_repo
+        self._chats = chats_repo
+        self._onboarding_pending = onboarding_pending_port
+        self._geo = geocoding_port
+        self._replay_pipeline = replay_pipeline
+        self._delivery = delivery_service
+
+    async def complete(
+        self,
+        user_id: int,
+        city_raw: str,
+        platform: Platform,
+        author_name: str | None = None,
+    ) -> OnboardingResult:
+        """User submitted a city name."""
+        if author_name:
+            await self._users.ensure_user_metadata(user_id, platform, author_name)
+
+        location = await self._geo.resolve_city(city_raw)
+        if location is None:
+            return OnboardingResult(ok=False, error="city_not_found")
+
+        # Persist profile so replay hydration/formatting can use the new timezone immediately.
+        await self._users.set_user(
+            user_id,
+            platform,
+            location.timezone,
+            location.city,
+            location.flag,
+        )
+
+        pending_messages = await self._onboarding_pending.list_for_user(user_id, platform)
+        for pending_message in pending_messages:
+            if pending_message.original_input.chat_id:
+                await self._chats.add_chat_member(
+                    chat_id=pending_message.original_input.chat_id,
+                    user_id=user_id,
+                    platform=platform,
+                )
+
+            await self._replay_latest_pending(pending_message)
+            await self._onboarding_pending.delete(
+                user_id,
+                platform,
+                pending_message.original_input.chat_id,
+            )
+
+        return OnboardingResult(
+            ok=True,
+            timezone_name=location.timezone,
+            city=location.city,
+            flag=location.flag,
+        )
+
+    async def decline(self, user_id: int, platform: Platform) -> None:
+        """User pressed /skip. author_name is already synced in application flow.
+        Mark as declined so future messages without a source timezone are ignored.
+        Delete pending messages without replay.
+        """
+        await self._users.set_onboarding_declined(user_id, platform)
+        pending_messages = await self._onboarding_pending.list_for_user(user_id, platform)
+        for pending_message in pending_messages:
+            await self._onboarding_pending.delete(
+                user_id,
+                platform,
+                pending_message.original_input.chat_id,
+            )
+
+    async def _replay_latest_pending(self, pending: OnboardingPendingMessage) -> None:
+        ctx = MessageContext(
+            input=pending.original_input,
+            detection=pending.detection,
+        )
+        ctx = await self._replay_pipeline.run(ctx)
+        if ctx.failed or ctx.ignore or not ctx.reply_text:
+            return
+
+        await self._delivery.deliver_and_log(
+            pending.original_input.platform,
+            [
+                SendReply(
+                    text=ctx.reply_text,
+                    chat_id=pending.original_input.chat_id,
+                    thread_id=pending.original_input.thread_id,
+                )
+            ],
+            user_id=pending.original_input.user_id,
+            chat_id=pending.original_input.chat_id
+        )

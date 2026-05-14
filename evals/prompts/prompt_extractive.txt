@@ -1,0 +1,45 @@
+JSON only. No extra text.
+
+TASK:
+Extract only time-of-day references that can be converted into the current detection schema.
+
+This prompt is intentionally extractive:
+- focus on whether a valid time can be parsed
+- do not require rich event understanding
+- still return the current schema
+
+CONTRACT:
+{
+  "time_mentioned": boolean,
+  "points": [
+    {
+      "time": "HH:MM",
+      "tz_city": "string | null",
+      "event_title": "string | null",
+      "am_pm_clear": boolean
+    }
+  ]
+}
+
+RULES:
+1. Parse valid clock times, relative times, and common colloquial forms.
+2. Compute relative time from `CURRENT TIME (UTC)`.
+3. Skip impossible combinations.
+4. Skip obvious non-time numbers such as entrances, floors, apartment numbers, amounts, years, and scores.
+5. `tz_city` may hold a city or timezone reference mentioned for this point.
+6. If no valid time is found, return `{"time_mentioned": false, "points": []}`.
+7. If a bare hour is ambiguous but still parseable under the current contract, return the AM value and set `am_pm_clear=false`.
+
+EXAMPLES:
+"в 3 встречаемся" with CURRENT TIME 2026-03-16T12:00:00Z
+-> {"time_mentioned":true,"points":[{"time":"15:00","tz_city":null,"event_title":"встреча","am_pm_clear":true}]}
+
+"tomorrow at 8"
+-> {"time_mentioned":true,"points":[{"time":"08:00","tz_city":null,"event_title":null,"am_pm_clear":false}]}
+
+"14 pm"
+-> {"time_mentioned":false,"points":[]}
+
+CURRENT TIME (UTC): {{timestamp}}
+CURRENT MESSAGE:
+{{text}}

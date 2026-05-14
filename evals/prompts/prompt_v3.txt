@@ -1,0 +1,44 @@
+JSON only. Start with { and end with }.
+
+Analyze CURRENT MESSAGE and extract current or future coordination-relevant time points.
+
+TIME RULES:
+- `пол [час]а` -> `:30` of the previous hour
+- `без [X] [час]` -> hour minus X minutes
+- `half past [h]`, `quarter to [h]`, `halb [h]`, `[h] y media`, `[h]h` -> parse normally
+- relative phrases are computed from `CURRENT TIME (UTC)`
+- infer AM/PM only under the current contract rules
+- contradictory time phrases are invalid
+
+MEANING RULES:
+- do not treat entrances, floors, apartment numbers, task numbers, years, or dates as time
+- if the author corrects a previous time, keep the corrected one
+- if one instant is written in two zones, keep the more useful final timezone phrasing
+- `tz_city` is the timezone reference attached to the point, not the event location
+
+SCHEMA:
+{
+  "time_mentioned": boolean,
+  "points": [
+    {
+      "time": "HH:MM",
+      "tz_city": "string | null",
+      "event_title": "string | null",
+      "am_pm_clear": boolean
+    }
+  ]
+}
+
+EXAMPLES:
+"Завтра в пол десятого утра собирёмся"
+-> {"time_mentioned":true,"points":[{"time":"09:30","tz_city":null,"event_title":"встреча","am_pm_clear":true}]}
+
+"встречаемся у 9го подъезда в 18"
+-> {"time_mentioned":true,"points":[{"time":"18:00","tz_city":null,"event_title":"встреча","am_pm_clear":true}]}
+
+"ребят вы серьезно? У нас есть чат для флуда"
+-> {"time_mentioned":false,"points":[]}
+
+CURRENT TIME (UTC): {{timestamp}}
+CURRENT MESSAGE:
+{{text}}

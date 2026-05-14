@@ -1,0 +1,21 @@
+{
+  "include": [
+    "src",
+    "tests"
+  ],
+  "exclude": [
+    "legacy"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    "src",
+    "."
+  ],
+  "executionEnvironments": [
+    {
+      "root": "src"
+    }
+  ],
+  "typeCheckingMode": "standard"
+}

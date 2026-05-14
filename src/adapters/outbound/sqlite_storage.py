@@ -1,0 +1,247 @@
+import aiosqlite
+import time
+from collections import OrderedDict
+from pathlib import Path
+from ports.repositories import UserRepositoryPort, ChatRepositoryPort
+from core.domain.enums import Platform
+from core.domain.value_objects import UserProfile
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SQLiteStorage(UserRepositoryPort, ChatRepositoryPort):
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+        self._db: aiosqlite.Connection | None = None
+        self._chat_members_cache: OrderedDict[tuple[str, Platform], tuple[float, list[UserProfile]]] = OrderedDict()
+        self._chat_members_with_tz_cache: OrderedDict[tuple[str, Platform], tuple[float, list[UserProfile]]] = OrderedDict()
+
+    def _invalidate_all_chat_member_caches(self) -> None:
+        self._chat_members_cache.clear()
+        self._chat_members_with_tz_cache.clear()
+
+    def _invalidate_chat_member_cache(self, chat_id: str, platform: Platform) -> None:
+        self._chat_members_cache.pop((chat_id, platform), None)
+        self._chat_members_with_tz_cache.pop((chat_id, platform), None)
+
+    async def initialize(self) -> None:
+        await self._get_conn()
+
+    async def _get_conn(self) -> aiosqlite.Connection:
+        if self._db is None:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._db = await aiosqlite.connect(self.db_path)
+            self._db.row_factory = aiosqlite.Row
+            await self._db.execute("PRAGMA journal_mode=WAL;")
+            await self._db.execute("PRAGMA foreign_keys=ON;")
+            await self.init_db()
+        return self._db
+
+    async def init_db(self) -> None:
+        if not self._db:
+            return
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER,
+                platform TEXT,
+                username TEXT DEFAULT '',
+                city TEXT,
+                timezone TEXT,
+                flag TEXT DEFAULT '',
+                onboarding_declined INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, platform)
+            )
+        """)
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_members (
+                chat_id TEXT,
+                user_id INTEGER,
+                platform TEXT,
+                PRIMARY KEY (chat_id, user_id, platform),
+                FOREIGN KEY (user_id, platform) REFERENCES users(user_id, platform) ON DELETE CASCADE
+            )
+        """)
+        await self._db.commit()
+
+    def _row_to_user_profile(self, row: aiosqlite.Row) -> UserProfile:
+        return UserProfile(
+            user_id=row["user_id"],
+            platform=Platform(row["platform"]),
+            username=row["username"],
+            city=row["city"],
+            timezone=row["timezone"],
+            flag=row["flag"],
+            onboarding_declined=bool(row["onboarding_declined"])
+        )
+
+    async def get_user(self, user_id: int, platform: Platform) -> UserProfile | None:
+        db = await self._get_conn()
+        async with db.execute(
+            "SELECT * FROM users WHERE user_id = ? AND platform = ?",
+            (user_id, platform.value),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return self._row_to_user_profile(row) if row else None
+
+    async def create_user(self, user_id: int, platform: Platform, author_name: str) -> UserProfile:
+        """INSERT for first contact. Returns the inserted profile."""
+        db = await self._get_conn()
+        async with db.execute(
+            """
+            INSERT INTO users (user_id, platform, username)
+            VALUES (?, ?, ?)
+            RETURNING *
+            """,
+            (user_id, platform.value, author_name),
+        ) as cursor:
+            row = await cursor.fetchone()
+        await db.commit()
+        self._invalidate_all_chat_member_caches()
+        if row is None:
+            raise RuntimeError("INSERT ... RETURNING did not return a user row")
+        return self._row_to_user_profile(row)
+
+    async def update_username(self, user_id: int, platform: Platform, author_name: str) -> None:
+        """Update display name only when it has changed."""
+        db = await self._get_conn()
+        await db.execute(
+            "UPDATE users SET username = ? WHERE user_id = ? AND platform = ?",
+            (author_name, user_id, platform.value),
+        )
+        await db.commit()
+        self._invalidate_all_chat_member_caches()
+
+    async def ensure_user_metadata(self, user_id: int, platform: Platform, username: str) -> None:
+        db = await self._get_conn()
+        await db.execute(
+            """
+            INSERT INTO users (user_id, platform, username)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET username = excluded.username
+            """,
+            (user_id, platform.value, username),
+        )
+        await db.commit()
+        self._invalidate_all_chat_member_caches()
+
+    async def set_user(self, user_id: int, platform: Platform, timezone: str, city: str | None = None, flag: str | None = None) -> None:
+        """Set timezone/city/flag after successful onboarding and clear decline state."""
+        db = await self._get_conn()
+        await db.execute(
+            """
+            INSERT INTO users (user_id, platform, city, timezone, flag, onboarding_declined)
+            VALUES (?, ?, ?, ?, ?, 0)
+            ON CONFLICT(user_id, platform) DO UPDATE SET
+                city = ?,
+                timezone = ?,
+                flag = ?,
+                onboarding_declined = 0
+            """,
+            (user_id, platform.value, city, timezone, flag or "", city, timezone, flag or ""),
+        )
+        await db.commit()
+        self._invalidate_all_chat_member_caches()
+
+    async def get_chat_members(self, chat_id: str, platform: Platform) -> list[UserProfile]:
+        cache_key = (chat_id, platform)
+        cached = self._chat_members_cache.get(cache_key)
+        now = time.monotonic()
+        if cached and cached[0] > now:
+            self._chat_members_cache.move_to_end(cache_key)
+            return cached[1]
+
+        db = await self._get_conn()
+        async with db.execute(
+            """
+            SELECT u.*
+            FROM chat_members cm
+            JOIN users u ON cm.user_id = u.user_id AND cm.platform = u.platform
+            WHERE cm.chat_id = ? AND cm.platform = ?
+            """,
+            (chat_id, platform.value),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            members = [self._row_to_user_profile(row) for row in rows]
+            
+            self._chat_members_cache[cache_key] = (now + 60.0, members)
+            if len(self._chat_members_cache) > 256:
+                self._chat_members_cache.popitem(last=False)
+            return members
+
+    async def get_chat_members_with_tz(self, chat_id: str, platform: Platform) -> list[UserProfile]:
+        """Fetch only members who have a timezone set. Uses bounded LRU cache."""
+        cache_key = (chat_id, platform)
+        cached = self._chat_members_with_tz_cache.get(cache_key)
+        now = time.monotonic()
+        if cached and cached[0] > now:
+            self._chat_members_with_tz_cache.move_to_end(cache_key)
+            return cached[1]
+
+        db = await self._get_conn()
+        async with db.execute(
+            """
+            SELECT u.*
+            FROM chat_members cm
+            JOIN users u ON cm.user_id = u.user_id AND cm.platform = u.platform
+            WHERE cm.chat_id = ? AND cm.platform = ? AND u.timezone IS NOT NULL
+            """,
+            (chat_id, platform.value),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            members = [self._row_to_user_profile(row) for row in rows]
+            
+            self._chat_members_with_tz_cache[cache_key] = (time.monotonic() + 60.0, members)
+            if len(self._chat_members_with_tz_cache) > 256:
+                self._chat_members_with_tz_cache.popitem(last=False)
+            return members
+
+    async def add_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
+        db = await self._get_conn()
+        await db.execute(
+            "INSERT OR IGNORE INTO chat_members (chat_id, user_id, platform) VALUES (?, ?, ?)",
+            (chat_id, user_id, platform.value),
+        )
+        await db.commit()
+        self._invalidate_chat_member_cache(chat_id, platform)
+
+    async def remove_chat_member(self, chat_id: str, user_id: int, platform: Platform) -> None:
+        db = await self._get_conn()
+        await db.execute(
+            "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ? AND platform = ?",
+            (chat_id, user_id, platform.value),
+        )
+        await db.commit()
+        self._invalidate_chat_member_cache(chat_id, platform)
+
+    async def update_activity(self, chat_id: str, user_id: int, platform: Platform) -> None:
+        db = await self._get_conn()
+        await db.execute(
+            "UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE user_id = ? AND platform = ?",
+            (user_id, platform.value),
+        )
+        await db.commit()
+
+    async def set_onboarding_declined(self, user_id: int, platform: Platform) -> None:
+        """Mark as declined and clear any existing timezone data."""
+        db = await self._get_conn()
+        await db.execute(
+            """
+            INSERT INTO users (user_id, platform, onboarding_declined, city, timezone, flag)
+            VALUES (?, ?, 1, NULL, NULL, NULL)
+            ON CONFLICT(user_id, platform) DO UPDATE SET 
+                onboarding_declined = 1,
+                city = NULL,
+                timezone = NULL,
+                flag = NULL
+            """,
+            (user_id, platform.value),
+        )
+        await db.commit()
+        self._invalidate_all_chat_member_caches()
+
+    async def close(self) -> None:
+        if self._db:
+            await self._db.close()
+            self._db = None

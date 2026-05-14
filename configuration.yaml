@@ -1,31 +1,30 @@
-# Project Configuration
-app_name: timezone_bot
-version: 0.1.0
-
 # Logging Configuration
 logging:
-  # Levels: DEBUG, INFO, WARNING, ERROR
-  level: INFO
-  # Format: json or text (default: text)
-  format: text
+  # Levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: DEBUG
 
 # Bot Settings
 bot:
-  # Maximum users to show in timezone conversion reply
-  display_limit_per_chat: 0
-  # Time format: "24h" or "12h"
-  time_format: "24h"
   # Show usernames next to timezone (default: false)
-  show_usernames: false
-  # Cooldown between bot replies in same chat (0 = disabled)
-  cooldown_seconds: 0
+  show_usernames: true
+  # Show event title above each block if explicitly returned by the LLM
+  show_event_title: true
+  # Reply layout: block or inline_sentence
+  response_style: inline_sentence
+  # Messages older than this are skipped before processing
+  max_age_fresh_secs: 30
+  # How long to wait before showing onboarding again
+  onboarding_cooldown_secs: 600
+  # How long to keep the latest onboarding-pending message for replay
+  onboarding_pending_ttl_secs: 120
+  # Auto-delete conversion results and setup prompts in group chats (seconds)
+  group_auto_delete_delay_secs: 20
 
-# Time Capture Patterns (Strict Regex)
-capture:
-  patterns:
-    # 24h format (e.g. 19:00, 9:30)
-    - '\b([0-1]?[0-9]|2[0-3]):([0-5][0-9])\b'
-    # 12h format with minutes (e.g. 5:00 pm, 10:30 AM)
-    - '\b((1[0-2]|0?[1-9]):([0-5][0-9])\s?([AaPp][Mm]))\b'
-    # 12h format without minutes (e.g. 5 pm, 10AM)
-    - '\b((1[0-2]|0?[1-9])\s?([AaPp][Mm]))\b'
+# Event Detection (LLM Layer)
+# See: journal/14_llm_module.md
+event_detection:
+  # Dedicated logging mode for LLM contexts (true = show full prompt in console)
+  log_prompts: false
+
+  # Hard skip: messages longer than this are ignored before LLM detection
+  max_message_hard_skip_chars: 2000

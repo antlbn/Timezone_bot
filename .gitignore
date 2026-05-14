@@ -10,6 +10,8 @@ data/
 # Caches
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # IDE
 .idea/
@@ -24,3 +26,4 @@ docs/TEST.md
 
 # AI Analysis
 ai_driven_analysis/
+node_modules

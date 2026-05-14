@@ -1,116 +1,61 @@
 # Timezone Bot
 
-Passive timezone synchronization utility for distributed around globe teams.
+Timezone Bot detects time mentions in Telegram and Discord group chats and replies with converted local times for known chat members.
 
----
+## What It Does
 
-## Goal
+- Watches regular chat messages.
+- Uses an LLM to detect time references in the current message.
+- Resolves the source timezone from the message or from the sender profile.
+- Converts the detected time for known members of the same chat.
+- Starts onboarding when a user without a configured timezone mentions time.
 
-Eliminate manual timezone conversion in group chats. Bot detects time mentions and broadcasts equivalent times for all participants.
+## Example
 
-```
-"Meet at 5pm"  ───>  Bot captures time  ───>  Reply with times for all members
-                                              
-                                              14:00 Berlin | 08:00 New York | 22:00 Tokyo
-```
-
-When someone mentions a time in the chat, the bot automatically:
-- Detects the time pattern in the message
-- Looks up timezones of all registered chat members
-- Converts and broadcasts the time for everyone
-
-### Use Cases
-
-**1. Smart City Recognition**
-```
-Bot:  What city are you in?
-User: Paris, Texas
-Bot:  Set: Paris 🇺🇸 (America/Chicago)
-```
-The bot understands qualified toponyms — "Paris, Texas" vs "Paris".
-
-**2. Automatic Time Conversion**
-```
-👤 Maria: Let's sync at 3pm tomorrow
-
-🤖 Maria: 15:00 Berlin 🇩🇪 | 09:00 New York 🇺🇸 | 23:00 Tokyo 🇯🇵
-   /tb_help
+```text
+User: Let's sync tomorrow at 15:00
+Bot: It is 15:00 Berlin, 09:00 New York
 ```
 
----
-
-## Design Principles
-
-**Zero-friction approach:**
-- No commands needed for conversion — it happens automatically
-- Plug-and-play — adding bot to group is the only setup
-- Self-registration — user registers timezone once, remembered across all groups
-- Minimal interference — bot responds only when time is detected
-
-**Response format:**
-- Day transition markers when time crosses midnight (+1 / -1)
-- Grouping by timezone — users in same location shown together
-
----
+Reply formatting is configurable through `configuration.yaml`.
 
 ## Architecture
 
+The project uses platform adapters around a shared application/core flow.
+
+- Telegram and Discord adapters receive incoming messages.
+- `MessageProcessingService` runs the fresh-message workflow.
+- `Pipeline` runs the message workflow as an orchestration flow with explicit steps.
+- Delivery executors send replies or onboarding prompts back to the platform.
+
+Current fresh-message pipeline:
+
+```text
+GuardStage
+-> AgingStage
+-> DetectionStage
+-> GeoResolveStage
+-> HydrationStage
+-> FormatStage
+-> DecisionStage
 ```
-Telegram Group                     Discord server
-      |                                  |
-      v                                  v
-+--------------------------------------------------+
-|                    BOT CORE                      |
-|  +----------+   +-----------+   +-----------+    |
-|  | Capture  |-->| Transform |-->| Formatter |    |
-|  | (Regex)  |   | (UTC-Piv) |   | (Output)  |    |
-|  +----------+   +-----------+   +-----------+    |
-|        |              |                          |
-|        +-------+------+                          |
-|                v                                 |
-|           +----------+                           |
-|           | Storage  |                           |
-|           | (SQLite) |                           |
-|           +----------+                           |
-+--------------------------------------------------+
+
+The pipeline returns `MessageContext` with the final workflow outcome populated on it. It does not send messages and does not write pending onboarding state directly.
+
+## Run Locally
+
+```bash
+cp env.example .env
+uv sync
+./run.sh
 ```
 
-**Modules:**
-- **Capture** — regex-based time pattern detection (configurable via YAML)
-- **Transform** — UTC-pivot conversion ensuring consistency with IANA timezone database
-- **Formatter** — output formatting with grouping and day markers
-- **Storage** — SQLite for users and chat membership
-- **Geocoding** — city name to timezone resolution (geopy + timezonefinder)
+Python 3.12+ is required.
 
----
+## Documentation
 
-## Current Status
+- [docs/setup.md](docs/setup.md) — setup, runtime configuration, and tests
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — current architecture and message flow
+- [docs/decisions.md](docs/decisions.md) — design decisions and accepted trade-offs
 
-**MVP Release** — Telegram + Discord supported.
-
-| Limitation | Note |
-|------------|------|
-| Detection | Regex-based; misses natural language ("quarter past five") |
-| Storage | SQLite (lightweight, no external deps) |
-
-**Roadmap:** Dockerization, WhatsApp support, in-memory caching.
-
----
-
-## Tech Stack
-
-Python 3.12+ · aiogram · discord.py · aiosqlite · zoneinfo · geopy · uv
-
----
-
-## Quick Start
-
-See [ONBOARDING.md](docs/ONBOARDING.md) for installation.
-
-For architecture details: [HANDOVER.md](docs/HANDOVER.md)
-
----
-
-## License
-
-MIT
+Use the documents above as the current source of truth for handover and maintenance.

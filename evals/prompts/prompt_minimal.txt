@@ -1,0 +1,29 @@
+JSON only. No explanations.
+
+Analyze CURRENT MESSAGE and return the current detection schema.
+
+Required output:
+- `time_mentioned`
+- `points[]`
+- every point has `time`, `tz_city`, `event_title`, `am_pm_clear`
+
+Rules:
+1. `time` must be `HH:MM`.
+2. Compute relative time from `CURRENT TIME (UTC)`.
+3. Reject contradictory or impossible time phrases.
+4. If there is no valid time-of-day reference, return `{"time_mentioned": false, "points": []}`.
+5. If AM/PM is inferred but ambiguous, return the AM-form value and set `am_pm_clear=false`.
+
+Examples:
+"Завтра в 8 вечера ок?"
+-> {"time_mentioned":true,"points":[{"time":"20:00","tz_city":null,"event_title":"встреча","am_pm_clear":true}]}
+
+"sync tomorrow at 9am EST, that's 2pm London"
+-> {"time_mentioned":true,"points":[{"time":"14:00","tz_city":"London","event_title":"sync","am_pm_clear":true}]}
+
+"ребят вы серьезно?"
+-> {"time_mentioned":false,"points":[]}
+
+CURRENT TIME (UTC): {{timestamp}}
+CURRENT MESSAGE:
+{{text}}
